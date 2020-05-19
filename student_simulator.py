@@ -47,7 +47,7 @@ class ItemBKT:
         """
             Description - update()
             ----------------------
-                Function to do the bayesian update per observation. 
+                Function to do the bayesian update per observation per skill. 
                 Calc P(Know @t+1 | obs@ @t+1) based on P(Know @t), guess, slip, observation etc. 
                 P(Know @t+1 | obs=CORRECT) = P(Know @t) * P(no slip)/( P(K @t)*P(no slip) + P(K @t)' * P(guess) )
                 P(Know @t+1 | obs=INCORRECT) = P(Know @t) * P(slip)/( P(K @t)*P(slip) + P(K @t)' * P(guess)' )
@@ -157,9 +157,9 @@ class ItemBKT:
         for i in range(k):
             # For each skill
             for j in range(self.u):
-                # If this item exercises the skill
+                # If this item obsevation exercises the skill; bayesian update is done for "every skill" that is exercised by this item
                 if(skills[i][j] == 1):
-                    # Perform a BKT update
+                    # Perform a BKT update 
                     if item_observations[i].upper() == "CORRECT":
                         item_learning_progress = self.update(True, student_ids[i], j, item_learning_progress, transac_student_ids)
                     else:
@@ -167,7 +167,7 @@ class ItemBKT:
         
         return item_learning_progress
                 
-    def predict_p_correct(self, student_id, skill):
+    def predict_p_correct(self, student_id, skills):
         """
             Description - predict_p_correct()
             ---------------------------------
@@ -178,22 +178,28 @@ class ItemBKT:
             student_id  --> type int    
                             index of student in transac_student_ids whose P(Correct) we need to predict
 
-            skill       --> type int
-                            index of skill in self.KC_subtest whose P(Correct) we need to predict
+            skills       --> type [int]
+                            index of skills into self.KC_subtest whose P(Correct) we need to predict
         """
         print("PREDICTING P(Correct)....")
         i = student_id
-        j = skill
-        
-        p_know = self.know[i][j]
-        p_not_know = 1.0 - p_know
-        
-        p_guess = self.guess[i][j]
-        
-        p_slip = self.slip[i][j]
-        p_not_slip = 1.0 - p_slip
+        correct = 1.0
 
-        correct = (p_know * p_not_slip) + (p_not_know * p_guess)
+        # Independent subskills performance prediction
+        for skill in skills:
+            j = skill
+            p_know = self.know[i][j]
+            p_not_know = 1.0 - p_know
+            p_guess = self.guess[i][j]
+            p_slip = self.slip[i][j]
+            p_not_slip = 1.0 - p_slip
+
+            # Independent subskill performance prediction
+            correct = correct * ((p_know * p_not_slip) + (p_not_know * p_guess))
+            
+            # Weakest-subskill performance prediction 
+            # correct = min(correct, (p_know * p_not_slip) + (p_not_know * p_guess))
+
         return correct
 
 # ActivityBKT is a non-binary BKT Model
@@ -229,7 +235,7 @@ class ActivityBKT:
         """
             Description - update()
             ----------------------
-                Function to do the activity wise bayesian update per observation. 
+                Function to do the activity wise bayesian update per observation per skill. 
                 Calc P(Know @t+1 | obs@ @t+1) based on P(Know @t), guess, slip, observation etc. 
                 P(Know @t+1 | obs as %correct) = (%correct * P(Know @t) * P(no slip)/( P(K @t)*P(no slip) + P(K @t)' * P(guess) )) + \
                                                 (1 - %correct) * (P(Know @t) * P(slip)/( P(K @t)*P(slip) + P(K @t)' * P(guess)' ))
@@ -336,28 +342,36 @@ class ActivityBKT:
         for i in range(k):
             # For each skill
             for j in range(self.u):
-                # if this activity exercises the skill
+            # If this activity obsevation exercises the skill; bayesian update is done for "every skill" that is exercised by this activity
                 if(skills[i][j] == 1):
                     # perform a BKT update
                     activity_learning_progress = self.update(activity_observations[i], student_ids[i], j, activity_learning_progress, activity_student_ids)
         
         return activity_learning_progress
     
-    def predict_percent_correct(self, student_id, skill):
+    def predict_percent_correct(self, student_id, skills):
         print("PREDICTING P(Correct)....")
         i = student_id
-        j = skill
-        
-        p_know = self.know[i][j]
-        p_not_know = 1.0 - p_know
-        
-        p_guess = self.guess[i][j]
-        
-        p_slip = self.slip[i][j]
-        p_not_slip = 1.0 - p_slip
+        correct = 1.0
 
-        correct = (p_know * p_not_slip) + (p_not_know * p_guess)
-        return correct
+        for skill in skills:
+            j = skill
+        
+            p_know = self.know[i][j]
+            p_not_know = 1.0 - p_know
+        
+            p_guess = self.guess[i][j]
+        
+            p_slip = self.slip[i][j]
+            p_not_slip = 1.0 - p_slip
+
+            # Independent subskills prediction
+            correct = correct * ((p_know * p_not_slip) + (p_not_know * p_guess))
+            # Weakest-subskill performance prediction 
+            # correct = min(correct, (p_know * p_not_slip) + (p_not_know * p_guess))
+            
+            
+            return correct
 
 def plot_learning(learning_progress, kc_list, student_ids):
     """
