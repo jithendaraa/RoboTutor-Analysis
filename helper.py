@@ -223,7 +223,7 @@ class ActivityBKT:
         update()              : Does actiity wise BKT update for some number of observations by calling the update() function
         predict_p_correct()   : After fitting, this returns P(Correct) of getting an item correct based on learnt BKT params 
     """
-    def __init__(self, know, guess, slip, learn, KC_subtest, forget, num_students, num_skills):
+    def __init__(self, know, guess, slip, learn, KC_subtest, students, forget, num_students, num_skills, activity_learning_progress):
         self.n = num_students
         self.u = num_skills
         self.timestep = np.zeros((self.n, self.u))
@@ -233,11 +233,13 @@ class ActivityBKT:
         self.learn = learn
         self.forget = forget
         self.KC_subtest = KC_subtest
+        self.students = students
+        self.activity_learning_progress = activity_learning_progress
     
     """Function to do the bayesian update, ie calc P(Know @t+1 | obs @t+1) based on P(Know @t), guess slip etc. 
        Use this estimate along with P(Learn) to find P(Know @t+1)
     """
-    def update_per_obs(self, observation, i, j, activity_learning_progress, act_student_ids):
+    def update_per_obs(self, observation, i, j):
 
         """
             Description - update_per_obs()
@@ -306,13 +308,13 @@ class ActivityBKT:
         self.timestep[i][j] = t+1
         self.know[i][j] = posterior_know
 
-        unique_child_id = act_student_ids[i]
+        unique_child_id = self.students[i]
         
-        activity_learning_progress[unique_child_id][j].append(posterior_know)
+        self.activity_learning_progress[unique_child_id][j].append(posterior_know)
 
-        return activity_learning_progress
+        return self.activity_learning_progress
 
-    def update(self, activity_observations, student_ids, skills, activity_learning_progress, activity_student_ids):
+    def update(self, activity_observations, student_ids, skills):
         """
             Description - update()
             -------------------
@@ -348,16 +350,15 @@ class ActivityBKT:
             # For each skill
             for skill in skills[i]:
             # If this activity obsevation exercises the skill; bayesian update is done for "every skill" that is exercised by this activity, perform a BKT update
-                activity_learning_progress = self.update_per_obs(activity_observations[i], student_ids[i], skill, activity_learning_progress, activity_student_ids)
+                self.update_per_obs(activity_observations[i], student_ids[i], skill)
         
-        return activity_learning_progress
+        return self.activity_learning_progress
     
-    def predict_percent_correct(self, student_ids, skills, num_corrects, num_attempts, activity_learning_progress, activity_student_ids, actual_observations=None):
+    def predict_percent_correct(self, student_ids, skills, actual_observations=None):
         # print("PREDICTING P(Correct)....")
 
         correct_preds = []
         min_correct_preds = []
-
         n = len(student_ids)
 
         for k in range(n):
@@ -366,47 +367,36 @@ class ActivityBKT:
             min_correct = 1.0
             for skill in skills[k]:
                 j = skill
-        
                 p_know = self.know[i][j]
                 p_not_know = 1.0 - p_know
-        
                 p_guess = self.guess[i][j]
-        
                 p_slip = self.slip[i][j]
                 p_not_slip = 1.0 - p_slip
-
                 # Independent subskills prediction
                 correct = correct * ((p_know * p_not_slip) + (p_not_know * p_guess))
                 # Weakest-subskill performance prediction 
                 min_correct = min(min_correct, (p_know * p_not_slip) + (p_not_know * p_guess))
-
+            
             # print("PREDICTED (Full responsibility): ", correct, skills[k])
             # print("PREDICTED (Blame weakest): ", min_correct, skills[k])
             if actual_observations != None:
-                # print("ACTUAL: ", actual_observations[k])
-                # print("NUM ATTEMPTS: ", num_attempts[k])
                 for skill in skills[k]:
-                    self.update_per_obs(actual_observations[k], student_ids[k], skill, activity_learning_progress, activity_student_ids)
-            
-            if num_attempts[k] > 0:
-                correct_preds.append(correct)
-                min_correct_preds.append(min_correct)
-            else:
-                correct_preds.append(actual_observations[k])
-                min_correct_preds.append(actual_observations[k])
+                    self.update_per_obs(actual_observations[k], student_ids[k], skill)
+            correct_preds.append(correct)
+            min_correct_preds.append(min_correct)
             
         if actual_observations != None:
             actual_observations = np.array(actual_observations)
             correct_preds = np.array(correct_preds)
             min_correct_preds = np.array(min_correct_preds)
-
             correct_preds_rmse = rmse(actual_observations, correct_preds)
             min_correct_preds_rmse = rmse(actual_observations, min_correct_preds)
-            
             print("FULL RESPONSIBILITY P(Correct) prediction RMSE: ", correct_preds_rmse)
             print("BLAME WORST P(Correct) prediction RMSE: ", min_correct_preds_rmse)
         
-        return correct_preds_rmse, min_correct_preds_rmse
+            return correct_preds_rmse, min_correct_preds_rmse
+        
+        return correct_preds, min_correct_preds
                    
 def plot_learning(learning_progress, kc_list, student_ids):
     """
@@ -588,13 +578,16 @@ def init_item_learning_progress(n, u, uniq_item_student_ids):
     
     return item_learning_progress
 
-def init_student_id_to_number_map(transac_df):
+def init_student_id_to_number_map(df, type):
     
     student_id_to_number_map = {}
-    uniq_transac_student_ids = pd.unique(transac_df["Anon Student Id"].values.ravel()).tolist()
+    if type=="transac":
+        uniq_student_ids = pd.unique(df["Anon Student Id"].values.ravel()).tolist()
+    elif type=="activity":
+        uniq_student_ids = pd.unique(df["Unique_Child_ID_1"].values.ravel()).tolist()
     
-    for i in range(len(uniq_transac_student_ids)):
-        student_id = uniq_transac_student_ids[i]
+    for i in range(len(uniq_student_ids)):
+        student_id = uniq_student_ids[i]
         student_id_to_number_map[student_id] = i
 
     return student_id_to_number_map
@@ -678,4 +671,84 @@ def extract_activity_table(activity_df, act_student_id_to_number_map, tutorID_to
         activity_skills[j] = res
 
     return activity_observations, student_ids, activity_skills, num_corrects, num_attempts
+
+def sample_activity(mu, sigma, matrix, row, lit_nan_idxs):
+    new_col = math.floor(np.random.normal(mu, sigma, 1))
+    while lit_nan_idxs[row] <= new_col or (isinstance(matrix[row][new_col], str) == False and math.isnan(matrix[row][new_col])):
+        print(new_col, row)
+        new_col -= lit_nan_idxs[row]
+        row += 1
     
+    col = new_col
+    activity = matrix[row][col]
+    return row, col, activity
+
+
+def get_activity_matrix(PATH_TO_ACTIVITY_DIFFICULTY, LITERACY_SHEET_NAME, MATH_SHEET_NAME, STORIES_SHEET_NAME):
+    xls = pd.ExcelFile(PATH_TO_ACTIVITY_DIFFICULTY)
+
+    # Difficulty with levels as rows
+    literacy_matrix = pd.read_excel(xls, LITERACY_SHEET_NAME)[1:].values.tolist()
+    math_matrix = pd.read_excel(xls, MATH_SHEET_NAME).values.tolist()
+    stories_matrix = pd.read_excel(xls, STORIES_SHEET_NAME).values.tolist()
+
+    return literacy_matrix, math_matrix, stories_matrix
+
+def get_proba(action, activityName, tutorID_to_kc_dict, skill_to_number_map, p_know):
+    proba = []
+    
+    skillNames = tutorID_to_kc_dict[activityName]
+    skillNums = []
+    for skillName in skillNames:
+        skillNums.append(skill_to_number_map[skillName])
+    
+    for skill in skillNums:
+        proba.append(p_know[skill])
+    
+    return proba
+
+def get_skill_groups_info(tutorID_to_kc_dict, kc_list):
+    
+    uniq_skill_groups = []
+    skill_group_to_activity_map = {}
+
+    for key in tutorID_to_kc_dict:
+        skills = tutorID_to_kc_dict[key]
+        skill_idxs = []
+        for skill in skills:
+            idx = kc_list.index(skill)
+            skill_idxs.append(idx)
+        if skill_idxs not in uniq_skill_groups:
+            uniq_skill_groups.append(skill_idxs)
+    
+    for group in uniq_skill_groups:
+        skill_group_to_activity_map[str(uniq_skill_groups.index(group))] = []
+
+    for key in tutorID_to_kc_dict:
+        skills = tutorID_to_kc_dict[key]
+        skill_group = []
+        for skill in skills:
+            idx = kc_list.index(skill)
+            skill_group.append(idx)
+        skill_group_to_activity_map[str(uniq_skill_groups.index(skill_group))].append(key)
+    
+    return uniq_skill_groups, skill_group_to_activity_map
+
+def clear_files(algo, clear):
+    if clear == False:
+        return
+    file = open(algo+"_logs/rewards.txt","r+")
+    file.truncate(0)
+    file.close()
+    file = open(algo+"_logs/scores.txt","r+")
+    file.truncate(0)
+    file.close()
+    file = open(algo+"_logs/avg_scores.txt","r+")
+    file.truncate(0)
+    file.close()
+    file = open(algo+"_logs/run.txt","r+")
+    file.truncate(0)
+    file.close()
+    file = open(algo+"_logs/timesteps.txt","r+")
+    file.truncate(0)
+    file.close()

@@ -1,2 +1,7 @@
 .ipynb_checkpoints
 /Data
+/ddpg_logs
+/dqn_logs
+/actor_critic_logs
+/saved_model_parameters
+Untitled.ipynb
