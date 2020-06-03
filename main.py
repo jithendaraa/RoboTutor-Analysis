@@ -6,14 +6,15 @@ from environment import StudentEnv
 from DQN_agent import DQNAgent
 from actor_critic_agent import ActorCriticAgent
 
-student_id = "VPRQEF_101"
+STUDENT_ID = "new_student"
 algo = "actor_critic"
-num_episodes = 1000
-run = 0
-avg_over_episodes = 50
+START_EPISODE = 0
+NUM_EPISODES = 1500
+RUN = 0
+AVG_OVER_EPISODES = 50
 load = False
 clear = True
-max_timesteps = 30
+MAX_TIMESTEPS = 250
 learning_rate = 2e-5
 
 cta_df = read_cta_table("Data/CTA.xlsx")
@@ -28,10 +29,9 @@ uniq_skill_groups, skill_group_to_activity_map = get_skill_groups_info(tutorID_t
 
 print("DATA READING DONE...")
 
-activity_bkt, activity_to_kc_dict, skill_to_number_map, student_id_to_number_map = train_on_obs(1.0, train_students=[student_id])
-print("TRAINING DONE")
+activity_bkt, activity_to_kc_dict, skill_to_number_map, student_id_to_number_map = train_on_obs(1.0, train_students=[STUDENT_ID])
 
-student_id = student_id_to_number_map[student_id]
+student_id = student_id_to_number_map[STUDENT_ID]
 
 initial_p_know = np.array(activity_bkt.know[student_id])
 initial_avg_p_know = np.mean(initial_p_know)
@@ -48,7 +48,6 @@ env = StudentEnv(initial_state=initial_state,
                 skill_to_number_map=skill_to_number_map,
                 skill_groups=uniq_skill_groups,
                 skill_group_to_activity_map=skill_group_to_activity_map,
-                state_size=state_size,
                 action_size=action_size)
 
 n_actions = len(uniq_skill_groups)
@@ -67,9 +66,9 @@ elif algo == "actor_critic":
                                 skill_groups=uniq_skill_groups,
                                 skill_group_to_activity_map=skill_group_to_activity_map,
                                 gamma=0.99,
-                                layer1_size=1024, 
-                                layer2_size=1024,
-                                layer3_size=512,
+                                layer1_size=4096, 
+                                layer2_size=2048,
+                                layer3_size=1024,
                                 layer4_size=512,
                                 n_actions=n_actions)
 
@@ -81,13 +80,13 @@ score = 0
 p_know_dict = {}
 p_know_per_question = [0] * num_skills
 
-for i in range(num_episodes):
+for i in range(NUM_EPISODES):
     p_know_for_question = []
     for j in range(num_questions):
         p_know_for_question.append(p_know_per_question)
     p_know_dict[i] = p_know_for_question
 
-# empty contents: True -> empty else dont empty
+# empty contents. True -> empty else dont empty
 clear_files(algo, clear)
 
 PATH = "saved_model_parameters/" + algo + ".pth"
@@ -105,7 +104,7 @@ if load == True:
         agent.actor_critic.eval()
 
 
-for i in range(0, num_episodes):
+for i in range(START_EPISODE, NUM_EPISODES):
 
     if i % avg_over_episodes == 0 and i > 0:
         avg_score = np.mean(scores[max(0, i-avg_over_episodes): i+1])
@@ -127,7 +126,7 @@ for i in range(0, num_episodes):
 
     while done == False:
         timesteps += 1
-        run += 1
+        RUN += 1
         
         action, explore, sample_skill, activityName = agent.choose_action(state, explore=False)
         skillNums = uniq_skill_groups[action]
@@ -153,7 +152,7 @@ for i in range(0, num_episodes):
             explore_status = "EXPLOIT"
             if explore:
                 explore_status = "EXPLORE"
-            text = "----------------------------------------------------------------------------------------------\n" + "RUN: " + str(run) + "\nTIMESTEPS: " + str(timesteps) + "\n EPISODE: " + str(i) + "\n" + explore_status + "\n" + "SAMPLED SKILL: " + str(sample_skill) + "\n" + "Action chosen: " + activityName + "\n" + " Skills: " + str(skillNums) + "\n" + " Prior P(Know) for these skills: " + str(prior_know) + "\n" + " Posterior P(Know) for these skills: " + str(posterior_know) + "\nSTUDENT RESPONSE: " + str(student_response) + "\n" + "GAIN: " + str(gain) + "\nREWARD: " + str(reward) + "\n" + " EPSILON: " + str(agent.epsilon) + "\n"
+            text = "----------------------------------------------------------------------------------------------\n" + "RUN: " + str(RUN) + "\nTIMESTEPS: " + str(timesteps) + "\n EPISODE: " + str(i) + "\n" + explore_status + "\n" + "SAMPLED SKILL: " + str(sample_skill) + "\n" + "Action chosen: " + activityName + "\n" + " Skills: " + str(skillNums) + "\n" + " Prior P(Know) for these skills: " + str(prior_know) + "\n" + " Posterior P(Know) for these skills: " + str(posterior_know) + "\nSTUDENT RESPONSE: " + str(student_response) + "\n" + "GAIN: " + str(gain) + "\nREWARD: " + str(reward) + "\n" + " EPSILON: " + str(agent.epsilon) + "\n"
             f.write(text)
 
         p_know = env.activity_bkt.know[student_id].copy()

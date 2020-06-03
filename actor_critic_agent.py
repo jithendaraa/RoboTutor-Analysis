@@ -16,37 +16,7 @@ import numpy as np
             of our value function V(s)! Thus the critic is V(s). 
             And therefore, A(n) - b(n) becomes [R(t+1) + γ*V(S[n+1]) - V(S[n])], ie., the TD Error
 '''
-
-class GenericNetwork(nn.Module):
-    def __init__(self, lr, input_dims, fc1_dims, fc2_dims, n_actions):
-        super(GenericNetwork, self).__init__()
-        self.input_dims = input_dims
-        
-        self.fc1_dims = fc1_dims
-        self.fc2_dims = fc2_dims
-        self.fc3_dims = fc3_dims
-        
-        self.n_actions = n_actions
-        self.lr = lr
-        
-        self.fc1 = nn.Linear(self.input_dims, self.fc1_dims)
-        self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
-        self.fc3 = nn.Linear(self.fc2_dims, self.fc3_dims)
-        self.fc4 = nn.Linear(self.fc3_dims, self.n_actions)
-
-        self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
-        self.device = torch.device('cuda:0')
-        self.to(self.device)
-
-    def forward(self, observation):
-        state = torch.Tensor(observation).to(self.device)
-        x = F.relu(self.fc1(state))
-        x = F.relu(self.fc2(x))
-        x = F.relu(self.fc3(x))
-        x = self.fc4(x)
-
-        return x
-
+# This class is used by ActorCriticAgent which is used in main.py while running algo "actor_critic"
 class ActorCriticNetwork(nn.Module):
     def __init__(self, alpha, input_dims, fc1_dims, fc2_dims, fc3_dims, fc4_dims, n_actions):
         super(ActorCriticNetwork, self).__init__()
@@ -157,45 +127,28 @@ class ActorCriticAgent(object):
         self.actor_critic.optimizer.step()
 
         
-    
-
-# class ActorCriticAgent(object):
-#     def __init__(self, alpha, beta, input_dims, gamma=0.99, l1_size=512, l2_size=1024, l3_size=1024, n_actions=1710):
-#         self.gamma = gamma
-#         self.log_probs = None
-#         self.actor = GenericNetwork(alpha, input_dims, l1_size, l2_size, l3_size, 
-#                                     n_actions)
-#         self.critic = GenericNetwork(beta, input_dims, l1_size=256, l2_size=256, l3_size=256, 
-#                                     n_actions=1)
-
-#     def choose_action(self, state):
-#         # softmax ensures actions add up to one which is a requirement for probabilities
-#         probabilities = F.softmax(self.actor.forward(state))
-
-#         # create a distribution that is modelled on these probabilites
-#         action_probs = torch.distributions.Categorical(probabilities)
-#         # Sample from action_probs
-#         action = action_probs.sample()
-#         self.log_probs = action_probs.log_prob(action)
+# used in ppo_agent.py for PPO algo
+class ActorCritic(nn.Module):
+    def __init__(self, lr, input_dims, fc1_dims, n_actions):
+        super(ActorCritic, self).__init__()
+        self.input_dims = input_dims
+        self.fc1_dims = fc1_dims
+        self.n_actions = n_actions
         
-#         # action is a tensor, but we need action as int
-#         return action.item()
-    
-#     def learn(self, state, reward, new_state, done):
-#         self.actor.optimizer.zero_grad()
-#         self.critic.optimizer.zero_grad()
+        self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
+        #  Policy and critic value v
+        self.pi = nn.Linear(self.fc1_dims, n_actions)
+        self.v = nn.Linear(self.fc1_dims, 1)
+        
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu:0")
+        self.optimizer = optim.Adam(self.parameters(), lr = lr)
+        # print("ACTOR CRITIC MODEL")
+        self.to(self.device)
 
-#         critic_value = self.critic.forward(state)
-#         critic_value_ = self.critic.forward(new_state)
+    def forward(self, state):
+        # state should be a torch.Tensor
+        x = F.relu(self.fc1(state))
+        pi = self.pi(x)
+        v = self.v(x)
+        return pi, v
 
-#         # TD Error: [R(t+1) + γ*V(S[n+1]) - V(S[n])]
-#         delta = ((reward + self.gamma*critic_value_*(1-int(done))) - critic_value)
-
-#         # Maximize self.log_probs * delta, greatest possible future reward
-#         actor_loss = -self.log_probs * delta
-#         critic_loss = (delta)**2 
-
-#         (actor_loss + critic_loss).backward()
-
-#         self.actor.optimizer.step()
-#         self.critic.optimizer.step()

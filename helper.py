@@ -28,7 +28,7 @@ class ItemBKT:
         update()              : Does step wise BKT update for some number of observations by calling the update_per_obs() function
         predict_p_correct()   : After fitting, this returns P(Correct) of getting an item correct based on learnt BKT params 
     """
-    def __init__(self, know, guess, slip, learn, KC_subtest, forget, num_students, num_skills):
+    def __init__(self, know, guess, slip, learn, KC_subtest, forget, num_students, num_skills, item_learning_progress):
         """
             Variables
             ---------
@@ -51,6 +51,7 @@ class ItemBKT:
         self.n = num_students
         self.u = num_skills
         self.timestep = np.zeros((self.n, self.u))
+        self.item_learning_progress = item_learning_progress
 
     def update_per_obs(self, observation, i, j, item_learning_progress, transac_student_ids):
         """
@@ -168,11 +169,11 @@ class ItemBKT:
             for skill in skills[i]:
                 # If this item obsevation exercises the skill; bayesian update is done for "every skill" that is exercised by this item; Perform a BKT update 
                 if item_observations[i].upper() == "CORRECT":
-                    item_learning_progress = self.update_per_obs(True, student_ids[i], skill, item_learning_progress, transac_student_ids)
+                    self.update_per_obs(True, student_ids[i], skill, item_learning_progress, transac_student_ids)
                 else:
-                    item_learning_progress = self.update_per_obs(False, student_ids[i], skill, item_learning_progress, transac_student_ids)
+                    self.update_per_obs(False, student_ids[i], skill, item_learning_progress, transac_student_ids)
         
-        return item_learning_progress
+        return self.item_learning_progress
                 
     def predict_p_correct(self, student_id, skills):
         """
@@ -307,12 +308,7 @@ class ActivityBKT:
 
         self.timestep[i][j] = t+1
         self.know[i][j] = posterior_know
-
-        unique_child_id = self.students[i]
         
-        self.activity_learning_progress[unique_child_id][j].append(posterior_know)
-
-        return self.activity_learning_progress
 
     def update(self, activity_observations, student_ids, skills):
         """
@@ -348,12 +344,17 @@ class ActivityBKT:
         # For each attempt in item_observations
         for i in range(k):
             # For each skill
-            for skill in skills[i]:
+            # knows = self.activity_learning_progress[self.students[student_ids[i]]].copy()
+            # latest_know = knows[-1]
+            for j in range(len(skills[i])):
             # If this activity obsevation exercises the skill; bayesian update is done for "every skill" that is exercised by this activity, perform a BKT update
-                self.update_per_obs(activity_observations[i], student_ids[i], skill)
+                skill_num = skills[i][j]
+                student_num = student_ids[i]
+                self.update_per_obs(activity_observations[i], student_num, skill_num)
+                # latest_know[skill] = posterior
+                if j == len(skills[i]) - 1: 
+                    self.activity_learning_progress[self.students[student_num]].append(self.know[student_num].tolist())
         
-        return self.activity_learning_progress
-    
     def predict_percent_correct(self, student_ids, skills, actual_observations=None):
         # print("PREDICTING P(Correct)....")
 
@@ -398,7 +399,7 @@ class ActivityBKT:
         
         return correct_preds, min_correct_preds
                    
-def plot_learning(learning_progress, kc_list, student_ids):
+def plot_learning(learning_progress, student_ids, timesteps, new_student_avg, student_avgs, algo):
     """
         Description - plot_learning()
         -----------------------------
@@ -409,48 +410,35 @@ def plot_learning(learning_progress, kc_list, student_ids):
                             value is a 2Dlist of P(Knows) for every update of P(Know) that happened to every skill for this student
                             shape of value: (u, *)
 
-        kc_list:    List of Skills as per CTA
-
         student_ids:    List of indices of students; transac_student_ids[student_id] gives "Anon Student ID" and acitivity_student_ids[student_id] gives "Unique_Child_ID_1"
-        
-        Prints
-        ------
-        Skill-wise P(Know) for each student
         
         Plots
         -----
-        P(Know) vs #opportunity per student per skill
-        
+        Avg P(Know) across skills per after every opportunity        
         Returns
         -------
         No return
     """
-    for key in learning_progress:
-        print("Learning progress of student ID:", key)
-        r = 0
-        for row in learning_progress[key]:
-            skill = kc_list[r]
-            while len(skill) < 25:
-                skill = skill + " "
-            print(skill, row)
-            r += 1
-
-    for key in learning_progress:
-        # student_id = student_ids[r]
-        r = 0        
-        knows = learning_progress[key]
-        for know in knows:
-            skill = kc_list[r]
-            r += 1
-            if len(know) < 2:   continue
-            X = np.arange(len(know)).tolist()
-            plt.plot(X, know)
-            plt.scatter(X, know)
-            plt.title("Opportunity versus Pr(Know) for skill: " + skill + " for student: " + str(key))
-            plt.xlabel("Opportunity")
-            plt.ylabel("Pr(Know)")
-            plt.ylim(0, 1.1)
-            plt.show()
+    colors = ["red", "green", "yellow", "purple", "blue", "violet", "orange", "brown"]
+    for i in range(len(student_ids)):
+        student_id = student_ids[i]
+        x = []
+        y = []
+        for j in range(len(learning_progress[student_id])):
+            p_know = learning_progress[student_id][j]
+            p_avg_know = np.mean(np.array(p_know))
+            y.append(p_avg_know)
+            x.append(j+1)
+        plt.plot(x[:timesteps], y[:timesteps], label=student_id, color=colors[i])
+    
+    x = np.arange(1, len(new_student_avg) + 1).tolist()
+    plt.plot(x, new_student_avg, label="RL Agent", color="black")
+    plt.legend()
+    plt.xlabel("# Opportunities")
+    plt.ylabel("Avg P(Know) across 18 skills")
+    plt.title("Avg P(Know) vs. #opportunities")
+    plt.savefig("plots/" + algo + '_results.jpg')
+    # plt.show()
 
 def read_transac_table(path_to_transac_table, full_df=False):
     transac_df = pd.read_csv(path_to_transac_table, sep='\t')
@@ -586,10 +574,12 @@ def init_student_id_to_number_map(df, type):
     elif type=="activity":
         uniq_student_ids = pd.unique(df["Unique_Child_ID_1"].values.ravel()).tolist()
     
+    uniq_student_ids.append("new_student")
+
     for i in range(len(uniq_student_ids)):
         student_id = uniq_student_ids[i]
         student_id_to_number_map[student_id] = i
-
+    
     return student_id_to_number_map
 
 def init_skill_to_number_map(kc_list):
@@ -622,13 +612,13 @@ def extract_transac_table(transac_df, student_id_to_number_map, kc_list, skill_t
 
     return item_observations, item_student_ids, item_skills, uniq_transac_student_ids
 
-def init_act_student_id_to_number_map(n, u, activity_student_ids, act_student_id_to_number_map):
+def init_act_student_id_to_number_map(n, u, activity_student_ids, act_student_id_to_number_map, knows):
     activity_learning_progress = {}
     for i in range(n):
         student_id = activity_student_ids[i]
-        activity_learning_progress[(student_id)] = np.array([np.zeros((u))]).T.tolist()
+        activity_learning_progress[(student_id)] = [knows[0].tolist()]
         act_student_id_to_number_map[student_id] = i 
-
+    
     return activity_learning_progress, act_student_id_to_number_map
 
 
@@ -734,21 +724,31 @@ def get_skill_groups_info(tutorID_to_kc_dict, kc_list):
     
     return uniq_skill_groups, skill_group_to_activity_map
 
+def read_data():
+    cta_df = read_cta_table("Data/CTA.xlsx")
+    kc_list = get_kc_list_from_cta_table(cta_df)
+    u = len(kc_list)
+    num_skills = u
+    kc_to_tutorID_dict = init_kc_to_tutorID_dict(kc_list)
+    cta_tutor_ids, kc_to_tutorID_dict = get_cta_tutor_ids(kc_to_tutorID_dict, kc_list, cta_df)
+    tutorID_to_kc_dict = init_tutorID_to_kc_dict(kc_to_tutorID_dict)
+    uniq_skill_groups, skill_group_to_activity_map = get_skill_groups_info(tutorID_to_kc_dict, kc_list)
+    # print("DATA READING DONE.....")
+    return kc_list, num_skills, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map
+
+
 def clear_files(algo, clear):
     if clear == False:
         return
-    file = open(algo+"_logs/rewards.txt","r+")
-    file.truncate(0)
-    file.close()
-    file = open(algo+"_logs/scores.txt","r+")
-    file.truncate(0)
-    file.close()
-    file = open(algo+"_logs/avg_scores.txt","r+")
-    file.truncate(0)
-    file.close()
-    file = open(algo+"_logs/run.txt","r+")
-    file.truncate(0)
-    file.close()
-    file = open(algo+"_logs/timesteps.txt","r+")
-    file.truncate(0)
-    file.close()
+    log_folder_name = algo + "_logs"
+    files = os.listdir(log_folder_name)
+    text_files = []
+    
+    for file in files:
+        if file[-3:] == "txt":
+            text_files.append(file)
+    
+    for text_file in text_files:
+        file = open(log_folder_name + "/" + text_file, "r+")
+        file.truncate(0)
+        file.close()

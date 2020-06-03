@@ -1,7 +1,9 @@
 .ipynb_checkpoints
 /Data
-/ddpg_logs
+/ppo_logs
 /dqn_logs
 /actor_critic_logs
 /saved_model_parameters
 Untitled.ipynb
+/runs
+__pycache__
