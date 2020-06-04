@@ -84,7 +84,6 @@ class DQNAgent(object):
             # kc_to_tutorID_dict[kc_list[skill]] -> activities that exercise skill `sample_skill`
             activity = random.choice(self.kc_to_tutorID_dict[self.kc_list[sample_skill]])
             action = self.cta_tutor_ids.tolist().index(activity)
-            # action = np.random.choice(self.action_space)
         else: 
             explore = False
             actions = self.Q_eval.forward(state)
