@@ -8,14 +8,14 @@ from actor_critic_agent import ActorCriticAgent
 
 
 CONSTANTS = {
+                "LOAD"                  : True,
+                "CLEAR_FILES"           : False,
                 "STUDENT_ID"            : "new_student",
                 "ALGO"                  : "actor_critic",
                 "START_EPISODE"         : 0,
                 "NUM_EPISODES"          : 300,
                 "RUN"                   : 0,
                 "AVG_OVER_EPISODES"     : 50,
-                "LOAD"                  : True,
-                "CLEAR_FILES"           : False,
                 "MAX_TIMESTEPS"         : 250,
                 "LEARNING_RATE"         : 2e-5,
                 "STATE_SIZE"            : 18,
@@ -23,11 +23,14 @@ CONSTANTS = {
                 "GAMMA"                 : 0.99
             }
 
+# Get some important data 
 kc_list, num_skills, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map = read_data()
+# Train CONSTANTS["STUDENT_ID"] on observed data in activity table
 activity_bkt, activity_to_kc_dict, skill_to_number_map, student_id_to_number_map = train_on_obs(1.0, train_students=[CONSTANTS["STUDENT_ID"]])
 
 student_id = student_id_to_number_map[CONSTANTS["STUDENT_ID"]]
 initial_state = np.array(activity_bkt.know[student_id])
+
 env = StudentEnv(initial_state=initial_state, 
                 activities=cta_tutor_ids, 
                 activity_bkt=activity_bkt,
@@ -62,6 +65,7 @@ elif CONSTANTS["ALGO"] == "actor_critic":
                                 n_actions=CONSTANTS["ACTION_SIZE"])
 
 scores = []
+# can be used to see how epsilon changes with each timestep/opportunity
 eps_history = []
 
 num_questions = 3
@@ -69,7 +73,7 @@ score = 0
 p_know_dict = {}
 p_know_per_question = [0] * num_skills
 
-for i in range(NUM_EPISODES):
+for i in range(CONSTANTS["NUM_EPISODES"]):
     p_know_for_question = []
     for j in range(num_questions):
         p_know_for_question.append(p_know_per_question)
@@ -159,14 +163,6 @@ for i in range(CONSTANTS["START_EPISODE"], CONSTANTS["NUM_EPISODES"]):
     
     # with open(CONSTANTS["ALGO"]+"_logs/rewards.txt", "a") as f:
     #     text = str(i) + "," + str(avg_p_know) + "\n"
-    #     f.write(text)
-    
-    # with open(CONSTANTS["ALGO"]+"_logs/timesteps.txt", "a") as f:
-    #     text = str(i) + "," + str(timesteps) + "\n"
-    #     f.write(text)
-    
-    # with open(CONSTANTS["ALGO"]+"_logs/scores.txt", "a") as f:
-    #     text = str(i) + "," + str(score) + "\n"
     #     f.write(text)
 
 final_p_know = np.array(env.activity_bkt.know[student_id])
