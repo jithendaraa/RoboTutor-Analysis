@@ -48,41 +48,40 @@ class StudentEnv():
             action: int, activities[action] refers to the activity that the RL policy suggests/outputs.
         """
         done = False
-        # activity = self.activities[action]
 
         student_ids = [self.student_id]
         skills = []
 
-        # skill = []
-        # for row in self.activity_to_skills_map[activity]:
-        #     skill.append(self.skill_to_number_map[row])
         skill_group = self.skill_groups[action]
         skills = [skill_group]
+        # Simulate student with current BKT params and get student response (predictions) according to full responsibility and blame-worst responsibility
         correct_preds, min_correct_preds = self.activity_bkt.predict_percent_correct(student_ids, skills)
         
-        student_response = correct_preds # could be min_correct_preds too for "blame worst" responsibility
+        # should be min_correct_preds for "blame worst" responsibility
+        student_response = correct_preds 
         
+        # P(Know) as a list before attempting the question (before doing BKT update based on student_response)
         prior_know = self.activity_bkt.know[self.student_id].copy()
 
-        # BKT update based on his response
+        # BKT update based on student_response aka %correct
         self.activity_bkt.update(activity_observations=student_response, student_ids=student_ids, skills=skills)
 
+        # Get next state as updated P(Know) based on student_response. Set next_state as current_state
         next_state = self.activity_bkt.know[self.student_id]
         next_state = np.array(next_state)
         self.state = next_state.copy()
 
+        # Get posterior P(Know) ie P(Know) after BKT update from student_response 
         posterior_know = self.activity_bkt.know[self.student_id].copy()
 
+        # Get avg P(Know) before and after student attempts the activities
         avg_prior_know = np.mean(np.array(prior_know))
         avg_posterior_know = np.mean(np.array(posterior_know))
+
+        # Reward after each attempt/opportunity
         reward = 1000 * (avg_posterior_know - avg_prior_know) # reward = 100 * np.mean(np.array(self.activity_bkt.know))
-        # reward = 100 * np.mean(np.array(self.activity_bkt.know))
+
         if timesteps >= max_timesteps:
             done = True
-        # if reward <= 0.0:
-        #     done = True
 
-        # print("NEXT STATE:", skill_group)
-        # print(next_state)
-        
         return next_state, reward, student_response[0], done, posterior_know
