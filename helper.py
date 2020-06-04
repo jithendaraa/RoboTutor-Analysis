@@ -14,6 +14,7 @@ def rmse(a, b):
     mse = np.mean(squared_error)
     rmse_val = mse**0.5
     return rmse_val
+
 # ITEM BKT is a binary BKT Model
 class ItemBKT:
     # value of knew is always knew @ time (timestep)
@@ -410,11 +411,14 @@ def plot_learning(learning_progress, student_ids, timesteps, new_student_avg, st
                             value is a 2Dlist of P(Knows) for every update of P(Know) that happened to every skill for this student
                             shape of value: (u, *)
 
-        student_ids:    List of indices of students; transac_student_ids[student_id] gives "Anon Student ID" and acitivity_student_ids[student_id] gives "Unique_Child_ID_1"
-        
+        student_ids     :   List of indices of students; transac_student_ids[student_id] gives "Anon Student ID" and acitivity_student_ids[student_id] gives "Unique_Child_ID_1"
+        timesteps       :   int. Total #opportunities we want to plot for
+        new_student_avg :   List. Avg P(Know) of "new_student" after every opportunity. This is usually the student that has learnt from the RL Policy
+        student_avgs    :   2DList. student[avgs[i]] contains avg P(Know) of student with "UNIQUE_CHILD_ID_1" = student_ids[i] after every opportunity. These are
+                            avg P(Know)'s after learning from RoboTutor's learning policy. Inferred from observations in the activity table using train_on_obs() in student_simulator.py
         Plots
         -----
-        Avg P(Know) across skills per after every opportunity        
+        Avg P(Know) across skills after every opportunity        
         Returns
         -------
         No return
@@ -441,6 +445,7 @@ def plot_learning(learning_progress, student_ids, timesteps, new_student_avg, st
     # plt.show()
 
 def read_transac_table(path_to_transac_table, full_df=False):
+    # Reads transac table and retuns it as a df after dropping some columns that areent required for our use
     transac_df = pd.read_csv(path_to_transac_table, sep='\t')
     # Make Anon Student Id uniform data type
     transac_df = transac_df.astype({"Anon Student Id": str})
@@ -456,6 +461,10 @@ def read_cta_table(path_to_cta_table):
     return cta_df
 
 def get_col_vals_from_df(df, col_name, unique=False):
+    """
+        If unique is False gets all values of a column in the row-wise order and returns as a list.
+        If unique is set to True, it returns unique values found under column "col_name" as a list
+    """
     values = df[col_name].values.ravel()
     
     if unique == False:
@@ -469,7 +478,7 @@ def get_col_vals_from_df(df, col_name, unique=False):
     
     return None
 
-# given a string remove "__it_" and return
+# given a string remove "__it_" and return string.
 def remove_iter_suffix(tutor):
     if isinstance(tutor, list):
         
@@ -504,7 +513,7 @@ def init_kc_to_tutorID_dict(kc_list):
 
 def get_cta_tutor_ids(kc_to_tutorID_dict, kc_list, cta_df):
     """
-        Gets tutor_ids from CTA table and also maps KC to tutorIDs that exercise a KC
+        Gets unique tutor_ids from CTA table and also maps KC to tutorIDs that exercise a KC
         Removes NaN valued cells and cells that have "Column..."
     """
     cta_tutor_ids = []
@@ -590,7 +599,10 @@ def init_skill_to_number_map(kc_list):
     return skill_to_number_map
 
 def extract_transac_table(transac_df, student_id_to_number_map, kc_list, skill_to_number_map, underscore_to_colon_tutor_id_dict, transac_tutor_ids, tutorID_to_kc_dict):
-    
+    """
+        Gets all details from transactions table that are required to do the ItemBKT update and return these details
+        observations, student_ids, skills involved with these opportuniutes and uniq_transac_student_ids. All these 4 variables are lists and ith row gives details for ith opportunity
+    """
     item_observations = get_col_vals_from_df(transac_df, "Outcome", unique=False)
     item_student_ids = get_col_vals_from_df(transac_df, "Anon Student Id", unique=False)
     uniq_transac_student_ids = get_col_vals_from_df(transac_df, "Anon Student Id", unique=True)
@@ -623,6 +635,11 @@ def init_act_student_id_to_number_map(n, u, activity_student_ids, act_student_id
 
 
 def extract_activity_table(activity_df, act_student_id_to_number_map, tutorID_to_kc_dict, skill_to_number_map, underscore_to_colon_tutor_id_dict):
+    """
+        Reads actiivty table, gets necessary data from it and gets all details that are necessary to do the activityBKT update.
+        Returns observations, student_ids, skills involved with each of these attempts, num_corrects and num_attempts
+        ith row of each of these lists give info about the ith opportunity or corresponds to ith row of activity_df
+    """
     activity_observations = []
     student_ids = []
 
@@ -662,19 +679,21 @@ def extract_activity_table(activity_df, act_student_id_to_number_map, tutorID_to
 
     return activity_observations, student_ids, activity_skills, num_corrects, num_attempts
 
-def sample_activity(mu, sigma, matrix, row, lit_nan_idxs):
-    new_col = math.floor(np.random.normal(mu, sigma, 1))
-    while lit_nan_idxs[row] <= new_col or (isinstance(matrix[row][new_col], str) == False and math.isnan(matrix[row][new_col])):
-        print(new_col, row)
-        new_col -= lit_nan_idxs[row]
-        row += 1
+# def sample_activity(mu, sigma, matrix, row, lit_nan_idxs):
+#     new_col = math.floor(np.random.normal(mu, sigma, 1))
+#     while lit_nan_idxs[row] <= new_col or (isinstance(matrix[row][new_col], str) == False and math.isnan(matrix[row][new_col])):
+#         print(new_col, row)
+#         new_col -= lit_nan_idxs[row]
+#         row += 1
     
-    col = new_col
-    activity = matrix[row][col]
-    return row, col, activity
-
+#     col = new_col
+#     activity = matrix[row][col]
+#     return row, col, activity
 
 def get_activity_matrix(PATH_TO_ACTIVITY_DIFFICULTY, LITERACY_SHEET_NAME, MATH_SHEET_NAME, STORIES_SHEET_NAME):
+    """
+        Takes paths and sheet names as params and returns the 3 activity matrices
+    """
     xls = pd.ExcelFile(PATH_TO_ACTIVITY_DIFFICULTY)
 
     # Difficulty with levels as rows
@@ -722,9 +741,13 @@ def get_skill_groups_info(tutorID_to_kc_dict, kc_list):
             skill_group.append(idx)
         skill_group_to_activity_map[str(uniq_skill_groups.index(skill_group))].append(key)
     
+    # list, dict. The latter maps skill group '0' to activities that fall under this skill group
     return uniq_skill_groups, skill_group_to_activity_map
 
 def read_data():
+    """
+        Reads and returns some useful data from CTA Table and activity_table.
+    """
     cta_df = read_cta_table("Data/CTA.xlsx")
     kc_list = get_kc_list_from_cta_table(cta_df)
     u = len(kc_list)
@@ -738,6 +761,7 @@ def read_data():
 
 
 def clear_files(algo, clear):
+    # empties all txt files under algo + "_logs" folder if clear is set to True
     if clear == False:
         return
     log_folder_name = algo + "_logs"
