@@ -92,21 +92,20 @@ class ActorCriticAgent(object):
         policy, critic_value = self.actor_critic.forward(state)
         # softmax ensures actions add up to one which is a requirement for probabilities
         policy = F.softmax(policy)
+
+        # Sample an action from these proba's and get the log proba's.
         action_probs = torch.distributions.Categorical(policy)
         action = action_probs.sample()
         self.log_probs = action_probs.log_prob(action)
         
-        # skills_associated = self.activity_to_skills_map[self.cta_tutor_ids.tolist()[action]]
-        # skills = []
-
-        # for skill in skills_associated:
-        #     skills.append(self.skill_to_number_map[skill])
-
         skills = self.skill_groups[action]
         skill_group = skills.copy()
 
+        # Assumption (needs to be changed): All activities within a skill group contribute to same amount and there is no difference between them in same skill group
+        # So, we just sample a random activity under this skill group to present it to the student 
         activity = np.random.choice(self.skill_group_to_activity_map[str(action.item())])
 
+        # action is a tensor. Hence we return action.item() which is just the value
         return action.item(), explore, skills, activity
 
     def learn(self, state, reward, state_, done):
@@ -127,7 +126,7 @@ class ActorCriticAgent(object):
         self.actor_critic.optimizer.step()
 
         
-# used in ppo_agent.py for PPO algo
+# used only in ppo_agent.py for PPO algo, Actor Critic Algo uses the class `ActorCriticNetwork`
 class ActorCritic(nn.Module):
     def __init__(self, lr, input_dims, fc1_dims, n_actions):
         super(ActorCritic, self).__init__()
@@ -142,7 +141,6 @@ class ActorCritic(nn.Module):
         
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu:0")
         self.optimizer = optim.Adam(self.parameters(), lr = lr)
-        # print("ACTOR CRITIC MODEL")
         self.to(self.device)
 
     def forward(self, state):
