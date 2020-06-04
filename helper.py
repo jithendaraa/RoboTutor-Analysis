@@ -566,21 +566,21 @@ def init_item_learning_progress(n, u, uniq_item_student_ids):
     
     return item_learning_progress
 
-def init_student_id_to_number_map(df, type):
+# def init_student_id_to_number_map(df, type):
     
-    student_id_to_number_map = {}
-    if type=="transac":
-        uniq_student_ids = pd.unique(df["Anon Student Id"].values.ravel()).tolist()
-    elif type=="activity":
-        uniq_student_ids = pd.unique(df["Unique_Child_ID_1"].values.ravel()).tolist()
+#     student_id_to_number_map = {}
+#     if type=="transac":
+#         uniq_student_ids = pd.unique(df["Anon Student Id"].values.ravel()).tolist()
+#     elif type=="activity":
+#         uniq_student_ids = pd.unique(df["Unique_Child_ID_1"].values.ravel()).tolist()
     
-    uniq_student_ids.append("new_student")
+#     uniq_student_ids.append("new_student")
 
-    for i in range(len(uniq_student_ids)):
-        student_id = uniq_student_ids[i]
-        student_id_to_number_map[student_id] = i
+#     for i in range(len(uniq_student_ids)):
+#         student_id = uniq_student_ids[i]
+#         student_id_to_number_map[student_id] = i
     
-    return student_id_to_number_map
+#     return student_id_to_number_map
 
 def init_skill_to_number_map(kc_list):
     skill_to_number_map = {}

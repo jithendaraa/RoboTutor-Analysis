@@ -1,17 +1,14 @@
 import numpy as np
 
 # The Environment that the RL agent interacts with
-# Given an action returns the new state
+# Given an action returns the new_state, reward, student_response, done and posterior know (P(Know) after student attempt)
 
 class AbsSpace():
     def __init__(self, size):
-        # print(f'AbsSpace ({size},)')
         self.shape = (size, )
         
-
 class Discrete():
     def __init__(self, size):
-        # print(f'Discrete ({size},)')
         self.shape = (size, )
 
 class StudentEnv():
@@ -19,8 +16,8 @@ class StudentEnv():
         """
             initial_state: numpy ndarray with shape (state_space, )
             activities: list of all activities/tutors from CTA Table
-            state_size: #state variables in the environment; for a given student it can be 72 (4BKT params * 18 skills) or 73 (if student_level after placement/promotion is included) or could be 21(18+1+1+1)
-            action_size: 1710, ie., total number of unique tutors/activities from CTA table
+            state_size: #state variables in the environment; currently 18 ie, 1 state variable for each P(Know) per skill
+            action_size: 1710, ie., total number of unique tutors/activities from CTA table but is bucketed into 33 "skill_groups" for now
         """
         self.initial_state                  = initial_state
         self.activities                     = activities
