@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import helper as hp
 from helper import ItemBKT, ActivityBKT
 from helper import plot_learning, read_transac_table, get_kc_list_from_cta_table, remove_iter_suffix, init_kc_to_tutorID_dict, get_cta_tutor_ids,read_cta_table, get_col_vals_from_df, init_tutorID_to_kc_dict,init_underscore_to_colon_tutor_id_dict, init_item_learning_progress, extract_transac_table, init_skill_to_number_map, init_act_student_id_to_number_map, extract_activity_table
-from helper import sample_activity
 
 def train_on_obs(test_size, train_students=None):
 
