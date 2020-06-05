@@ -8,20 +8,22 @@ from actor_critic_agent import ActorCriticAgent
 
 
 CONSTANTS = {
-                "LOAD"                  : True,
-                "CLEAR_FILES"           : False,
+                "LOAD"                  : False,
+                "CLEAR_FILES"           : True,
                 "STUDENT_ID"            : "new_student",
                 "ALGO"                  : "actor_critic",
                 "START_EPISODE"         : 0,
-                "NUM_EPISODES"          : 300,
+                "NUM_EPISODES"          : 1500,
                 "RUN"                   : 0,
                 "AVG_OVER_EPISODES"     : 50,
-                "MAX_TIMESTEPS"         : 250,
+                "MAX_TIMESTEPS"         : 150,
                 "LEARNING_RATE"         : 2e-5,
                 "STATE_SIZE"            : 18,
                 "ACTION_SIZE"           : 33,
                 "GAMMA"                 : 0.99
             }
+
+clear_files(CONSTANTS["ALGO"], CONSTANTS["CLEAR_FILES"])
 
 # Get some important data 
 kc_list, num_skills, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map = read_data()
@@ -70,17 +72,6 @@ eps_history = []
 
 num_questions = 3
 score = 0
-p_know_dict = {}
-p_know_per_question = [0] * num_skills
-
-for i in range(CONSTANTS["NUM_EPISODES"]):
-    p_know_for_question = []
-    for j in range(num_questions):
-        p_know_for_question.append(p_know_per_question)
-    p_know_dict[i] = p_know_for_question
-
-#  2nd param True -> empty contents of algo+"_logs" directory; else dont empty
-clear_files(CONSTANTS["ALGO"], CONSTANTS["CLEAR_FILES"])
 
 PATH = "saved_model_parameters/" + CONSTANTS["ALGO"] + ".pth"
 avg_p_knows = []
@@ -98,72 +89,65 @@ if CONSTANTS["LOAD"] == True:
 
 for i in range(CONSTANTS["START_EPISODE"], CONSTANTS["NUM_EPISODES"]):
 
-    # if i % avg_over_episodes == 0 and i > 0:
-    #     avg_score = np.mean(scores[max(0, i-avg_over_episodes): i+1])
-    #     with open(CONSTANTS["ALGO"]+"_logs/avg_scores.txt", "a") as f:
-    #         text = str(i/avg_over_episodes) + "," + str(avg_p_know) + "\n"
-    #         f.write(text)
+    if i % CONSTANTS["AVG_OVER_EPISODES"] == 0 and i > 0:
+        avg_score = np.mean(scores[max(0, i-CONSTANTS["AVG_OVER_EPISODES"]): i+1])
+        with open(CONSTANTS["ALGO"]+"_logs/avg_scores.txt", "a") as f:
+            text = str(i/CONSTANTS["AVG_OVER_EPISODES"]) + "," + str(avg_p_know) + "\n"
+            f.write(text)
     
-    # if i > 0 and i % 500 == 0:
-    #     if CONSTANTS["ALGO"] == "dqn":
-    #         torch.save(agent.Q_eval.state_dict(), PATH)
-    #         eps_history.append(agent.epsilon)
-    #     elif CONSTANTS["ALGO"] == "actor_critic":
-    #         torch.save(agent.actor_critic.state_dict(), PATH)
+    if i > 0 and i % 500 == 0:
+        if CONSTANTS["ALGO"] == "dqn":
+            torch.save(agent.Q_eval.state_dict(), PATH)
+            eps_history.append(agent.epsilon)
+        elif CONSTANTS["ALGO"] == "actor_critic":
+            torch.save(agent.actor_critic.state_dict(), PATH)
 
     score = 0
     state = env.reset()
     done = False
     timesteps = 0
 
-    # while done == False:
-    #     timesteps += 1
-    #     RUN += 1
+    while done != True:
+        timesteps += 1
+        CONSTANTS["RUN"] += 1
         
-    #     action, explore, sample_skill, activityName = agent.choose_action(state, explore=False)
-    #     skillNums = uniq_skill_groups[action]
+        action, explore, sample_skill, activityName = agent.choose_action(state, explore=False)
+        skillNums = uniq_skill_groups[action]
 
-    #     prior_know = get_proba(action, activityName, tutorID_to_kc_dict, skill_to_number_map, env.activity_bkt.know[student_id])
+        prior_know = get_proba(action, activityName, tutorID_to_kc_dict, skill_to_number_map, env.activity_bkt.know[student_id])
+        next_state, reward, student_response, done, posterior = env.step(action, timesteps, CONSTANTS["MAX_TIMESTEPS"])
+        posterior_know = get_proba(action, activityName, tutorID_to_kc_dict, skill_to_number_map, env.activity_bkt.know[student_id])
+
+        if CONSTANTS["ALGO"] == "dqn":
+            agent.store_transition(state, action, reward, next_state, done)
+            agent.learn(decrease_eps=True)
+
+        elif CONSTANTS["ALGO"] == "actor_critic":
+            agent.learn(state, reward, next_state, done)
         
-    #     next_state, reward, student_response, done = env.step(action, timesteps, max_timesteps)
+        state = next_state
+        score += reward
+        gain = np.sum(np.array(posterior_know) - np.array(prior_know))/num_skills
 
-    #     posterior_know = get_proba(action, activityName, tutorID_to_kc_dict, skill_to_number_map, env.activity_bkt.know[student_id])
+        with open(CONSTANTS["ALGO"]+"_logs/run.txt", "a") as f:
+            explore_status = "EXPLOIT"
+            if explore:
+                explore_status = "EXPLORE"
+            text = "----------------------------------------------------------------------------------------------\n" + "RUN: " + str(CONSTANTS["RUN"]) + "\nTIMESTEPS: " + str(timesteps) + "\n EPISODE: " + str(i) + "\n" + explore_status + "\n" + "SAMPLED SKILL: " + str(sample_skill) + "\n" + "Action chosen: " + activityName + "\n" + " Skills: " + str(skillNums) + "\n" + " Prior P(Know) for these skills: " + str(prior_know) + "\n" + " Posterior P(Know) for these skills: " + str(posterior_know) + "\nSTUDENT RESPONSE: " + str(student_response) + "\n" + "GAIN: " + str(gain) + "\nREWARD: " + str(reward) + "\n" + " EPSILON: " + str(agent.epsilon) + "\n"
+            f.write(text)
+
+        p_know = env.activity_bkt.know[student_id].copy()
         
-    #     if CONSTANTS["ALGO"] == "dqn":
-    #         agent.store_transition(state, action, reward, next_state, done)
-    #         agent.learn(decrease_eps=True)
+        if done:
+            avg_p_know = np.mean(np.array(p_know))
+            avg_p_knows.append(avg_p_know)
 
-    #     elif CONSTANTS["ALGO"] == "actor_critic":
-    #         agent.learn(state, reward, next_state, done)
-        
-    #     state = next_state
-    #     score += reward
-    #     gain = np.sum(np.array(posterior_know) - np.array(prior_know))/num_skills
-
-    #     with open(CONSTANTS["ALGO"]+"_logs/run.txt", "a") as f:
-    #         explore_status = "EXPLOIT"
-    #         if explore:
-    #             explore_status = "EXPLORE"
-    #         text = "----------------------------------------------------------------------------------------------\n" + "RUN: " + str(RUN) + "\nTIMESTEPS: " + str(timesteps) + "\n EPISODE: " + str(i) + "\n" + explore_status + "\n" + "SAMPLED SKILL: " + str(sample_skill) + "\n" + "Action chosen: " + activityName + "\n" + " Skills: " + str(skillNums) + "\n" + " Prior P(Know) for these skills: " + str(prior_know) + "\n" + " Posterior P(Know) for these skills: " + str(posterior_know) + "\nSTUDENT RESPONSE: " + str(student_response) + "\n" + "GAIN: " + str(gain) + "\nREWARD: " + str(reward) + "\n" + " EPSILON: " + str(agent.epsilon) + "\n"
-    #         f.write(text)
-
-    #     p_know = env.activity_bkt.know[student_id].copy()
-    #     p_know_dict[i][j] = p_know
-        
-    #     if done:
-    #         avg_p_know = np.mean(np.array(p_know))
-    #         avg_p_knows.append(avg_p_know)
-        
-    #         with open(CONSTANTS["ALGO"]+"_logs/avg_p_know.txt", "a") as f:
-    #             text = str(i) + "," + str(avg_p_know) + "\n"
-    #             f.write(text)
-
-    # print("episode: ", i, ", score: ", score, ", Avg_p_know: ", avg_p_know, ", TIMESTEPS: ", timesteps)
+    print("episode: ", i, ", score: ", score, ", Avg_p_know: ", avg_p_know, ", TIMESTEPS: ", timesteps)
     scores.append(score)
     
-    # with open(CONSTANTS["ALGO"]+"_logs/rewards.txt", "a") as f:
-    #     text = str(i) + "," + str(avg_p_know) + "\n"
-    #     f.write(text)
+    with open(CONSTANTS["ALGO"]+"_logs/rewards.txt", "a") as f:
+        text = str(i) + "," + str(avg_p_know) + "\n"
+        f.write(text)
 
 final_p_know = np.array(env.activity_bkt.know[student_id])
 final_avg_p_know = np.mean(final_p_know)

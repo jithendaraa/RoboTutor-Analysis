@@ -130,7 +130,7 @@ def train_on_obs(test_size, train_students=None):
         # Get student observation data from activity table; like %correct, student_id, skills involved for that opportunity etc
         activity_observations, student_ids, activity_skills, num_corrects, num_attempts = extract_activity_table(train_activity_df, act_student_id_to_number_map, tutorID_to_kc_dict, skill_to_number_map, underscore_to_colon_tutor_id_dict)
         # Perform BKT update based on these row observations/opportunities
-        activity_learning_progress = activity_bkt.update(activity_observations, student_ids, activity_skills)
+        activity_bkt.update(activity_observations, student_ids, activity_skills)
         print("Done updating student_id:", student_id, " based on his/her responses! TRAIN_SET: ", train_rows, "TEST_SET: ", test_rows)
 
         # If test_size != 1.0, there will be a test_activity_df that is not empty; and we test on this data to find the RMSE's of the two types of predictions (full responsibility and blame-weakest)

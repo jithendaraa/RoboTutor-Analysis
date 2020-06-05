@@ -704,6 +704,7 @@ def get_activity_matrix(PATH_TO_ACTIVITY_DIFFICULTY, LITERACY_SHEET_NAME, MATH_S
     return literacy_matrix, math_matrix, stories_matrix
 
 def get_proba(action, activityName, tutorID_to_kc_dict, skill_to_number_map, p_know):
+    # returns list of P(Know) for only those skills that are exercised by activityName
     proba = []
     
     skillNames = tutorID_to_kc_dict[activityName]
