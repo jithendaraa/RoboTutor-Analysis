@@ -21,7 +21,7 @@ clear_files("ppo", True)
 CONSTANTS = {
                 "STUDENT_ID"            : "new_student",
                 "ENV_ID"                : "RoboTutor",
-                "COMPARE_STUDENT_IDS"   : ['VPRQEF_101', 'CQCKBY_105', 'QNPZWV_106', 'PTQUQC_175', 'ZKTUNM_171', 'HNAWRP_169'],
+                "COMPARE_STUDENT_IDS"   : ['VPRQEF_101'],
                 "STATE_SIZE"            : 18,
                 "ACTION_SIZE"           : 33,
                 "FC1_DIMS"              : 256,
@@ -34,7 +34,9 @@ if __name__ == '__main__':
 
     compare_student_ids = []
     kc_list, num_skills, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map  = read_data()
-    activity_bkt, activity_to_kc_dict, skill_to_number_map, student_id_to_number_map = train_on_obs(1.0, train_students=[CONSTANTS["STUDENT_ID"]] + CONSTANTS["COMPARE_STUDENT_IDS"])
+    # activity_bkt, activity_to_kc_dict, skill_to_number_map, student_id_to_number_map = train_on_obs(1.0, train_students=[CONSTANTS["STUDENT_ID"]] + CONSTANTS["COMPARE_STUDENT_IDS"])
+    activity_bkt, tutorID_to_kc_dict, skill_to_number_map, student_id_to_number_map = train_on_obs(0.5, ['VPRQEF_101'])
+    activity_bkt.set_learning_progress(CONSTANTS["STUDENT_ID"], activity_bkt.activity_learning_progress['VPRQEF'], activity_bkt.know[0])
 
     student_id          = student_id_to_number_map[CONSTANTS["STUDENT_ID"]]
     initial_state       = np.array(activity_bkt.know[student_id])

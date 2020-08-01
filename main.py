@@ -13,7 +13,7 @@ CONSTANTS = {
                 "STUDENT_ID"            : "new_student",
                 "ALGO"                  : "actor_critic",
                 "START_EPISODE"         : 0,
-                "NUM_EPISODES"          : 1500,
+                "NUM_EPISODES"          : 1000,
                 "RUN"                   : 0,
                 "AVG_OVER_EPISODES"     : 50,
                 "MAX_TIMESTEPS"         : 150,
