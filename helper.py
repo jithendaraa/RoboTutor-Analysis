@@ -979,5 +979,8 @@ def get_bkt_params(num_skills, kc_list_spaceless, uniq_student_ids, num_students
 
     return know.tolist(), learn.tolist(), slip.tolist(), guess.tolist(), forget.tolist()
 
+def sigmoid(x):
+    return 1/(1+np.exp(-x))
+
 
 
