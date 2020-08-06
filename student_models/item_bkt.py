@@ -14,7 +14,7 @@ class ItemBKT:
         update()              : Does step wise BKT update for some number of observations by calling the update_per_obs() function
         predict_p_correct()   : After fitting, this returns P(Correct) of getting an item correct based on learnt BKT params 
     """
-    def __init__(self, params_dict, kc_list, num_students, uniq_student_ids):
+    def __init__(self, params_dict, kc_list, uniq_student_ids):
         """
             Variables
             ---------
@@ -36,7 +36,7 @@ class ItemBKT:
         self.forget = params_dict['know']
         
         self.kc_list = kc_list
-        self.n = num_students
+        self.n = len(uniq_student_ids)
         self.u = len(kc_list)
         self.students = uniq_student_ids
         self.learning_progress = {}
