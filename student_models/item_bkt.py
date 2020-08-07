@@ -96,6 +96,9 @@ class ItemBKT:
         correct = (prior_know * no_slip) + (prior_not_know * guess)
         wrong = (prior_know * slip) + (prior_not_know * no_guess)
 
+        if correct == 0.0:
+            print(prior_know, no_slip, guess)
+
         if observation == 1:
             posterior_know_given_obs = (prior_know * no_slip / correct)
         elif observation == 0:
