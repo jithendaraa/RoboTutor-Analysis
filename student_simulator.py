@@ -47,9 +47,8 @@ class StudentSimulator():
                                         self.CONSTANTS["VILLAGES"], 
                                         self.CONSTANTS["SUBSCRIPT"]) 
         
-        # student_model_name can be "ItemBKT" or "ActivityBKT"
         self.student_model_name = student_model_name
-        self.student_model = None
+        self.student_model = self.CONSTANTS['STUDENT_MODEL_INITIALISER'][self.student_model_name]
             
 
     def update_on_log_data(self, train_split, train_students=None):
@@ -100,8 +99,6 @@ class StudentSimulator():
 
 
 if __name__ == "__main__":
-    
-    
     
     villages = ['114']
     students = ['5A27001967', '5A27002160']

@@ -7,9 +7,6 @@ import math
 Q = pd.read_csv('../../hotDINA/qmatrix.txt', header=None).to_numpy()
 J = 1712
 K = 22
-slurm_params_files = {
-    "130":  "10301619"
-}
 
 class hotDINA_full():
     def __init__(self, params_dict, T, , update_type="bayesian"):

@@ -10,14 +10,6 @@ from pathlib import Path
 
 from helper import *
 
-# GLOBALLY CONSTANT FOR ANY VILLAGE
-Q = pd.read_csv('../../hotDINA/qmatrix.txt', header=None).to_numpy()
-J = 1712
-K = 22
-
-slurm_params_files = {
-    "130":  "10301619"
-}
 
 class hotDINA_skill():
     def __init__(self, params_dict, T):
@@ -25,6 +17,10 @@ class hotDINA_skill():
         self.I = len(params_dict['theta'])
         self.K = len(params_dict['a'])
         self.T = T
+        self.Q = pd.read_csv('../../hotDINA/qmatrix.txt', header=None).to_numpy()
+        self.slurm_params_files = {
+            "130":  "10301619"
+        }
 
         # Skills for hotDINA_params. Theta Ix1 vector, the rest are Kx1
         self.theta  = params_dict['theta']
@@ -74,11 +70,12 @@ class hotDINA_skill():
     def update(self, observations, items, users, bayesian_update=True, plot=True):
         
         self.bayesian_update = bayesian_update
+
         for i in range(len(observations)):
             user = users[i]
             correct = int(observations[i])
             item = items[i]
-            skills = Q[item]
+            skills = self.Q[item]
             know = self.knows[user][-1]
             for k in range(len(skills)):
                 skill = skills[k]
@@ -97,7 +94,41 @@ class hotDINA_skill():
                 else:
                     plt.plot(x, y, label="student_" + str(i) + "_no_bayesian" )
 
-    # def predict(self, item, user):
+    def predict_response(self, item, user, update=False, bayesian_update=True, plot=False):
+
+        current_know = self.knows[user][-1]
+        skills = self.Q[item]
+        p_correct = 1.0
+
+        for k in len(skills):
+            skill = skills[k]
+            if skill == 1:
+                p_correct_skill = (current_know[k] * self.ss[item]) + ((1 - current_know[k]) * self.g[item])
+                p_correct = p_correct * p_correct_skill
+        
+        # response = Bern(p_correct)
+        predicted_response = int(np.random.binomial(n=1, p=p_correct))
+
+        if update:
+            self.update([predicted_response], [item], [user], bayesian_update, plot)
+        
+        return predicted_response
+    
+    def predict_responses(self, items, users, bayesian_update=True, plot=False, observations=None):
+        
+        predicted_responses = []
+
+        for i in range(len(users)):
+            user = users[i]
+            item = items[i]
+            predicted_response = self.predict_response(item, user, update=True, bayesian_update=bayesian_update, plot=plot)
+            predicted_responses.append(predicted_response)
+        
+        if observations != None:
+            accuracy = int(np.sum(np.abs(np.array(observations) - np.array(predicted_responses)))) * 100 /len(observations)
+            print("Accuracy: ", accuracy, "%")
+
+        return predicted_responses
 
 
     def plot_avg_knows(self):
@@ -105,36 +136,3 @@ class hotDINA_skill():
             y = self.avg_knows[i]
             x = np.arange(len(y)).tolist()
             plt.plot(x, y, label="student" + str(i))
-
-
-if __name__ == "__main__":
-    village_num = "130"
-    NUM_ENTRIES = "1000"
-
-    path_to_data_file = os.getcwd() + '/../../hotDINA/pickles/data/data' + village_num + '_' + str(NUM_ENTRIES) + '.pickle'
-
-    if Path(path_to_data_file).is_file() == False:
-        # do something
-        os.chdir('../../hotDINA')
-        get_data_for_village_command = "python get_data_for_village_n.py -v " + village_num + " -o " + NUM_ENTRIES
-        os.system(get_data_for_village_command)
-        os.chdir("../RoboTutor-Analysis")
-    
-    with open(path_to_data_file, 'rb') as handle:
-        data_dict = pickle.load(handle)
-
-    T = data_dict['T']
-    I = len(T)
-    observations, items, users = data_dict['y'], data_dict['items'], data_dict['users']
-
-    output_file_path = os.getcwd() + "/../slurm_outputs"
-    params_skill_dict = slurm_output_params(path=output_file_path, village=village_num,slurm_id=slurm_params_files[village_num])
-
-    model = hotDINA_skill(params_skill_dict, T)
-    model.update(observations, items, users, True, True)
-
-    model2 = hotDINA_skill(params_skill_dict, T)
-    model2.update(observations, items, users, False, False)
-
-    plt.legend()
-    plt.show()

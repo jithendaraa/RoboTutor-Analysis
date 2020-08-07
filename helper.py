@@ -144,6 +144,7 @@ def slurm_output_params(path, village="130", slurm_id="10301619"):
     slurm_filename = "slurm-" + slurm_id + ".txt"
     path_to_slurm_file = path + "/" + slurm_filename
     slurm_file_lines = open(path_to_slurm_file, "rb").read().decode("utf-8").split("\n")
+    
     theta   = {}
     lambda0 = {}
     lambda1 = {}
