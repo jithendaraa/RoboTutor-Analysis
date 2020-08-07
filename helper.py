@@ -138,3 +138,45 @@ def plot_learning(learning_progress, student_ids, timesteps, new_student_avg, al
     plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0), useMathText=True)
     # plt.savefig("plots/" + algo + '_results.jpg')
     plt.show()
+
+def slurm_output_params(path, village="130", slurm_id="10301619"):
+
+    slurm_filename = "slurm-" + slurm_id + ".txt"
+    path_to_slurm_file = path + "/" + slurm_filename
+    slurm_file_lines = open(path_to_slurm_file, "rb").read().decode("utf-8").split("\n")
+    theta   = {}
+    lambda0 = {}
+    lambda1 = {}
+    learn   = {}
+    g       = {}
+    ss      = {}
+    for line in slurm_file_lines:
+        line_vals = line.split(" ")
+        line_vals = list(filter(("").__ne__, line_vals))
+        param_name = line_vals[0]
+        if len(param_name) > 5:
+            if param_name[:5] == "theta":
+                student_num = len(theta)
+                
+                theta.append(float(line_vals[1]))
+            elif param_name[:5] == "learn":
+                learn.append(float(line_vals[1]))
+            elif param_name[:7] == "lambda0":
+                lambda0.append(float(line_vals[1]))
+            elif param_name[:7] == "lambda1":
+                lambda1.append(float(line_vals[1]))
+        if param_name[:1] == "g":
+            g.append(float(line_vals[1]))
+        if param_name[:2] == "ss":
+            ss.append(float(line_vals[1]))
+
+    slurm_params_dict = {
+        'theta':    theta,
+        'learn':    learn,
+        'b':        lambda0,
+        'a':        lambda1,
+        'g':        g,
+        'ss':       ss
+    }
+
+    return slurm_params_dict

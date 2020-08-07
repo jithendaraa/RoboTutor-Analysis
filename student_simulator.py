@@ -14,7 +14,7 @@ from student_models.activity_bkt import ActivityBKT
 
 
 class StudentSimulator():
-    def __init__(self, villages, student_model_name="ItemBKT"):
+    def __init__(self, villages=["114"], student_model_name="ItemBKT", T=None):
 
         self.CONSTANTS = {
             "PATH_TO_CTA"                           : "Data/CTA.xlsx",
@@ -22,7 +22,12 @@ class StudentSimulator():
             "VILLAGES"                              : villages,
             "SUBSCRIPT"                             : "student_specific", #"student_specific" or "village_specific" for bkt subscipting
             "PRINT_BKT_PARAMS_FOR_STUDENT"          : True,
-            "PATH_TO_VILLAGE_STEP_TRANSAC_FILES"    :   []
+            "PATH_TO_VILLAGE_STEP_TRANSAC_FILES"    :   [],
+            "STUDENT_MODEL_INITIALISER"             : {
+                                                            "ItemBKT"       : "self.student_model = ItemBKT(self.params_dict, self.kc_list, self.uniq_student_ids)",
+                                                            "ActivityBKT"   : "self.student_model = ActivityBKT(self.params_dict, self.kc_list, self.uniq_student_ids)",
+                                                            "hotDINA_skill" : "self.student_model = hotDINA_skill(self.params_dict, T)"
+                                                        }
         }
 
         for village in self.CONSTANTS["VILLAGES"]:
@@ -34,6 +39,8 @@ class StudentSimulator():
         self.kc_list_spaceless = remove_spaces(self.kc_list)
         self.uniq_student_ids, self.student_id_to_village_map = get_uniq_transac_student_ids(self.CONSTANTS["PATH_TO_VILLAGE_STEP_TRANSAC_FILES"], self.CONSTANTS["VILLAGES"])
 
+        self.student_id_to_village_map['new_student'] = [int(self.CONSTANTS['VILLAGES'][0])]
+
         self.params_dict = get_bkt_params(self.kc_list_spaceless, 
                                         self.uniq_student_ids, 
                                         self.student_id_to_village_map, 
@@ -43,9 +50,7 @@ class StudentSimulator():
         # student_model_name can be "ItemBKT" or "ActivityBKT"
         self.student_model_name = student_model_name
         self.student_model = None
-
-        if self.student_model_name == "ItemBKT":
-            self.student_model = ItemBKT(self.params_dict, self.kc_list, self.uniq_student_ids)
+            
 
     def update_on_log_data(self, train_split, train_students=None):
         """
@@ -57,7 +62,13 @@ class StudentSimulator():
             train_students = self.uniq_student_ids.copy()
         
         for student_id in tqdm(train_students, desc="student model update"):
-            student_num = self.uniq_student_ids.index(student_id)
+            
+            student_num = None
+            if student_id not in self.uniq_student_ids:
+                print("'", student_id, "' not present in student_id list. Assuming this is student 0 in village", self.CONSTANTS["VILLAGES"][0], "...")
+                student_num = 0
+            else:
+                student_num = self.uniq_student_ids.index(student_id)
             
             if self.CONSTANTS["PRINT_BKT_PARAMS_FOR_STUDENT"] == True:
                 print("BKT PARAMS FOR STUDENT_ID: ", student_id)
@@ -88,9 +99,18 @@ class StudentSimulator():
                 print("Updated student_id:", pd.unique(np.array(student_ids)).tolist(), "with", str(test_idx), "rows")
 
 
-villages = ['114']
-students = ['5A27001967', '5A27002160']
+if __name__ == "__main__":
+    
+    
+    
+    villages = ['114']
+    students = ['5A27001967', '5A27002160']
+    student_simulator = StudentSimulator(villages)
 
-student_simulator = StudentSimulator(villages)
-student_simulator.update_on_log_data(1.0, train_students=students)
-plot_learning(student_simulator.student_model.learning_progress, students, 0, [], 'ppo')
+    print(student_simulator.student_model)
+    # student_simulator.update_on_log_data(1.0, train_students=students)
+    # plot_learning(student_simulator.student_model.learning_progress, students, 0, [], 'ppo')
+
+    # villages = ["130"]
+
+

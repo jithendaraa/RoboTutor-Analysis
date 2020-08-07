@@ -24,9 +24,6 @@ class ItemBKT:
             self.learn      --> an (n x u) matrix where self.learn[i][j] is P(Learn) or P(Transit) of student i, for skill j. A fast learner will have a high P(learn)
             self.forget     --> an (n x u) matrix where self.foget[i][j] is P(Forget) of student i, for skill j. Usually always assumed to be 0.
             kc_list         --> list (of length num_skills) of all skills according to the CTA table 
-            self.n          --> total students we are concerned about
-            self.u          --> total skills involved
-            self.timestep   --> an (n x u) matrix where self.timestep[i][j] tells the #opportunities student i has on skill j, initially this is np.zeros((n, u))
         """
 
         self.know = params_dict['know']

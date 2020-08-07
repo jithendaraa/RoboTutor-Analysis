@@ -43,7 +43,7 @@ def read_data():
     num_skills = len(kc_list)
     kc_to_tutorID_dict = init_kc_to_tutorID_dict(kc_list)
     cta_tutor_ids, kc_to_tutorID_dict = get_cta_tutor_ids(kc_to_tutorID_dict, kc_list, cta_df)
-    tutorID_to_kc_dict = init_tutorID_to_kc_dict(kc_to_tutorID_dict)
+    tutorID_to_kc_dict = get_tutorID_to_kc_dict(kc_to_tutorID_dict)
     uniq_skill_groups, skill_group_to_activity_map = get_skill_groups_info(tutorID_to_kc_dict, kc_list)
     print("DATA READING DONE.....")
     return kc_list, num_skills, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map
