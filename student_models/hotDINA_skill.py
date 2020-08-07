@@ -2,14 +2,10 @@ import numpy as np
 import pandas as pd
 import sys
 sys.path.append('..')
-import pickle
 import matplotlib.pyplot as plt
 import math
 import os
-from pathlib import Path
-
 from helper import *
-
 
 class hotDINA_skill():
     def __init__(self, params_dict, T):
@@ -33,16 +29,16 @@ class hotDINA_skill():
         # P(Know)'s of every student for every skill after every opportunity
         self.knows  = {}
         self.avg_knows = {}
-        for i in range(I):
+        for i in range(self.I):
             self.knows[i] = []
             self.avg_knows[i] = []
 
-        self.knews  = np.zeros((I, K))
+        self.knews  = np.zeros((self.I, self.K))
         self.bayesian_update = True
 
         # Insert "knews" as knows@t=0
-        for i in range(I):
-            for k in range(K):
+        for i in range(self.I):
+            for k in range(self.K):
                 self.knews[i][k]    = sigmoid(1.7 * self.a[k] * (self.theta[i] - self.b[k]))
             
             self.knows[i].append(self.knews[i].tolist())
@@ -52,12 +48,13 @@ class hotDINA_skill():
         prior_know = self.knows[i][-1][k]
         posterior_know = None
         p_correct = (self.ss[k] * prior_know) + (self.g[k] * (1 - prior_know)) 
+        p_wrong = 1.0 - p_correct
 
         if self.bayesian_update:
             if y == 1:
                 posterior_know = self.ss[k] * prior_know/p_correct
             elif y == 0:
-                posterior_know = self.g[k] * (1 - prior_know) / p_correct
+                posterior_know = (1 - self.ss[k]) * prior_know / p_wrong
             
             posterior_know = posterior_know + (1-posterior_know) * self.learn[k]    
         

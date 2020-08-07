@@ -29,7 +29,7 @@ class StudentSimulator():
                                                             "hotDINA_skill" : "self.student_model = hotDINA_skill(self.params_dict, T)"
                                                         }
         }
-
+        # Set some constants
         for village in self.CONSTANTS["VILLAGES"]:
             file = "Data/village_" + village + "/village_" + village + "_step_transac.txt"
             self.CONSTANTS["PATH_TO_VILLAGE_STEP_TRANSAC_FILES"].append(file)
@@ -38,9 +38,7 @@ class StudentSimulator():
         self.kc_list = self.cta_df.columns.tolist()
         self.kc_list_spaceless = remove_spaces(self.kc_list)
         self.uniq_student_ids, self.student_id_to_village_map = get_uniq_transac_student_ids(self.CONSTANTS["PATH_TO_VILLAGE_STEP_TRANSAC_FILES"], self.CONSTANTS["VILLAGES"])
-
         self.student_id_to_village_map['new_student'] = [int(self.CONSTANTS['VILLAGES'][0])]
-
         self.params_dict = get_bkt_params(self.kc_list_spaceless, 
                                         self.uniq_student_ids, 
                                         self.student_id_to_village_map, 
@@ -48,6 +46,7 @@ class StudentSimulator():
                                         self.CONSTANTS["SUBSCRIPT"]) 
         
         self.student_model_name = student_model_name
+        self.T = T
         self.student_model = self.CONSTANTS['STUDENT_MODEL_INITIALISER'][self.student_model_name]
             
 
@@ -100,10 +99,8 @@ class StudentSimulator():
 
 if __name__ == "__main__":
     
-    villages = ['114']
-    students = ['5A27001967', '5A27002160']
+    villages = ['130']
     student_simulator = StudentSimulator(villages)
-
     print(student_simulator.student_model)
     # student_simulator.update_on_log_data(1.0, train_students=students)
     # plot_learning(student_simulator.student_model.learning_progress, students, 0, [], 'ppo')

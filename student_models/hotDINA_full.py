@@ -54,11 +54,12 @@ class hotDINA_full():
         prior_know = self.eta[i][-1][k]
         posterior_know = None
         p_correct = (self.ss[j] * prior_know) + (self.g[j] * (1 - prior_know)) 
+        p_wrong = 1.0 - p_correct
 
         if y == 1:
             posterior_know = self.ss[j] * prior_know/p_correct
         elif y == 0:
-            posterior_know = self.g[j] * (1 - prior_know) / p_correct
+            posterior_know = prior_know * (1 - self.ss[j]) / p_wrong
 
         # posterior_know = posterior_know + (1-posterior_know) * self.learn[k]    
 
