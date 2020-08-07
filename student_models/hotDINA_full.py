@@ -9,12 +9,11 @@ J = 1712
 K = 22
 
 class hotDINA_full():
-    def __init__(self, params_dict, T, , update_type="bayesian"):
+    def __init__(self, params_dict, update_type="bayesian"):
         
         self.I = len(params_dict['theta'])
         self.J = len(params_dict['g'])
         self.K = len(params_dict['a'])
-        self.T = T
 
         self.update_type = update_type
 

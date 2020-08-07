@@ -8,16 +8,12 @@ import os
 from helper import *
 
 class hotDINA_skill():
-    def __init__(self, params_dict, T):
+    def __init__(self, params_dict, path_to_Qmatrix):
         
         self.I = len(params_dict['theta'])
-        self.K = len(params_dict['a'])
-        self.T = T
-        self.Q = pd.read_csv('../../hotDINA/qmatrix.txt', header=None).to_numpy()
-        self.slurm_params_files = {
-            "130":  "10301619"
-        }
-
+        self.K = len(params_dict['a'])        
+        self.Q = pd.read_csv(path_to_Qmatrix, header=None).to_numpy()
+        
         # Skills for hotDINA_params. Theta Ix1 vector, the rest are Kx1
         self.theta  = params_dict['theta']
         self.a      = params_dict['a']
@@ -45,17 +41,23 @@ class hotDINA_skill():
             self.avg_knows[i].append(np.mean(self.knews[i]))
 
     def update_skill(self, i, k, t, y, know):
-        prior_know = self.knows[i][-1][k]
+        prior_know = know[k]
         posterior_know = None
         p_correct = (self.ss[k] * prior_know) + (self.g[k] * (1 - prior_know)) 
         p_wrong = 1.0 - p_correct
+        
+        if p_wrong == 0 or p_correct == 0:
+            print("oof")
+        elif prior_know == 0.0 or self.ss[k] == 0:
+            print("oof1")
 
         if self.bayesian_update:
             if y == 1:
                 posterior_know = self.ss[k] * prior_know/p_correct
             elif y == 0:
                 posterior_know = (1 - self.ss[k]) * prior_know / p_wrong
-            
+        
+            print(posterior_know)
             posterior_know = posterior_know + (1-posterior_know) * self.learn[k]    
         
         else:
@@ -126,7 +128,6 @@ class hotDINA_skill():
             print("Accuracy: ", accuracy, "%")
 
         return predicted_responses
-
 
     def plot_avg_knows(self):
         for i in range(self.I):

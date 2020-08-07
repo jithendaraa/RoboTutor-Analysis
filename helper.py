@@ -145,12 +145,12 @@ def slurm_output_params(path, village="130", slurm_id="10301619"):
     path_to_slurm_file = path + "/" + slurm_filename
     slurm_file_lines = open(path_to_slurm_file, "rb").read().decode("utf-8").split("\n")
     
-    theta   = {}
-    lambda0 = {}
-    lambda1 = {}
-    learn   = {}
-    g       = {}
-    ss      = {}
+    theta   =  []
+    lambda0 =  []
+    lambda1 =  []
+    learn   =  []
+    g       =  []
+    ss      =  []
     for line in slurm_file_lines:
         line_vals = line.split(" ")
         line_vals = list(filter(("").__ne__, line_vals))

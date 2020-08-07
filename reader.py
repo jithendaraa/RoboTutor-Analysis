@@ -277,11 +277,13 @@ def get_village_specific_bkt_params(kc_list_spaceless, uniq_student_ids, student
     
     return init_know, init_learn, init_slip, init_guess, init_forget
 
-def get_student_specific_bkt_params(kc_list_spaceless, uniq_student_ids, student_id_to_village_map, villages):
+def get_student_specific_bkt_params(kc_list_spaceless, uniq_student_ids, student_id_to_village_map):
     
     num_skills = len(kc_list_spaceless)
     num_students = len(uniq_student_ids)
     
+    # get params for the village here 
+
     init_know = np.ones((num_students, num_skills)) * 0.2
     init_learn = np.ones((num_students, num_skills)) * 0.6
     init_slip = np.ones((num_students, num_skills)) * 0.1
