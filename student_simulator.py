@@ -141,18 +141,15 @@ class StudentSimulator():
             print("theta: ", self.params_dict['theta'])
             print('a: ', self.params_dict['a'])
             print('b: ', self.params_dict['b'])
-            print("LEARN: ", self.params_dict['learn'])
-            print("GUESS: ", self.params_dict['g'])
-            print("SLIP: ", self.params_dict['ss'])
+            print("learn: ", self.params_dict['learn'])
+            print("guess: ", self.params_dict['g'])
+            print("ss: ", self.params_dict['ss'])
             print()
 
         observations = data_dict['y']
         items = data_dict['items']
         users = data_dict['users']
-
         self.student_model.update(observations, items, users, bayesian_update, plot)
-        
-
 
 if __name__ == "__main__":
 
@@ -186,6 +183,6 @@ if __name__ == "__main__":
     os.chdir('../RoboTutor-Analysis')
     
     students = student_simulator.uniq_student_ids[:2]
-    print(students, student_simulator.params_dict)
     student_simulator.update_on_log_data(1.0, train_students=students, data_dict=data_dict, bayesian_update=False, plot=True)
+    plt.show()
     # plot_learning(student_simulator.student_model.learning_progress, students, 0, [], 'ppo')

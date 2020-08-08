@@ -11,7 +11,6 @@ from tqdm import tnrange, tqdm_notebook, tqdm
 
 
 
-
 # Read functions
 def read_transac_table(path_to_transac_table, full_df=False):
     """

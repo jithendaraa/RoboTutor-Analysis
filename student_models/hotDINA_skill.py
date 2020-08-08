@@ -46,9 +46,10 @@ class hotDINA_skill():
         p_correct = (self.ss[k] * prior_know) + (self.g[k] * (1 - prior_know)) 
         p_wrong = 1.0 - p_correct
         
-        if p_wrong == 0 or p_correct == 0:
+        # print(p_correct, prior_know, self.ss[k], self.g[k])
+        if p_wrong == 0.0 or p_correct == 0.0:
             print("oof")
-        elif prior_know == 0.0 or self.ss[k] == 0:
+        elif prior_know == 0.0 or self.ss[k] == 0.0:
             print("oof1")
 
         if self.bayesian_update:
@@ -57,11 +58,13 @@ class hotDINA_skill():
             elif y == 0:
                 posterior_know = (1 - self.ss[k]) * prior_know / p_wrong
         
-            print(posterior_know)
+            # print(posterior_know)
             posterior_know = posterior_know + (1-posterior_know) * self.learn[k]    
         
         else:
             posterior_know = prior_know + (1-prior_know) * self.learn[k]
+        
+        # print(posterior_know)
 
         know[k] = posterior_know
         return know
@@ -134,3 +137,43 @@ class hotDINA_skill():
             y = self.avg_knows[i]
             x = np.arange(len(y)).tolist()
             plt.plot(x, y, label="student" + str(i))
+
+if __name__ == '__main__':
+
+    from pathlib import Path
+    import pickle
+
+    path = os.getcwd() + '/../slurm_outputs'
+    village = '130'
+    observations = '1000'
+    params_dict = slurm_output_params(path, village)
+
+    path_to_Qmatrix = os.getcwd() + '/../../hotDINA/qmatrix.txt'
+
+    path_to_data_file = os.getcwd() + '/../../hotDINA/pickles/data/data'+ village + '_' + observations +'.pickle'
+    data_file = Path(path_to_data_file)
+
+    if data_file.is_file() == False:
+        # if data_file does not exist, get it
+        os.chdir('../../hotDINA')
+        get_data_file_command = 'python get_data_for_village_n.py -v ' + village + ' -o ' + observations 
+        os.system(get_data_file_command)
+        os.chdir('../RoboTutor-Analysis/student_models')
+
+    os.chdir('../../hotDINA')
+    with open(path_to_data_file, 'rb') as handle:
+        data_dict = pickle.load(handle)
+    os.chdir('../RoboTutor-Analysis/student_models')
+    
+    # update(self, observations, items, users, bayesian_update=True, plot=True)
+
+    observations = data_dict['y']
+    items = data_dict['items']
+    users = data_dict['users']
+
+    model = hotDINA_skill(params_dict, path_to_Qmatrix)
+    model.update(observations, items, users, bayesian_update=True, plot=True)
+
+    model2 = hotDINA_skill(params_dict, path_to_Qmatrix)
+    model2.update(observations, items, users, bayesian_update=False, plot=True)
+    plt.show()
