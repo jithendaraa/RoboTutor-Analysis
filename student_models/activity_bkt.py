@@ -19,11 +19,11 @@ class ActivityBKT():
         update()              : Does actiity wise BKT update for some number of observations by calling the update() function
         predict_p_correct()   : After fitting, this returns P(Correct) of getting an item correct based on learnt BKT params 
     """
-    def __init__(self, params_dict, kc_list, uniq_student_ids, activity_learning_progress):
+    def __init__(self, params_dict, kc_list, uniq_student_ids, activity_learning_progress={}):
         self.n = len(uniq_student_ids)
-        self.u = len(kc_list)
+        self.num_skills = len(kc_list)
         self.num_acts = 1712
-        self.timestep = np.zeros((self.n, self.u))
+        self.timestep = np.zeros((self.n, self.num_skills))
         self.timestep_act = np.zeros((self.n, self.num_acts))
         self.learning_progress = activity_learning_progress
         
@@ -140,9 +140,9 @@ class ActivityBKT():
         
     def update_know_skills(self, activity_name, activity_num, student_num, uniq_activities):
         
-        p_know = [0] * self.u
+        p_know = [0] * self.num_skills
         
-        for i in range(self.u):
+        for i in range(self.num_skills):
             for act in uniq_activities:
                 act_idx = uniq_activities.index(act)
                 p_know[i] += (self.know_act[student_num][act_idx])

@@ -73,8 +73,7 @@ activity_learning_progress, act_student_id_to_number_map = init_act_student_id_t
 activity_bkt = ActivityBKT(params_dict, 
                             kc_list, 
                             uniq_activity_student_ids, 
-                            activity_learning_progress,
-                            subscript='by_activity')
+                            activity_learning_progress)
 
 
 math_activity_df = activity_df[activity_df["Matrix_ActivityName"] == 'math']
@@ -82,12 +81,12 @@ student_1_act_df = activity_df[activity_df['Unique_Child_ID_1'] == 'PWCRKF_379']
 
 activity_observations, student_nums, activity_skills, num_corrects, num_attempts, activities = extract_activity_table(student_1_act_df, act_student_id_to_number_map, kc_list)
 
-# activity_bkt.update(activity_observations, student_nums, activities, cta_tutor_ids, underscore_to_colon_tutor_id_dict)
+activity_bkt.update_by_activity(activity_observations, student_nums, activities, cta_tutor_ids, underscore_to_colon_tutor_id_dict)
 
-# studs = []
+studs = []
 
-# for key in activity_bkt.activity_learning_progress:
-#     if len(activity_bkt.activity_learning_progress[key]) > 1:
-#         studs.append(key)
+for key in activity_bkt.learning_progress:
+    if len(activity_bkt.learning_progress[key]) > 1:
+        studs.append(key)
 
-# plot_learning(activity_learning_progress, studs, 0, [], 'ppo')
+plot_learning(activity_learning_progress, studs, 0, [], 'ppo')
