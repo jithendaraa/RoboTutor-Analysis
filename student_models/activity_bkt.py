@@ -19,36 +19,37 @@ class ActivityBKT():
         update()              : Does actiity wise BKT update for some number of observations by calling the update() function
         predict_p_correct()   : After fitting, this returns P(Correct) of getting an item correct based on learnt BKT params 
     """
-    def __init__(self, params_dict, kc_list, uniq_student_ids, activity_learning_progress={}):
-        self.n = len(uniq_student_ids)
+    def __init__(self, params_dict, kc_list, uniq_student_ids, uniq_activities, activity_learning_progress={}):
+        self.n          = len(uniq_student_ids)
         self.num_skills = len(kc_list)
-        self.num_acts = 1712
-        self.timestep = np.zeros((self.n, self.num_skills))
-        self.timestep_act = np.zeros((self.n, self.num_acts))
-        self.learning_progress = activity_learning_progress
+        self.num_acts   = len(uniq_activities)
+        
         self.Q = pd.read_csv('../hotDINA/qmatrix.txt', header=None).to_numpy()
         
-        self.know = params_dict['know']
-        self.guess = params_dict['guess']
-        self.slip = params_dict['slip']
-        self.learn = params_dict['learn']
-        self.forget = params_dict['forget']
-        
+        self.timestep = np.zeros((self.n, self.num_skills))
+        self.timestep_act = np.zeros((self.n, self.num_acts))
+
+        self.learning_progress = activity_learning_progress
+
         self.kc_list    = kc_list
-        self.uniq_student_ids   = uniq_student_ids
+        self.know       = params_dict['know']
+        self.guess      = params_dict['guess']
+        self.slip       = params_dict['slip']
+        self.learn      = params_dict['learn']
+        self.forget     = params_dict['forget'] 
         self.know_act   = params_dict['know_act']
         self.guess_act  = params_dict['guess_act']
         self.slip_act   = params_dict['slip_act']
         self.learn_act  = params_dict['learn_act']
         self.forget_act = params_dict['forget_act']
+
+        self.uniq_student_ids   = uniq_student_ids
+        self.uniq_activities    = uniq_activities
         
     def set_learning_progress(self, student_id, learning_progress, know):
         self.learning_progress[student_id] = learning_progress
         self.know[self.uniq_student_ids.index(student_id)] = know
     
-    """Function to do the bayesian update, ie calc P(Know @t+1 | obs @t+1) based on P(Know @t), guess slip etc. 
-       Uses this estimate along with P(Learn) to find P(Know @t+1)
-    """
     def update_per_obs(self, observation, i, j):
 
         """
@@ -139,41 +140,31 @@ class ActivityBKT():
         posterior_know = (posterior_know_given_obs * no_forget) + (1 - posterior_know_given_obs) * learn
         self.know_act[i][j] = posterior_know
         
-    def update_know_skills(self, activity_name, activity_num, student_num, uniq_activities):
-        
+    def update_know_skills(self, activity_name, activity_num, student_num):
         p_know                  = [0] * self.num_skills
         act_counts_per_skill    = [0] * self.num_skills
         student_know_act = self.know_act[student_num]
-        
-        for act in uniq_activities:
-            act_idx = uniq_activities.index(act)
+        for act in self.uniq_activities:
+            act_idx = self.uniq_activities.index(act)
             skills = self.Q[act_idx]
             for j in range(self.num_skills):
                 skill = skills[j]
                 p_know[j] += (student_know_act[act_idx] * skill)
                 act_counts_per_skill[j] += skill
-        
         for j in range(self.num_skills):
             if act_counts_per_skill[j] == 0:
                 continue
             p_know[j] = p_know[j]/act_counts_per_skill[j]
-
         self.know[student_num] = p_know
         
     def update(self, activity_observations, student_nums, activities, tutor_ids, underscore_to_colon_tutor_id_dict):
-        k = len(activities)
-        uniq_activities = []
-        for tutor_id in tutor_ids:
-            if underscore_to_colon_tutor_id_dict[tutor_id] not in uniq_activities:
-                uniq_activities.append(underscore_to_colon_tutor_id_dict[tutor_id])
-        
-        for i in range(k):
+        for i in range(len(activities)):
             student_num = student_nums[i]
             student_id = self.uniq_student_ids[student_num]
             activity_num = uniq_activities.index(activities[i])
             activity_name = activities[i]
             self.update_per_activity(activity_observations[i], student_num, activity_num)
-            self.update_know_skills(activity_name, activity_num, student_num, uniq_activities)  
+            self.update_know_skills(activity_name, activity_num, student_num, self.uniq_activities)  
             if student_id not in self.learning_progress:
                 self.set_learning_progress(student_id, [self.know[student_num]], self.know[student_num])
             else:

@@ -57,9 +57,11 @@ class StudentSimulator():
         if self.student_model_name == "ActivityBKT":
             self.activity_df = pd.read_excel(self.CONSTANTS['PATH_TO_ACTIVITY_TABLE'])
             if self.CONSTANTS['OBSERVATIONS'] != 'all':
-                observations = int(self.CONSTANTS['OBSERVATIONS'])
-                self.activity_df = self.activity_df[:observations]
-            # self.kc_list, temp_, temp1_, self.cta_tutor_ids, self.uniq_skill_groups, self.skill_group_to_activity_map = read_data()
+                
+                self.set_uniq_activities()
+
+                num_obs = int(self.CONSTANTS['OBSERVATIONS'])
+                self.activity_df = self.activity_df[:num_obs]
         
         else:
             
@@ -67,7 +69,13 @@ class StudentSimulator():
             self.student_id_to_village_map['new_student'] = [int(self.CONSTANTS['VILLAGE'])]
 
         self.kc_list_spaceless = remove_spaces(self.kc_list)
-
+    
+    def set_uniq_activities(self):
+        kc_to_tutorID_dict = init_kc_to_tutorID_dict(self.kc_list)
+        cta_tutor_ids, kc_to_tutorID_dict = get_cta_tutor_ids(kc_to_tutorID_dict, self.kc_list, self.cta_df)
+        self.underscore_to_colon_tutor_id_dict = get_underscore_to_colon_tutor_id_dict(cta_tutor_ids)
+        self.uniq_activities = get_uniq_activities(cta_tutor_ids)
+        
     def set_slurm_files(self):
         self.set_hotDINA_skill_slurm_files()
         self.set_hotDINA_full_slurm_files()

@@ -439,6 +439,13 @@ def get_underscore_to_colon_tutor_id_dict(cta_tutor_ids):
     
     return underscore_to_colon_tutor_id_dict
 
+def get_uniq_activities(cta_tutor_ids):
+    uniq_activities = []
+    for tutor_id in tutor_ids:
+        if underscore_to_colon_tutor_id_dict[tutor_id] not in uniq_activities:
+            uniq_activities.append(underscore_to_colon_tutor_id_dict[tutor_id])
+    return uniq_activities
+    
 
 
 
