@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+import argparse
+import pickle
 
 from helper import *
 from reader import *
@@ -12,14 +14,13 @@ from RL_agents.actor_critic_agent import ActorCriticAgent
 from environment import StudentEnv
 from student_simulator import StudentSimulator
 
-
 CONSTANTS = {
                 "LOAD"                  : False,
                 "CLEAR_FILES"           : False,
                 "STUDENT_ID"            : "new_student",
                 "ALGO"                  : "actor_critic",
                 "STUDENT_MODEL_NAME"    : "ActivityBKT",
-                "VILLAGES"              : ["114"],
+                "VILLAGE"               : "130",
                 "START_EPISODE"         : 0,
                 "NUM_EPISODES"          : 1000,
                 "RUN"                   : 0,
@@ -28,17 +29,29 @@ CONSTANTS = {
                 "LEARNING_RATE"         : 2e-5,
                 "STATE_SIZE"            : 18,
                 "ACTION_SIZE"           : 33,
-                "GAMMA"                 : 0.99
+                "GAMMA"                 : 0.99,
+                "NUM_OBS"               : "all"
             }
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-o", "--observations", help="NUM_ENTRIES that have to be extracted from a given transactions table. Should be a number or 'all'. If inputted number > total records for the village, this will assume a value of 'all'", required=False)
+parser.add_argument("-v", "--village_num", help="village_num whose transactions data has to be extracted, should be between 114 and 141", required=False)
+args = parser.parse_args()
+
+if args.village_num != None:
+    CONSTANTS["VILLAGE"] = args.village_num
+if args.observations != None:
+    CONSTANTS["NUM_OBS"] = args.observations
 
 clear_files(CONSTANTS["ALGO"], CONSTANTS["CLEAR_FILES"])
 
 # Get some important data 
 kc_list, num_skills, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map = read_data()
 
-# Train CONSTANTS["STUDENT_ID"] on observed data in activity table
-student_simulator = StudentSimulator(villages=CONSTANTS["VILLAGES"], student_model_name=CONSTANTS["STUDENT_MODEL_NAME"])
-student_simulator.update_on_log_data(1.0, train_students=[CONSTANTS["STUDENT_ID"]])
+student_simulator = StudentSimulator(village=CONSTANTS["VILLAGE"], 
+                                        observations=CONSTANTS["NUM_OBS"], 
+                                        student_model_name=CONSTANTS["STUDENT_MODEL_NAME"])
 # activity_bkt, activity_to_kc_dict, skill_to_number_map, student_id_to_number_map = train_on_obs(1.0, train_students=[CONSTANTS["STUDENT_ID"]])
 
 # student_id = student_id_to_number_map[CONSTANTS["STUDENT_ID"]]

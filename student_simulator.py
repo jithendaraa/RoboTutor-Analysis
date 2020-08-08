@@ -10,7 +10,7 @@ from reader import *
 from helper import *
 
 # from student_models.item_bkt import ItemBKT
-# from student_models.activity_bkt import ActivityBKT
+from student_models.activity_bkt import ActivityBKT
 from student_models.hotDINA_skill import hotDINA_skill
 
 
@@ -27,23 +27,22 @@ class StudentSimulator():
             "PATH_TO_VILLAGE_STEP_TRANSAC_FILES"    : [],
             "STUDENT_MODEL_INITIALISER"             : {
                                                         # "ItemBKT"       : "self.student_model = ItemBKT(self.params_dict, self.kc_list, self.uniq_student_ids)",
-                                                        # "ActivityBKT"   : "self.student_model = ActivityBKT(self.params_dict, self.kc_list, self.uniq_student_ids)",
+                                                        "ActivityBKT"   : "self.student_model = ActivityBKT(self.params_dict, self.kc_list, self.uniq_student_ids)",
                                                         "hotDINA_skill" : "self.student_model = hotDINA_skill(self.params_dict, path_to_Qmatrix)"
                                                     },
         }
-        path_to_Qmatrix = os.getcwd() + '/../hotDINA/qmatrix.txt'
 
+        path_to_Qmatrix = os.getcwd() + '/../hotDINA/qmatrix.txt'
         self.student_model_name = student_model_name
         self.hotDINA_skill_slurm_files = {}
         self.hotDINA_full_slurm_files = {}
         self.params_dict = {}
-        
-        # Set village path constants, RT village data and params for the student_model
         self.set_village_paths()
         self.set_data()
         self.set_slurm_files()
         self.set_params_dict()
-        exec(self.CONSTANTS['STUDENT_MODEL_INITIALISER'][student_model_name])
+        # exec(self.CONSTANTS['STUDENT_MODEL_INITIALISER'][student_model_name])
+        # print("StudentSimulator initialised (type: " + self.student_model_name + ')')
 
     def set_village_paths(self):
         village = self.CONSTANTS["VILLAGE"]
@@ -51,12 +50,24 @@ class StudentSimulator():
         self.CONSTANTS["PATH_TO_VILLAGE_STEP_TRANSAC_FILES"].append(file)
     
     def set_data(self):
+
         self.cta_df = read_cta_table(self.CONSTANTS["PATH_TO_CTA"])
         self.kc_list = self.cta_df.columns.tolist()
+        
+        if self.student_model_name == "ActivityBKT":
+            self.activity_df = pd.read_excel(self.CONSTANTS['PATH_TO_ACTIVITY_TABLE'])
+            if self.CONSTANTS['OBSERVATIONS'] != 'all':
+                observations = int(self.CONSTANTS['OBSERVATIONS'])
+                self.activity_df = self.activity_df[:observations]
+            # self.kc_list, temp_, temp1_, self.cta_tutor_ids, self.uniq_skill_groups, self.skill_group_to_activity_map = read_data()
+        
+        else:
+            
+            self.uniq_student_ids, self.student_id_to_village_map = get_uniq_transac_student_ids(self.CONSTANTS["PATH_TO_VILLAGE_STEP_TRANSAC_FILES"], [self.CONSTANTS["VILLAGE"]])
+            self.student_id_to_village_map['new_student'] = [int(self.CONSTANTS['VILLAGE'])]
+
         self.kc_list_spaceless = remove_spaces(self.kc_list)
-        self.uniq_student_ids, self.student_id_to_village_map = get_uniq_transac_student_ids(self.CONSTANTS["PATH_TO_VILLAGE_STEP_TRANSAC_FILES"], [self.CONSTANTS["VILLAGE"]])
-        self.student_id_to_village_map['new_student'] = [int(self.CONSTANTS['VILLAGE'])]
-    
+
     def set_slurm_files(self):
         self.set_hotDINA_skill_slurm_files()
         self.set_hotDINA_full_slurm_files()
@@ -68,11 +79,13 @@ class StudentSimulator():
         pass
 
     def set_params_dict(self):
-        if self.student_model_name == "ItemBKT":
+        village = self.CONSTANTS['VILLAGE']
+
+        if self.student_model_name == "ItemBKT" or self.student_model_name == 'ActivityBKT':
             self.params_dict    = get_bkt_params(self.kc_list_spaceless, 
                                                 self.uniq_student_ids, 
                                                 self.student_id_to_village_map, 
-                                                [self.CONSTANTS["VILLAGE"]], 
+                                                [village], 
                                                 self.CONSTANTS["SUBSCRIPT"]) 
         
         elif self.student_model_name == "hotDINA_skill":
@@ -151,25 +164,17 @@ class StudentSimulator():
         users = data_dict['users']
         self.student_model.update(observations, items, users, bayesian_update, plot)
 
-if __name__ == "__main__":
+    def activity_bkt_update(self):
 
+        self.student_model.update()
+        pass
+
+def check_hotDINA_skill(village, observations, student_simulator):
     from pathlib import Path
-    import argparse
     import pickle
-    
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-o", "--observations", help="NUM_ENTRIES that have to be extracted from a given transactions table. Should be a number or 'all'. If inputted number > total records for the village, this will assume a value of 'all'")
-    parser.add_argument("-v", "--village_num", help="village_num whose transactions data has to be extracted, should be between 114 and 141")
-    args = parser.parse_args()
 
-    village = args.village_num
-    observations = args.observations
-
-    student_simulator = StudentSimulator(village, observations, student_model_name="hotDINA_skill")
-    
     path_to_data_file = os.getcwd() + '/../hotDINA/pickles/data/data'+ village + '_' + observations +'.pickle'
     data_file = Path(path_to_data_file)
-
     if data_file.is_file() == False:
         # if data_file does not exist, get it
         os.chdir('../hotDINA')
@@ -181,8 +186,57 @@ if __name__ == "__main__":
     with open(path_to_data_file, 'rb') as handle:
         data_dict = pickle.load(handle)
     os.chdir('../RoboTutor-Analysis')
-    
     students = student_simulator.uniq_student_ids[:2]
-    student_simulator.update_on_log_data(1.0, train_students=students, data_dict=data_dict, bayesian_update=False, plot=True)
+    student_simulator.update_on_log_data(1.0, train_students=students, data_dict=data_dict, bayesian_update=True, plot=True)
     plt.show()
     # plot_learning(student_simulator.student_model.learning_progress, students, 0, [], 'ppo')
+
+def check_ActivityBKT(village, observations, student_simulator):
+
+    from pathlib import Path
+    import pickle
+
+    path_to_data_file = os.getcwd() + '/../hotDINA/pickles/data/data'+ village + '_' + observations +'.pickle'
+    data_file = Path(path_to_data_file)
+    if data_file.is_file() == False:
+        # if data_file does not exist, get it
+        os.chdir('../hotDINA')
+        get_data_file_command = 'python get_data_for_village_n.py -v ' + village + ' -o ' + observations 
+        os.system(get_data_file_command)
+        os.chdir('../RoboTutor-Analysis')
+
+    os.chdir('../hotDINA')
+    with open(path_to_data_file, 'rb') as handle:
+        data_dict = pickle.load(handle)
+    os.chdir('../RoboTutor-Analysis')
+
+    observations = data_dict['y']
+    users = data_dict['users']
+    activities = data_dict['items']
+
+
+
+    pass
+
+def main(check_model):
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-o", "--observations", help="NUM_ENTRIES that have to be extracted from a given transactions table. Should be a number or 'all'. If inputted number > total records for the village, this will assume a value of 'all'", default="1000", required=False)
+    parser.add_argument("-v", "--village_num", help="village_num whose transactions data has to be extracted, should be between 114 and 141", default="130", required=False)
+    args = parser.parse_args()
+
+    village = args.village_num
+    observations = args.observations
+
+    student_simulator = StudentSimulator(village, observations, student_model_name=check_model)
+
+    if check_model == 'hotDINA_skill':
+        check_hotDINA_skill(village, observations, student_simulator)
+    
+    elif check_model == 'ActivityBKT':
+        extract_activity_table(activity_df, act_student_id_to_number_map, kc_list)
+        # check_ActivityBKT(village, observations, student_simulator)
+
+if __name__ == "__main__":
+    main("ActivityBKT")

@@ -1,11 +1,12 @@
 import sys
 sys.path.append('..')
+import pandas as pd
 
 from helper import rmse
 import numpy as np
 
 # ActivityBKT is a non-binary BKT Model
-class ActivityBKT:
+class ActivityBKT():
     # value of knew is always knew @ time (timestep)
     # g -> guess, s->slip, l->learn, f->forget, k->know: all of these are n*u arrays where we have n students and u skills or items
     # timestep-> n*u array which tells the current timestep of student n for skill u
@@ -18,12 +19,13 @@ class ActivityBKT:
         update()              : Does actiity wise BKT update for some number of observations by calling the update() function
         predict_p_correct()   : After fitting, this returns P(Correct) of getting an item correct based on learnt BKT params 
     """
-    def __init__(self, params_dict, kc_list, students, num_students, activity_learning_progress, know_act=None, guess_act=None, slip_act=None, learn_act=None, forget_act=None, difficulty=None):
-        self.n = num_students
+    def __init__(self, params_dict, kc_list, uniq_student_ids, activity_learning_progress):
+        self.n = len(uniq_student_ids)
         self.u = len(kc_list)
         self.num_acts = 1712
         self.timestep = np.zeros((self.n, self.u))
         self.timestep_act = np.zeros((self.n, self.num_acts))
+        self.learning_progress = activity_learning_progress
         
         self.know = params_dict['know']
         self.guess = params_dict['guess']
@@ -31,20 +33,17 @@ class ActivityBKT:
         self.learn = params_dict['learn']
         self.forget = params_dict['forget']
         
-        self.kc_list = kc_list
-        self.students = students
-        self.learning_progress = activity_learning_progress
-        self.know_act = know_act
-        self.guess_act = guess_act
-        self.slip_act = slip_act
-        self.learn_act = learn_act
-        self.forget_act = forget_act
-
-        self.difficulty = difficulty
+        self.kc_list    = kc_list
+        self.uniq_student_ids   = uniq_student_ids
+        self.know_act   = params_dict['know_act']
+        self.guess_act  = params_dict['guess_act']
+        self.slip_act   = params_dict['slip_act']
+        self.learn_act  = params_dict['learn_act']
+        self.forget_act = params_dict['forget_act']
         
     def set_learning_progress(self, student_id, learning_progress, know):
         self.learning_progress[student_id] = learning_progress
-        self.know[self.students.index(student_id)] = know
+        self.know[self.uniq_student_ids.index(student_id)] = know
     
     """Function to do the bayesian update, ie calc P(Know @t+1 | obs @t+1) based on P(Know @t), guess slip etc. 
        Uses this estimate along with P(Learn) to find P(Know @t+1)
@@ -60,7 +59,6 @@ class ActivityBKT:
                                                 (1 - %correct) * (P(Know @t) * P(slip)/( P(K @t)*P(slip) + P(K @t)' * P(guess)' ))
                 Then Calc P(Know @t+1) based on P(Learn) 
                 P(Know @t+1) = P(Know @t+1 | obs) * P(no_forget) + P(Know @t+1 | obs)' * P(Learn)
-
             Parameters
             ----------
             observation: type [float]. 
@@ -74,9 +72,7 @@ class ActivityBKT:
             learning_progress: dict with key as "Unique_Child_ID_1" 
                                 value is a 2Dlist of P(Knows) for every update of P(Know) that happened to every skill for this student
                                 shape of value: (u, *)
-
             act_student_ids: list of unique "Unique_Child_ID_1" from activity table maintaining order of first appearance in the activity table
-
             Returns
             -------
             learning_progress: type dict
@@ -162,7 +158,7 @@ class ActivityBKT:
         
         for i in range(k):
             student_num = student_nums[i]
-            student_id = self.students[student_num]
+            student_id = self.uniq_student_ids[student_num]
             activity_num = uniq_activities.index(activities[i])
             activity_name = activities[i]
             self.update_per_activity(activity_observations[i], student_num, activity_num)

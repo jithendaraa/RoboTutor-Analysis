@@ -45,7 +45,7 @@ def read_data():
     tutorID_to_kc_dict = get_tutorID_to_kc_dict(kc_to_tutorID_dict)
     uniq_skill_groups, skill_group_to_activity_map = get_skill_groups_info(tutorID_to_kc_dict, kc_list)
     print("DATA READING DONE.....")
-    return kc_list, num_skills, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map
+    return kc_list, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map
 
 def read_activity_matrix(PATH_TO_ACTIVITY_DIFFICULTY, LITERACY_SHEET_NAME, MATH_SHEET_NAME, STORIES_SHEET_NAME):
     """
@@ -64,8 +64,6 @@ def read_activity_matrix(PATH_TO_ACTIVITY_DIFFICULTY, LITERACY_SHEET_NAME, MATH_
     stories_matrix.insert(0, stories_df.columns.tolist())
 
     return literacy_matrix, math_matrix, stories_matrix
-
-
 
 
 # Extract functions
@@ -164,12 +162,13 @@ def extract_activity_table(activity_df, act_student_id_to_number_map, kc_list):
         student_nums.append(act_student_id_to_number_map[student_id])
     
     for kc_subtest in kc_subtests:
+        if kc_subtest == 'Listening Comp':
+            kc_subtest = 'Listening Comprehension'
+        elif kc_subtest == 'Number I.D.':
+            kc_subtest = 'Number. I.D'
         activity_skills.append(kc_list.index(kc_subtest)) 
 
     return activity_observations, student_nums, activity_skills, num_corrects, num_attempts, activity_names
-
-
-
 
 # Get functions
 def get_uniq_transac_student_ids(PATH_TO_VILLAGE_STEP_TRANSAC_FILES, villages):
@@ -328,7 +327,7 @@ def get_bkt_params(kc_list_spaceless, uniq_student_ids, student_id_to_village_ma
     forget = np.zeros((num_students, num_skills))
 
     if subscript == "student_specific":
-        know, learn, slip, guess, forget = get_student_specific_bkt_params(kc_list_spaceless, uniq_student_ids, student_id_to_village_map, villages)
+        know, learn, slip, guess, forget = get_student_specific_bkt_params(kc_list_spaceless, uniq_student_ids, student_id_to_village_map)
     elif subscript == "village_specific":
         know, learn, slip, guess, forget = get_village_specific_bkt_params(kc_list_spaceless, uniq_student_ids, student_id_to_village_map, villages)
     else:
