@@ -26,6 +26,7 @@ class ActivityBKT():
         self.timestep = np.zeros((self.n, self.num_skills))
         self.timestep_act = np.zeros((self.n, self.num_acts))
         self.learning_progress = activity_learning_progress
+        self.Q = pd.read_csv('../hotDINA/qmatrix.txt', header=None).to_numpy()
         
         self.know = params_dict['know']
         self.guess = params_dict['guess']
@@ -140,16 +141,26 @@ class ActivityBKT():
         
     def update_know_skills(self, activity_name, activity_num, student_num, uniq_activities):
         
-        p_know = [0] * self.num_skills
+        p_know                  = [0] * self.num_skills
+        act_counts_per_skill    = [0] * self.num_skills
+        student_know_act = self.know_act[student_num]
         
-        for i in range(self.num_skills):
-            for act in uniq_activities:
-                act_idx = uniq_activities.index(act)
-                p_know[i] += (self.know_act[student_num][act_idx])
+        for act in uniq_activities:
+            act_idx = uniq_activities.index(act)
+            skills = self.Q[act_idx]
+            for j in range(self.num_skills):
+                skill = skills[j]
+                p_know[j] += (student_know_act[act_idx] * skill)
+                act_counts_per_skill[j] += skill
         
+        for j in range(self.num_skills):
+            if act_counts_per_skill[j] == 0:
+                continue
+            p_know[j] = p_know[j]/act_counts_per_skill[j]
+
         self.know[student_num] = p_know
         
-    def update_by_activity(self, activity_observations, student_nums, activities, tutor_ids, underscore_to_colon_tutor_id_dict):
+    def update(self, activity_observations, student_nums, activities, tutor_ids, underscore_to_colon_tutor_id_dict):
         k = len(activities)
         uniq_activities = []
         for tutor_id in tutor_ids:
@@ -162,8 +173,11 @@ class ActivityBKT():
             activity_num = uniq_activities.index(activities[i])
             activity_name = activities[i]
             self.update_per_activity(activity_observations[i], student_num, activity_num)
-            self.update_know_skills(activity_name, activity_num, student_num, uniq_activities)                
-            self.learning_progress[student_id].append(self.know[student_num].tolist())
+            self.update_know_skills(activity_name, activity_num, student_num, uniq_activities)  
+            if student_id not in self.learning_progress:
+                self.set_learning_progress(student_id, [self.know[student_num]], self.know[student_num])
+            else:
+                self.learning_progress[student_id].append(self.know[student_num])
 
     def predict_percent_correct(self, student_ids, skills, actual_observations=None):
         # print("PREDICTING P(Correct)....")
