@@ -15,7 +15,7 @@ from student_models.hotDINA_skill import hotDINA_skill
 
 
 class StudentSimulator():
-    def __init__(self, village="130", observations="1000", student_model_name="ItemBKT", subscript="student_specific"):
+    def __init__(self, village="114", observations="10000", student_model_name="ItemBKT", subscript="student_specific"):
 
         self.CONSTANTS = {
             "PATH_TO_CTA"                           : "Data/CTA.xlsx",
@@ -209,14 +209,13 @@ class StudentSimulator():
         activity_observations   = data_dict['activity_observations']
         student_nums            = data_dict['student_nums']
         activities              = data_dict['activity_names']                
-
+        print(len(activity_observations))
+        
         self.student_model.update(activity_observations, 
                                     student_nums, 
                                     activities, 
                                     self.cta_tutor_ids,
                                     self.underscore_to_colon_tutor_id_dict)
-        print('updated')
-
 
 def check_hotDINA_skill(village, observations, student_simulator):
     from pathlib import Path
@@ -240,7 +239,7 @@ def check_hotDINA_skill(village, observations, student_simulator):
     plt.show()
     # plot_learning(student_simulator.student_model.learning_progress, students, 0, [], 'ppo')
 
-def check_ActivityBKT(village, observations, student_simulator, matrix_type='math', student_id='PWCRKF_379'):
+def check_ActivityBKT(village, observations, student_simulator, matrix_type='math', student_id=None):
 
     from pathlib import Path
     import pickle
@@ -265,7 +264,8 @@ def check_ActivityBKT(village, observations, student_simulator, matrix_type='mat
     for key in student_simulator.student_model.learning_progress:
         if len(student_simulator.student_model.learning_progress[key]) > 1:
             studs.append(key)
-    plot_learning(student_simulator.activity_learning_progress, studs, 0, [], 'ppo')
+
+    plot_learning(student_simulator.student_model.learning_progress, studs, 0, [], 'ppo')
 
 def main(check_model):
     import argparse

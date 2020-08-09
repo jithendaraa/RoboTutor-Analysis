@@ -125,9 +125,9 @@ def plot_learning(learning_progress, student_ids, timesteps, new_student_avg, al
             p_avg_know = np.mean(np.array(p_know))
             x.append(j+1)
             y.append(p_avg_know)
-            if j>70:
-                break
-        plt.plot(x[:70], y[:70], label=student_id)
+            # if j>70:
+            #     break
+        plt.plot(x, y, label=student_id)
     
     # x = np.arange(1, len(new_student_avg) + 1).tolist()
     # plt.plot(x, new_student_avg, label="RL Agent", color="black")

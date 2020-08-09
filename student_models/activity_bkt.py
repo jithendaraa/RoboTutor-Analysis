@@ -23,7 +23,7 @@ class ActivityBKT():
         self.n          = len(uniq_student_ids)
         self.num_skills = len(kc_list)
         self.num_acts   = len(uniq_activities)
-        
+        print(uniq_student_ids)
         self.Q = pd.read_csv('../hotDINA/qmatrix.txt', header=None).to_numpy()
         
         self.timestep = np.zeros((self.n, self.num_skills))
@@ -163,12 +163,10 @@ class ActivityBKT():
             student_id = self.uniq_student_ids[student_num]
             activity_num = self.uniq_activities.index(activities[i])
             activity_name = activities[i]
+            
             self.update_per_activity(activity_observations[i], student_num, activity_num)
             self.update_know_skills(activity_name, activity_num, student_num)  
-            if student_id not in self.learning_progress:
-                self.set_learning_progress(student_id, [self.know[student_num]], self.know[student_num])
-            else:
-                self.learning_progress[student_id].append(self.know[student_num])
+            self.learning_progress[student_id].append(self.know[student_num].tolist())
 
     def predict_percent_correct(self, student_ids, skills, actual_observations=None):
         # print("PREDICTING P(Correct)....")
