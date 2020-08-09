@@ -123,6 +123,24 @@ def init_agent(kc_list, cta_df):
     
     return agent
 
+def load_params(PATH, agent):
+
+    if CONSTANTS['LOAD'] == True:
+        if CONSTANTS["ALGO"] == "dqn":
+            agent.Q_eval.load_state_dict(torch.load(PATH))
+            agent.Q_eval.eval()
+        elif CONSTANTS["ALGO"] == "actor_critic":
+            agent.actor_critic.load_state_dict(torch.load(PATH))
+            agent.actor_critic.eval()
+    return agent
+
+def save_params(PATH, agent):
+    if CONSTANTS["ALGO"] == "dqn":
+        torch.save(agent.Q_eval.state_dict(), PATH)
+        eps_history.append(agent.epsilon)
+    elif CONSTANTS["ALGO"] == "actor_critic":
+        torch.save(agent.actor_critic.state_dict(), PATH)
+
 
 
 if __name__ == '__main__':
@@ -155,50 +173,33 @@ if __name__ == '__main__':
 
     agent = init_agent(student_simulator.kc_list, student_simulator.cta_df)
 
-
-
-    
-
     scores = []
-    # can be used to see how epsilon changes with each timestep/opportunity
-    eps_history = []
+    eps_history = []    # can be used to see how epsilon changes with each timestep/opportunity
+    score = 0
+    avg_p_knows = []
+    avg_p_know = 0
+    avg_scores = []
 
-    # num_questions = 3
-    # score = 0
+    PATH = "saved_model_parameters/" + CONSTANTS["ALGO"] + ".pth"
+    agent = load_params(PATH, agent)
 
-    # PATH = "saved_model_parameters/" + CONSTANTS["ALGO"] + ".pth"
-    # avg_p_knows = []
-    # avg_p_know = 0
-    # avg_scores = []
+    for i in range(CONSTANTS["START_EPISODE"], CONSTANTS["NUM_EPISODES"]):
 
-    # if CONSTANTS["LOAD"] == True:
-    #     if CONSTANTS["ALGO"] == "dqn":
-    #         agent.Q_eval.load_state_dict(torch.load(PATH))
-    #         agent.Q_eval.eval()
-    #     elif CONSTANTS["ALGO"] == "actor_critic":
-    #         agent.actor_critic.load_state_dict(torch.load(PATH))
-    #         agent.actor_critic.eval()
+        score = 0
+        state = env.reset()
+        done = False
+        timesteps = 0
 
+        # if i % CONSTANTS["AVG_OVER_EPISODES"] == 0 and i > 0:
+        #     avg_score = np.mean(scores[max(0, i-CONSTANTS["AVG_OVER_EPISODES"]): i+1])
+        #     with open(CONSTANTS["ALGO"]+"_logs/avg_scores.txt", "a") as f:
+        #         text = str(i/CONSTANTS["AVG_OVER_EPISODES"]) + "," + str(avg_p_know) + "\n"
+        #         f.write(text)
 
-    # for i in range(CONSTANTS["START_EPISODE"], CONSTANTS["NUM_EPISODES"]):
-
-    #     if i % CONSTANTS["AVG_OVER_EPISODES"] == 0 and i > 0:
-    #         avg_score = np.mean(scores[max(0, i-CONSTANTS["AVG_OVER_EPISODES"]): i+1])
-    #         with open(CONSTANTS["ALGO"]+"_logs/avg_scores.txt", "a") as f:
-    #             text = str(i/CONSTANTS["AVG_OVER_EPISODES"]) + "," + str(avg_p_know) + "\n"
-    #             f.write(text)
-
-    #     if i > 0 and i % 500 == 0:
-    #         if CONSTANTS["ALGO"] == "dqn":
-    #             torch.save(agent.Q_eval.state_dict(), PATH)
-    #             eps_history.append(agent.epsilon)
-    #         elif CONSTANTS["ALGO"] == "actor_critic":
-    #             torch.save(agent.actor_critic.state_dict(), PATH)
-
-    #     score = 0
-    #     state = env.reset()
-    #     done = False
-    #     timesteps = 0
+        # if i > 0 and i % 500 == 0:
+        #     save_params(PATH, agent)
+            
+        
 
     #     while done != True:
     #         timesteps += 1

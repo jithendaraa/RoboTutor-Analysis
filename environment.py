@@ -17,6 +17,7 @@ class StudentEnv():
         
         self.student_simulator = student_simulator
         self.student_id = student_id
+        self.student_num = self.student_simulator.uniq_student_ids.index(self.student_id)
         # can be taken from unique rows of self.student_simulator.Q
         # self.skill_groups                   = skill_groups
         kc_list, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, self.skill_group_to_activity_map = read_data()
@@ -44,9 +45,11 @@ class StudentEnv():
 
         self.state = self.initial_state
 
-    # def reset(self):
-    #     self.activity_bkt.know[self.student_id] = self.initial_state.tolist().copy()
-    #     return self.initial_state
+    def reset(self):
+        student_model = self.student_simulator.student_model
+        if self.student_simulator.student_model_name == 'ActivityBKT':
+            student_model.know[self.student_num] = self.initial_state.tolist().copy()
+        return self.initial_state
     
     # def step(self, action, timesteps, max_timesteps):
     #     """
