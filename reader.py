@@ -156,7 +156,7 @@ def extract_activity_table(activity_df, act_student_id_to_number_map, kc_list):
     num_attempts = get_col_vals_from_df(activity_df, "#net_attempts", unique=False)
     activity_names = get_col_vals_from_df(activity_df, "ActivityName", unique=False)
     kc_subtests = get_col_vals_from_df(activity_df, "KC (Subtest)", unique=False)
-    
+
     student_nums = []
     for student_id in student_ids:
         student_nums.append(act_student_id_to_number_map[student_id])
@@ -168,7 +168,16 @@ def extract_activity_table(activity_df, act_student_id_to_number_map, kc_list):
             kc_subtest = 'Number. I.D'
         activity_skills.append(kc_list.index(kc_subtest)) 
 
-    return activity_observations, student_nums, activity_skills, num_corrects, num_attempts, activity_names
+    data_dict = {
+        'activity_observations' : activity_observations,
+        'student_nums'          : student_nums,
+        'activity_skills'       : activity_skills,
+        'num_corrects'          : num_corrects,
+        'num_attempts'          : num_attempts,
+        'activity_names'        : activity_names
+    }
+
+    return data_dict
 
 # Get functions
 def get_uniq_transac_student_ids(PATH_TO_VILLAGE_STEP_TRANSAC_FILES, villages):
@@ -439,7 +448,7 @@ def get_underscore_to_colon_tutor_id_dict(cta_tutor_ids):
     
     return underscore_to_colon_tutor_id_dict
 
-def get_uniq_activities(cta_tutor_ids):
+def get_uniq_activities(cta_tutor_ids, underscore_to_colon_tutor_id_dict):
     uniq_activities = []
     for tutor_id in cta_tutor_ids:
         if underscore_to_colon_tutor_id_dict[tutor_id] not in uniq_activities:

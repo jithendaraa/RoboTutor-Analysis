@@ -161,10 +161,10 @@ class ActivityBKT():
         for i in range(len(activities)):
             student_num = student_nums[i]
             student_id = self.uniq_student_ids[student_num]
-            activity_num = uniq_activities.index(activities[i])
+            activity_num = self.uniq_activities.index(activities[i])
             activity_name = activities[i]
             self.update_per_activity(activity_observations[i], student_num, activity_num)
-            self.update_know_skills(activity_name, activity_num, student_num, self.uniq_activities)  
+            self.update_know_skills(activity_name, activity_num, student_num)  
             if student_id not in self.learning_progress:
                 self.set_learning_progress(student_id, [self.know[student_num]], self.know[student_num])
             else:
