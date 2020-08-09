@@ -62,9 +62,7 @@ class StudentSimulator():
 
                 num_obs = int(self.CONSTANTS['OBSERVATIONS'])
                 self.activity_df = self.activity_df[:num_obs]
-        
         else:
-            
             self.uniq_student_ids, self.student_id_to_village_map = get_uniq_transac_student_ids(self.CONSTANTS["PATH_TO_VILLAGE_STEP_TRANSAC_FILES"], [self.CONSTANTS["VILLAGE"]])
             self.student_id_to_village_map['new_student'] = [int(self.CONSTANTS['VILLAGE'])]
 

@@ -13,7 +13,7 @@ from student_models.activity_bkt import ActivityBKT
 path_to_cta_table = "Data/CTA.xlsx"
 path_to_activity_table = "Data/extracted_Activity_table_KCSubtest_sl2.xlsx"
 cta_df = read_cta_table(path_to_cta_table)
-activity_df = pd.read_excel(path_to_activity_table)[:1000]
+activity_df = pd.read_excel(path_to_activity_table)
 kc_list = get_kc_list_from_cta_table(cta_df)
 u = len(kc_list)
 kc_to_tutorID_dict = init_kc_to_tutorID_dict(kc_list)
