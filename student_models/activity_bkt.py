@@ -7,28 +7,14 @@ import numpy as np
 
 # ActivityBKT is a non-binary BKT Model
 class ActivityBKT():
-    # value of knew is always knew @ time (timestep)
-    # g -> guess, s->slip, l->learn, f->forget, k->know: all of these are n*u arrays where we have n students and u skills or items
-    # timestep-> n*u array which tells the current timestep of student n for skill u
-    # KC subtest -> skills as per CTA table in 'Data/CTA.xlsx'
-    """
-        Functions
-        ---------
-        __init__()            : Initialises the class and sets class attributes
-        update_per_obs()      : Does the activity wise BKT update for "one observation" of an activity 
-        update()              : Does actiity wise BKT update for some number of observations by calling the update() function
-        predict_p_correct()   : After fitting, this returns P(Correct) of getting an item correct based on learnt BKT params 
-    """
     def __init__(self, params_dict, kc_list, uniq_student_ids, uniq_activities, activity_learning_progress={}):
         self.n          = len(uniq_student_ids)
         self.num_skills = len(kc_list)
         self.num_acts   = len(uniq_activities)
-        print(uniq_student_ids)
         self.Q = pd.read_csv('../hotDINA/qmatrix.txt', header=None).to_numpy()
         
         self.timestep = np.zeros((self.n, self.num_skills))
         self.timestep_act = np.zeros((self.n, self.num_acts))
-
         self.learning_progress = activity_learning_progress
 
         self.kc_list    = kc_list

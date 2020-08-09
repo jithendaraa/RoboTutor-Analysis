@@ -45,6 +45,7 @@ def read_data():
     tutorID_to_kc_dict = get_tutorID_to_kc_dict(kc_to_tutorID_dict)
     uniq_skill_groups, skill_group_to_activity_map = get_skill_groups_info(tutorID_to_kc_dict, kc_list)
     print("DATA READING DONE.....")
+    
     return kc_list, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map
 
 def read_activity_matrix(PATH_TO_ACTIVITY_DIFFICULTY, LITERACY_SHEET_NAME, MATH_SHEET_NAME, STORIES_SHEET_NAME):

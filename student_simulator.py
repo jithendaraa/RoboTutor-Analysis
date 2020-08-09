@@ -209,7 +209,6 @@ class StudentSimulator():
         activity_observations   = data_dict['activity_observations']
         student_nums            = data_dict['student_nums']
         activities              = data_dict['activity_names']                
-        print(len(activity_observations))
         
         self.student_model.update(activity_observations, 
                                     student_nums, 
@@ -241,11 +240,8 @@ def check_hotDINA_skill(village, observations, student_simulator):
 
 def check_ActivityBKT(village, observations, student_simulator, matrix_type='math', student_id=None):
 
-    from pathlib import Path
-    import pickle
-
     if matrix_type != None:
-            activity_df = student_simulator.activity_df[student_simulator.activity_df["Matrix_ActivityName"] == matrix_type]
+        activity_df = student_simulator.activity_df[student_simulator.activity_df["Matrix_ActivityName"] == matrix_type]
     else:
         activity_df = student_simulator.activity_df
     

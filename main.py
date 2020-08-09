@@ -29,159 +29,179 @@ CONSTANTS = {
                 "LEARNING_RATE"         : 2e-5,
                 "STATE_SIZE"            : 18,
                 "ACTION_SIZE"           : 33,
+                "ACTION_TYPE"           : 'per_skill_group',
                 "GAMMA"                 : 0.99,
                 "NUM_OBS"               : "all"
             }
 
+def set_constants(args):
+    CONSTANTS["NUM_OBS"]            = args.observations
+    CONSTANTS["VILLAGE"]            = args.village_num
+    CONSTANTS['STUDENT_ID']         = args.student_id
+    CONSTANTS['STUDENT_MODEL_NAME'] = args.student_model_name
+    CONSTANTS['ACTION_TYPE']        = args.action_type
 
-parser = argparse.ArgumentParser()
-parser.add_argument("-o", "--observations", help="NUM_ENTRIES that have to be extracted from a given transactions table. Should be a number or 'all'. If inputted number > total records for the village, this will assume a value of 'all'", required=False)
-parser.add_argument("-v", "--village_num", help="village_num whose transactions data has to be extracted, should be between 114 and 141", required=False)
-args = parser.parse_args()
+def get_data_dict(matrix_type, student_id, student_simulator):
+    
+    if CONSTANTS['STUDENT_MODEL_NAME'] == 'ActivityBKT':
+        if matrix_type != None:
+            activity_df = student_simulator.activity_df[student_simulator.activity_df["Matrix_ActivityName"] == matrix_type]
 
-if args.village_num != None:
-    CONSTANTS["VILLAGE"] = args.village_num
-if args.observations != None:
-    CONSTANTS["NUM_OBS"] = args.observations
+        else:
+            activity_df = student_simulator.activity_df
 
-clear_files(CONSTANTS["ALGO"], CONSTANTS["CLEAR_FILES"])
+        student_1_act_df = activity_df
 
-# Get some important data 
-kc_list, num_skills, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map = read_data()
+        if student_id != None:
+            student_1_act_df = activity_df[activity_df['Unique_Child_ID_1'] == student_id]
 
-student_simulator = StudentSimulator(village=CONSTANTS["VILLAGE"], 
+        data_dict = extract_activity_table(student_1_act_df, 
+                                            student_simulator.act_student_id_to_number_map, 
+                                            student_simulator.kc_list)
+    
+    return data_dict
+
+
+if __name__ == '__main__':
+
+    clear_files(CONSTANTS["ALGO"], CONSTANTS["CLEAR_FILES"])
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-o", "--observations", help="NUM_ENTRIES that have to be extracted from a given transactions table. Should be a number or 'all'. If inputted number > total records for the village, this will assume a value of 'all'", default='1000')
+    parser.add_argument("-v", "--village_num", help="village_num whose transactions data has to be extracted, should be between 114 and 141", default="130")
+    parser.add_argument('-m', '--matrix_type', help="math literacy or stories", default='math')
+    parser.add_argument('-sid', '--student_id', help="Student id", required=False, default='new_student')
+    parser.add_argument('-smn', '--student_model_name', help="Name of student model: (ItemBKT, ActivityBKT, hotDINA_skill)", required=False, default='ActivityBKT')
+    parser.add_argument('-at', '--action_type', help="per_skill_group (33), per_activity (1712), transition (4; prev, same, next, next-next), thresholds, transition-threshold. All are single actions except 'transition threshold which takes 2 actions from a (num_thresholds,num_activities) actions space' ", default='per_skill_group')
+    args = parser.parse_args()
+
+    set_constants(args)
+    matrix_type = args.matrix_type
+    student_id = args.student_id
+
+    student_simulator = StudentSimulator(village=CONSTANTS["VILLAGE"], 
                                         observations=CONSTANTS["NUM_OBS"], 
                                         student_model_name=CONSTANTS["STUDENT_MODEL_NAME"])
-# activity_bkt, activity_to_kc_dict, skill_to_number_map, student_id_to_number_map = train_on_obs(1.0, train_students=[CONSTANTS["STUDENT_ID"]])
 
-# student_id = student_id_to_number_map[CONSTANTS["STUDENT_ID"]]
-# initial_state = np.array(activity_bkt.know[student_id])
+    env = StudentEnv(student_simulator=student_simulator,
+                    action_size=CONSTANTS["ACTION_SIZE"],
+                    student_id=student_id)
 
-# env = StudentEnv(initial_state=initial_state, 
-#                 activities=cta_tutor_ids, 
-#                 activity_bkt=activity_bkt,
-#                 tutorID_to_kc_dict=tutorID_to_kc_dict,
-#                 student_id=student_id,
-#                 skill_to_number_map=skill_to_number_map,
-#                 skill_groups=uniq_skill_groups,
-#                 skill_group_to_activity_map=skill_group_to_activity_map,
-#                 action_size=CONSTANTS["ACTION_SIZE"])
+    # init_p_know = np.array(activity_bkt.know[student_id])
+    # init_avg_p_know = np.mean(init_p_know)
 
-# init_p_know = np.array(activity_bkt.know[student_id])
-# init_avg_p_know = np.mean(init_p_know)
+    # if CONSTANTS["ALGO"] == "dqn":
+    #     agent = DQNAgent(gamma=0.99, epsilon=1.0, batch_size=64, n_actions=CONSTANTS["ACTION_SIZE"], input_dims=[CONSTANTS["STATE_SIZE"]], lr=0.003, activity_to_skills_map=tutorID_to_kc_dict, kc_to_tutorID_dict=kc_to_tutorID_dict, cta_tutor_ids=cta_tutor_ids, kc_list=kc_list)
 
-# if CONSTANTS["ALGO"] == "dqn":
-#     agent = DQNAgent(gamma=0.99, epsilon=1.0, batch_size=64, n_actions=CONSTANTS["ACTION_SIZE"], input_dims=[CONSTANTS["STATE_SIZE"]], lr=0.003, activity_to_skills_map=tutorID_to_kc_dict, kc_to_tutorID_dict=kc_to_tutorID_dict, cta_tutor_ids=cta_tutor_ids, kc_list=kc_list)
+    # elif CONSTANTS["ALGO"] == "actor_critic":
+    #     agent = ActorCriticAgent(alpha=CONSTANTS["LEARNING_RATE"], 
+    #                                 input_dims=[CONSTANTS["STATE_SIZE"]], 
+    #                                 activity_to_skills_map=tutorID_to_kc_dict, 
+    #                                 kc_to_tutorID_dict=kc_to_tutorID_dict, 
+    #                                 cta_tutor_ids=cta_tutor_ids, 
+    #                                 kc_list=kc_list,
+    #                                 skill_to_number_map=skill_to_number_map,
+    #                                 skill_groups=uniq_skill_groups,
+    #                                 skill_group_to_activity_map=skill_group_to_activity_map,
+    #                                 gamma=CONSTANTS["GAMMA"],
+    #                                 layer1_size=4096, 
+    #                                 layer2_size=2048,
+    #                                 layer3_size=1024,
+    #                                 layer4_size=512,
+    #                                 n_actions=CONSTANTS["ACTION_SIZE"])
 
-# elif CONSTANTS["ALGO"] == "actor_critic":
-#     agent = ActorCriticAgent(alpha=CONSTANTS["LEARNING_RATE"], 
-#                                 input_dims=[CONSTANTS["STATE_SIZE"]], 
-#                                 activity_to_skills_map=tutorID_to_kc_dict, 
-#                                 kc_to_tutorID_dict=kc_to_tutorID_dict, 
-#                                 cta_tutor_ids=cta_tutor_ids, 
-#                                 kc_list=kc_list,
-#                                 skill_to_number_map=skill_to_number_map,
-#                                 skill_groups=uniq_skill_groups,
-#                                 skill_group_to_activity_map=skill_group_to_activity_map,
-#                                 gamma=CONSTANTS["GAMMA"],
-#                                 layer1_size=4096, 
-#                                 layer2_size=2048,
-#                                 layer3_size=1024,
-#                                 layer4_size=512,
-#                                 n_actions=CONSTANTS["ACTION_SIZE"])
+    # scores = []
+    # # can be used to see how epsilon changes with each timestep/opportunity
+    # eps_history = []
 
-# scores = []
-# # can be used to see how epsilon changes with each timestep/opportunity
-# eps_history = []
+    # num_questions = 3
+    # score = 0
 
-# num_questions = 3
-# score = 0
+    # PATH = "saved_model_parameters/" + CONSTANTS["ALGO"] + ".pth"
+    # avg_p_knows = []
+    # avg_p_know = 0
+    # avg_scores = []
 
-# PATH = "saved_model_parameters/" + CONSTANTS["ALGO"] + ".pth"
-# avg_p_knows = []
-# avg_p_know = 0
-# avg_scores = []
-
-# if CONSTANTS["LOAD"] == True:
-#     if CONSTANTS["ALGO"] == "dqn":
-#         agent.Q_eval.load_state_dict(torch.load(PATH))
-#         agent.Q_eval.eval()
-#     elif CONSTANTS["ALGO"] == "actor_critic":
-#         agent.actor_critic.load_state_dict(torch.load(PATH))
-#         agent.actor_critic.eval()
+    # if CONSTANTS["LOAD"] == True:
+    #     if CONSTANTS["ALGO"] == "dqn":
+    #         agent.Q_eval.load_state_dict(torch.load(PATH))
+    #         agent.Q_eval.eval()
+    #     elif CONSTANTS["ALGO"] == "actor_critic":
+    #         agent.actor_critic.load_state_dict(torch.load(PATH))
+    #         agent.actor_critic.eval()
 
 
-# for i in range(CONSTANTS["START_EPISODE"], CONSTANTS["NUM_EPISODES"]):
+    # for i in range(CONSTANTS["START_EPISODE"], CONSTANTS["NUM_EPISODES"]):
 
-#     if i % CONSTANTS["AVG_OVER_EPISODES"] == 0 and i > 0:
-#         avg_score = np.mean(scores[max(0, i-CONSTANTS["AVG_OVER_EPISODES"]): i+1])
-#         with open(CONSTANTS["ALGO"]+"_logs/avg_scores.txt", "a") as f:
-#             text = str(i/CONSTANTS["AVG_OVER_EPISODES"]) + "," + str(avg_p_know) + "\n"
-#             f.write(text)
-    
-#     if i > 0 and i % 500 == 0:
-#         if CONSTANTS["ALGO"] == "dqn":
-#             torch.save(agent.Q_eval.state_dict(), PATH)
-#             eps_history.append(agent.epsilon)
-#         elif CONSTANTS["ALGO"] == "actor_critic":
-#             torch.save(agent.actor_critic.state_dict(), PATH)
+    #     if i % CONSTANTS["AVG_OVER_EPISODES"] == 0 and i > 0:
+    #         avg_score = np.mean(scores[max(0, i-CONSTANTS["AVG_OVER_EPISODES"]): i+1])
+    #         with open(CONSTANTS["ALGO"]+"_logs/avg_scores.txt", "a") as f:
+    #             text = str(i/CONSTANTS["AVG_OVER_EPISODES"]) + "," + str(avg_p_know) + "\n"
+    #             f.write(text)
 
-#     score = 0
-#     state = env.reset()
-#     done = False
-#     timesteps = 0
+    #     if i > 0 and i % 500 == 0:
+    #         if CONSTANTS["ALGO"] == "dqn":
+    #             torch.save(agent.Q_eval.state_dict(), PATH)
+    #             eps_history.append(agent.epsilon)
+    #         elif CONSTANTS["ALGO"] == "actor_critic":
+    #             torch.save(agent.actor_critic.state_dict(), PATH)
 
-#     while done != True:
-#         timesteps += 1
-#         CONSTANTS["RUN"] += 1
-        
-#         action, explore, sample_skill, activityName = agent.choose_action(state, explore=False)
-#         skillNums = uniq_skill_groups[action]
+    #     score = 0
+    #     state = env.reset()
+    #     done = False
+    #     timesteps = 0
 
-#         prior_know = get_proba(action, activityName, tutorID_to_kc_dict, skill_to_number_map, env.activity_bkt.know[student_id])
-#         next_state, reward, student_response, done, posterior = env.step(action, timesteps, CONSTANTS["MAX_TIMESTEPS"])
-#         posterior_know = get_proba(action, activityName, tutorID_to_kc_dict, skill_to_number_map, env.activity_bkt.know[student_id])
+    #     while done != True:
+    #         timesteps += 1
+    #         CONSTANTS["RUN"] += 1
 
-#         if CONSTANTS["ALGO"] == "dqn":
-#             agent.store_transition(state, action, reward, next_state, done)
-#             agent.learn(decrease_eps=True)
+    #         action, explore, sample_skill, activityName = agent.choose_action(state, explore=False)
+    #         skillNums = uniq_skill_groups[action]
 
-#         elif CONSTANTS["ALGO"] == "actor_critic":
-#             agent.learn(state, reward, next_state, done)
-        
-#         state = next_state
-#         score += reward
-#         gain = np.sum(np.array(posterior_know) - np.array(prior_know))/num_skills
+    #         prior_know = get_proba(action, activityName, tutorID_to_kc_dict, skill_to_number_map, env.activity_bkt.know[student_id])
+    #         next_state, reward, student_response, done, posterior = env.step(action, timesteps, CONSTANTS["MAX_TIMESTEPS"])
+    #         posterior_know = get_proba(action, activityName, tutorID_to_kc_dict, skill_to_number_map, env.activity_bkt.know[student_id])
 
-#         with open(CONSTANTS["ALGO"]+"_logs/run.txt", "a") as f:
-#             explore_status = "EXPLOIT"
-#             if explore:
-#                 explore_status = "EXPLORE"
-#             text = "----------------------------------------------------------------------------------------------\n" + "RUN: " + str(CONSTANTS["RUN"]) + "\nTIMESTEPS: " + str(timesteps) + "\n EPISODE: " + str(i) + "\n" + explore_status + "\n" + "SAMPLED SKILL: " + str(sample_skill) + "\n" + "Action chosen: " + activityName + "\n" + " Skills: " + str(skillNums) + "\n" + " Prior P(Know) for these skills: " + str(prior_know) + "\n" + " Posterior P(Know) for these skills: " + str(posterior_know) + "\nSTUDENT RESPONSE: " + str(student_response) + "\n" + "GAIN: " + str(gain) + "\nREWARD: " + str(reward) + "\n" + " EPSILON: " + str(agent.epsilon) + "\n"
-#             f.write(text)
+    #         if CONSTANTS["ALGO"] == "dqn":
+    #             agent.store_transition(state, action, reward, next_state, done)
+    #             agent.learn(decrease_eps=True)
 
-#         p_know = env.activity_bkt.know[student_id].copy()
-        
-#         if done:
-#             avg_p_know = np.mean(np.array(p_know))
-#             avg_p_knows.append(avg_p_know)
+    #         elif CONSTANTS["ALGO"] == "actor_critic":
+    #             agent.learn(state, reward, next_state, done)
 
-#     print("episode: ", i, ", score: ", score, ", Avg_p_know: ", avg_p_know, ", TIMESTEPS: ", timesteps)
-#     scores.append(score)
-    
-#     with open(CONSTANTS["ALGO"]+"_logs/rewards.txt", "a") as f:
-#         text = str(i) + "," + str(avg_p_know) + "\n"
-#         f.write(text)
+    #         state = next_state
+    #         score += reward
+    #         gain = np.sum(np.array(posterior_know) - np.array(prior_know))/num_skills
 
-# final_p_know = np.array(env.activity_bkt.know[student_id])
-# final_avg_p_know = np.mean(final_p_know)
+    #         with open(CONSTANTS["ALGO"]+"_logs/run.txt", "a") as f:
+    #             explore_status = "EXPLOIT"
+    #             if explore:
+    #                 explore_status = "EXPLORE"
+    #             text = "----------------------------------------------------------------------------------------------\n" + "RUN: " + str(CONSTANTS["RUN"]) + "\nTIMESTEPS: " + str(timesteps) + "\n EPISODE: " + str(i) + "\n" + explore_status + "\n" + "SAMPLED SKILL: " + str(sample_skill) + "\n" + "Action chosen: " + activityName + "\n" + " Skills: " + str(skillNums) + "\n" + " Prior P(Know) for these skills: " + str(prior_know) + "\n" + " Posterior P(Know) for these skills: " + str(posterior_know) + "\nSTUDENT RESPONSE: " + str(student_response) + "\n" + "GAIN: " + str(gain) + "\nREWARD: " + str(reward) + "\n" + " EPSILON: " + str(agent.epsilon) + "\n"
+    #             f.write(text)
 
-# print()
-# print(init_p_know)
-# print(final_p_know)
-# print("INITIAL AVERAGE P_KNOW: ", init_avg_p_know)
-# print("FINAL AVERAGE_P_KNOW: ", final_avg_p_know)
-# print("MIN AVERAGE_P_KNOW: ", min(avg_p_knows))
-# print("MAX AVERAGE_P_KNOW: ", max(avg_p_knows))
-# print("IMPROVEMENT: ", final_avg_p_know - init_avg_p_know)
-# print(final_p_know - init_p_know)
+    #         p_know = env.activity_bkt.know[student_id].copy()
+
+    #         if done:
+    #             avg_p_know = np.mean(np.array(p_know))
+    #             avg_p_knows.append(avg_p_know)
+
+    #     print("episode: ", i, ", score: ", score, ", Avg_p_know: ", avg_p_know, ", TIMESTEPS: ", timesteps)
+    #     scores.append(score)
+
+    #     with open(CONSTANTS["ALGO"]+"_logs/rewards.txt", "a") as f:
+    #         text = str(i) + "," + str(avg_p_know) + "\n"
+    #         f.write(text)
+
+    # final_p_know = np.array(env.activity_bkt.know[student_id])
+    # final_avg_p_know = np.mean(final_p_know)
+
+    # print()
+    # print(init_p_know)
+    # print(final_p_know)
+    # print("INITIAL AVERAGE P_KNOW: ", init_avg_p_know)
+    # print("FINAL AVERAGE_P_KNOW: ", final_avg_p_know)
+    # print("MIN AVERAGE_P_KNOW: ", min(avg_p_knows))
+    # print("MAX AVERAGE_P_KNOW: ", max(avg_p_knows))
+    # print("IMPROVEMENT: ", final_avg_p_know - init_avg_p_know)
+    # print(final_p_know - init_p_know)
