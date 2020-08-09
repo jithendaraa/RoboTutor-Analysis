@@ -43,11 +43,10 @@ class StudentEnv():
             self.initial_state = np.array(student_model.knews[student_num])
 
         self.state = self.initial_state
-        
-    def reset(self):
-        self.activity_bkt.know[self.student_id] = self.initial_state.tolist().copy()
-        
-        return self.initial_state
+
+    # def reset(self):
+    #     self.activity_bkt.know[self.student_id] = self.initial_state.tolist().copy()
+    #     return self.initial_state
     
     # def step(self, action, timesteps, max_timesteps):
     #     """

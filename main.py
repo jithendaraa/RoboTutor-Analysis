@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import torch
 import argparse
 import pickle
@@ -28,10 +29,12 @@ CONSTANTS = {
                 "MAX_TIMESTEPS"         : 150,
                 "LEARNING_RATE"         : 2e-5,
                 "STATE_SIZE"            : 18,
-                "ACTION_SIZE"           : 33,
+                "ACTION_SIZE"           : 43,
                 "ACTION_TYPE"           : 'per_skill_group',
                 "GAMMA"                 : 0.99,
-                "NUM_OBS"               : "all"
+                "NUM_OBS"               : "all",
+                'NUM_SKILL_GROUPS'      : 43,
+                'EPSILON'               : 1.0
             }
 
 def set_constants(args):
@@ -40,6 +43,19 @@ def set_constants(args):
     CONSTANTS['STUDENT_ID']         = args.student_id
     CONSTANTS['STUDENT_MODEL_NAME'] = args.student_model_name
     CONSTANTS['ACTION_TYPE']        = args.action_type
+
+    cta_df = read_cta_table("Data/CTA.xlsx")
+    kc_list = get_kc_list_from_cta_table(cta_df)
+    num_skills = len(kc_list)
+
+    Q = pd.read_csv('../hotDINA/qmatrix.txt', header=None).to_numpy()
+    skill_groups = []
+    for row in Q:
+        if len(skill_groups) == 0 or row[:num_skills].tolist() not in skill_groups:
+            skill_groups.append(row[:num_skills].tolist())
+    
+    num_skill_groups = len(skill_groups)
+    CONSTANTS['NUM_SKILL_GROUPS'] = num_skill_groups
 
 def get_data_dict(matrix_type, student_id, student_simulator):
     
@@ -61,6 +77,53 @@ def get_data_dict(matrix_type, student_id, student_simulator):
     
     return data_dict
 
+def get_init_know(student_simulator, student_id):
+
+    student_model_name = student_simulator.student_model_name
+    student_model = student_simulator.student_model
+    student_num = student_simulator.uniq_student_ids.index(student_id)
+
+    if student_model_name == 'ActivityBKT':
+        return np.array(student_model.know[student_num])
+        
+    elif student_model_name == 'hotDINA_skill':
+        # Handle later
+        return None
+
+def init_agent(kc_list, cta_df):
+
+    kc_to_tutorID_dict = init_kc_to_tutorID_dict(kc_list)
+    cta_tutor_ids = get_cta_tutor_ids(kc_to_tutorID_dict, kc_list, cta_df)
+    tutorID_to_kc_dict = get_tutorID_to_kc_dict(kc_to_tutorID_dict)
+    uniq_skill_groups, skill_group_to_activity_map = get_skill_groups_info(tutorID_to_kc_dict, kc_list)
+    
+    if CONSTANTS['ALGO'] == 'actor_critic':
+        agent = agent = ActorCriticAgent(alpha=CONSTANTS["LEARNING_RATE"], 
+                                    input_dims=[CONSTANTS["STATE_SIZE"]], 
+                                    skill_groups=uniq_skill_groups,
+                                    skill_group_to_activity_map=skill_group_to_activity_map,
+                                    gamma=CONSTANTS["GAMMA"],
+                                    layer1_size=4096, 
+                                    layer2_size=2048,
+                                    layer3_size=1024,
+                                    layer4_size=512,
+                                    n_actions=CONSTANTS["ACTION_SIZE"])
+    
+    elif CONSTANTS["ALGO"] == "dqn":
+        agent = DQNAgent(gamma=CONSTANTS['GAMMA'], 
+                        epsilon=CONSTANTS['EPSILON'], 
+                        batch_size=64, 
+                        n_actions=CONSTANTS["ACTION_SIZE"], 
+                        input_dims=[CONSTANTS["STATE_SIZE"]], 
+                        lr=0.003, 
+                        activity_to_skills_map=tutorID_to_kc_dict, 
+                        kc_to_tutorID_dict=kc_to_tutorID_dict, 
+                        cta_tutor_ids=cta_tutor_ids, 
+                        kc_list=kc_list)
+    
+    return agent
+
+
 
 if __name__ == '__main__':
 
@@ -72,7 +135,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--matrix_type', help="math literacy or stories", default='math')
     parser.add_argument('-sid', '--student_id', help="Student id", required=False, default='new_student')
     parser.add_argument('-smn', '--student_model_name', help="Name of student model: (ItemBKT, ActivityBKT, hotDINA_skill)", required=False, default='ActivityBKT')
-    parser.add_argument('-at', '--action_type', help="per_skill_group (33), per_activity (1712), transition (4; prev, same, next, next-next), thresholds, transition-threshold. All are single actions except 'transition threshold which takes 2 actions from a (num_thresholds,num_activities) actions space' ", default='per_skill_group')
+    parser.add_argument('-at', '--action_type', help="per_skill_group (43), per_activity (1712), transition (4; prev, same, next, next-next), thresholds, transition-threshold. All are single actions except 'transition threshold which takes 2 actions from a (num_thresholds,num_activities) actions space' ", default='per_skill_group')
     args = parser.parse_args()
 
     set_constants(args)
@@ -87,32 +150,18 @@ if __name__ == '__main__':
                     action_size=CONSTANTS["ACTION_SIZE"],
                     student_id=student_id)
 
-    # init_p_know = np.array(activity_bkt.know[student_id])
-    # init_avg_p_know = np.mean(init_p_know)
+    init_p_know = get_init_know(student_simulator, student_id)
+    init_avg_p_know = np.mean(init_p_know)
 
-    # if CONSTANTS["ALGO"] == "dqn":
-    #     agent = DQNAgent(gamma=0.99, epsilon=1.0, batch_size=64, n_actions=CONSTANTS["ACTION_SIZE"], input_dims=[CONSTANTS["STATE_SIZE"]], lr=0.003, activity_to_skills_map=tutorID_to_kc_dict, kc_to_tutorID_dict=kc_to_tutorID_dict, cta_tutor_ids=cta_tutor_ids, kc_list=kc_list)
+    agent = init_agent(student_simulator.kc_list, student_simulator.cta_df)
 
-    # elif CONSTANTS["ALGO"] == "actor_critic":
-    #     agent = ActorCriticAgent(alpha=CONSTANTS["LEARNING_RATE"], 
-    #                                 input_dims=[CONSTANTS["STATE_SIZE"]], 
-    #                                 activity_to_skills_map=tutorID_to_kc_dict, 
-    #                                 kc_to_tutorID_dict=kc_to_tutorID_dict, 
-    #                                 cta_tutor_ids=cta_tutor_ids, 
-    #                                 kc_list=kc_list,
-    #                                 skill_to_number_map=skill_to_number_map,
-    #                                 skill_groups=uniq_skill_groups,
-    #                                 skill_group_to_activity_map=skill_group_to_activity_map,
-    #                                 gamma=CONSTANTS["GAMMA"],
-    #                                 layer1_size=4096, 
-    #                                 layer2_size=2048,
-    #                                 layer3_size=1024,
-    #                                 layer4_size=512,
-    #                                 n_actions=CONSTANTS["ACTION_SIZE"])
 
-    # scores = []
-    # # can be used to see how epsilon changes with each timestep/opportunity
-    # eps_history = []
+
+    
+
+    scores = []
+    # can be used to see how epsilon changes with each timestep/opportunity
+    eps_history = []
 
     # num_questions = 3
     # score = 0
