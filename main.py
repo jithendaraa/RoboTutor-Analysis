@@ -28,7 +28,7 @@ CONSTANTS = {
                 "AVG_OVER_EPISODES"     : 50,
                 "MAX_TIMESTEPS"         : 150,
                 "LEARNING_RATE"         : 2e-5,
-                "STATE_SIZE"            : 18,
+                "STATE_SIZE"            : 22,
                 "ACTION_SIZE"           : 43,
                 "ACTION_TYPE"           : 'per_skill_group',
                 "GAMMA"                 : 0.99,
@@ -90,12 +90,11 @@ def get_init_know(student_simulator, student_id):
         # Handle later
         return None
 
-def init_agent(kc_list, cta_df):
+def set_state_size(num_skills):
+    if CONSTANTS['ACTION_TYPE'] == 'per_skill_group':
+        CONSTANTS['STATE_SIZE'] = num_skills
 
-    kc_to_tutorID_dict = init_kc_to_tutorID_dict(kc_list)
-    cta_tutor_ids = get_cta_tutor_ids(kc_to_tutorID_dict, kc_list, cta_df)
-    tutorID_to_kc_dict = get_tutorID_to_kc_dict(kc_to_tutorID_dict)
-    uniq_skill_groups, skill_group_to_activity_map = get_skill_groups_info(tutorID_to_kc_dict, kc_list)
+def init_agent(skill_groups, skill_group_to_activity_map, tutorID_to_kc_dict, kc_to_tutorID_dict, cta_tutor_ids, kc_list):
     
     if CONSTANTS['ALGO'] == 'actor_critic':
         agent = agent = ActorCriticAgent(alpha=CONSTANTS["LEARNING_RATE"], 
@@ -141,8 +140,6 @@ def save_params(PATH, agent):
     elif CONSTANTS["ALGO"] == "actor_critic":
         torch.save(agent.actor_critic.state_dict(), PATH)
 
-
-
 if __name__ == '__main__':
 
     clear_files(CONSTANTS["ALGO"], CONSTANTS["CLEAR_FILES"])
@@ -164,14 +161,26 @@ if __name__ == '__main__':
                                         observations=CONSTANTS["NUM_OBS"], 
                                         student_model_name=CONSTANTS["STUDENT_MODEL_NAME"])
 
+    kc_list = student_simulator.kc_list
+    cta_df = student_simulator.cta_df
+    kc_to_tutorID_dict = init_kc_to_tutorID_dict(kc_list)
+    cta_tutor_ids = get_cta_tutor_ids(kc_to_tutorID_dict, kc_list, cta_df)
+    tutorID_to_kc_dict = get_tutorID_to_kc_dict(kc_to_tutorID_dict)
+    uniq_skill_groups, skill_group_to_activity_map = get_skill_groups_info(tutorID_to_kc_dict, kc_list)
+    student_num = student_simulator.uniq_student_ids.index(student_id)
+    num_skills = len(kc_list)
+
     env = StudentEnv(student_simulator=student_simulator,
+                    skill_groups=uniq_skill_groups,
+                    skill_group_to_activity_map = skill_group_to_activity_map,
                     action_size=CONSTANTS["ACTION_SIZE"],
                     student_id=student_id)
 
     init_p_know = get_init_know(student_simulator, student_id)
     init_avg_p_know = np.mean(init_p_know)
+    set_state_size(num_skills)
 
-    agent = init_agent(student_simulator.kc_list, student_simulator.cta_df)
+    agent = init_agent(uniq_skill_groups, skill_group_to_activity_map, tutorID_to_kc_dict, kc_to_tutorID_dict, cta_tutor_ids, kc_list)
 
     scores = []
     eps_history = []    # can be used to see how epsilon changes with each timestep/opportunity
@@ -198,60 +207,58 @@ if __name__ == '__main__':
 
         # if i > 0 and i % 500 == 0:
         #     save_params(PATH, agent)
-            
-        
 
-    #     while done != True:
-    #         timesteps += 1
-    #         CONSTANTS["RUN"] += 1
+        while done != True:
+            timesteps += 1
+            CONSTANTS["RUN"] += 1
 
-    #         action, explore, sample_skill, activityName = agent.choose_action(state, explore=False)
-    #         skillNums = uniq_skill_groups[action]
+            action, explore, sample_skill, activityName = agent.choose_action(state, explore=False)
+            skillNums = uniq_skill_groups[action]
 
-    #         prior_know = get_proba(action, activityName, tutorID_to_kc_dict, skill_to_number_map, env.activity_bkt.know[student_id])
-    #         next_state, reward, student_response, done, posterior = env.step(action, timesteps, CONSTANTS["MAX_TIMESTEPS"])
-    #         posterior_know = get_proba(action, activityName, tutorID_to_kc_dict, skill_to_number_map, env.activity_bkt.know[student_id])
+            prior_know = skill_probas(activityName, tutorID_to_kc_dict, kc_list, env.student_simulator.student_model.know[student_num])
+            next_state, reward, student_response, done, posterior = env.step(action, timesteps, CONSTANTS["MAX_TIMESTEPS"])
+            posterior_know = skill_probas(activityName, tutorID_to_kc_dict, kc_list, env.student_simulator.student_model.know[student_num])
 
-    #         if CONSTANTS["ALGO"] == "dqn":
-    #             agent.store_transition(state, action, reward, next_state, done)
-    #             agent.learn(decrease_eps=True)
+            if CONSTANTS["ALGO"] == "dqn":
+                agent.store_transition(state, action, reward, next_state, done)
+                agent.learn(decrease_eps=True)
 
-    #         elif CONSTANTS["ALGO"] == "actor_critic":
-    #             agent.learn(state, reward, next_state, done)
+            elif CONSTANTS["ALGO"] == "actor_critic":
+                agent.learn(state, reward, next_state, done)
 
-    #         state = next_state
-    #         score += reward
-    #         gain = np.sum(np.array(posterior_know) - np.array(prior_know))/num_skills
+            state = next_state
+            score += reward
+            gain = np.sum(np.array(posterior_know) - np.array(prior_know))/num_skills
 
-    #         with open(CONSTANTS["ALGO"]+"_logs/run.txt", "a") as f:
-    #             explore_status = "EXPLOIT"
-    #             if explore:
-    #                 explore_status = "EXPLORE"
-    #             text = "----------------------------------------------------------------------------------------------\n" + "RUN: " + str(CONSTANTS["RUN"]) + "\nTIMESTEPS: " + str(timesteps) + "\n EPISODE: " + str(i) + "\n" + explore_status + "\n" + "SAMPLED SKILL: " + str(sample_skill) + "\n" + "Action chosen: " + activityName + "\n" + " Skills: " + str(skillNums) + "\n" + " Prior P(Know) for these skills: " + str(prior_know) + "\n" + " Posterior P(Know) for these skills: " + str(posterior_know) + "\nSTUDENT RESPONSE: " + str(student_response) + "\n" + "GAIN: " + str(gain) + "\nREWARD: " + str(reward) + "\n" + " EPSILON: " + str(agent.epsilon) + "\n"
-    #             f.write(text)
+            # with open(CONSTANTS["ALGO"]+"_logs/run.txt", "a") as f:
+            #     explore_status = "EXPLOIT"
+            #     if explore:
+            #         explore_status = "EXPLORE"
+            #     text = "----------------------------------------------------------------------------------------------\n" + "RUN: " + str(CONSTANTS["RUN"]) + "\nTIMESTEPS: " + str(timesteps) + "\n EPISODE: " + str(i) + "\n" + explore_status + "\n" + "SAMPLED SKILL: " + str(sample_skill) + "\n" + "Action chosen: " + activityName + "\n" + " Skills: " + str(skillNums) + "\n" + " Prior P(Know) for these skills: " + str(prior_know) + "\n" + " Posterior P(Know) for these skills: " + str(posterior_know) + "\nSTUDENT RESPONSE: " + str(student_response) + "\n" + "GAIN: " + str(gain) + "\nREWARD: " + str(reward) + "\n" + " EPSILON: " + str(agent.epsilon) + "\n"
+            #     f.write(text)
 
-    #         p_know = env.activity_bkt.know[student_id].copy()
+            p_know = env.student_simulator.student_model.know[student_num].copy()
 
-    #         if done:
-    #             avg_p_know = np.mean(np.array(p_know))
-    #             avg_p_knows.append(avg_p_know)
+            if done:
+                avg_p_know = np.mean(np.array(p_know))
+                avg_p_knows.append(avg_p_know)
 
-    #     print("episode: ", i, ", score: ", score, ", Avg_p_know: ", avg_p_know, ", TIMESTEPS: ", timesteps)
-    #     scores.append(score)
+        print("episode: ", i, ", score: ", score, ", Avg_p_know: ", avg_p_know, ", TIMESTEPS: ", timesteps)
+        scores.append(score)
 
     #     with open(CONSTANTS["ALGO"]+"_logs/rewards.txt", "a") as f:
     #         text = str(i) + "," + str(avg_p_know) + "\n"
     #         f.write(text)
 
-    # final_p_know = np.array(env.activity_bkt.know[student_id])
-    # final_avg_p_know = np.mean(final_p_know)
+    final_p_know = np.array(env.activity_bkt.know[student_id])
+    final_avg_p_know = np.mean(final_p_know)
 
-    # print()
-    # print(init_p_know)
-    # print(final_p_know)
-    # print("INITIAL AVERAGE P_KNOW: ", init_avg_p_know)
-    # print("FINAL AVERAGE_P_KNOW: ", final_avg_p_know)
-    # print("MIN AVERAGE_P_KNOW: ", min(avg_p_knows))
-    # print("MAX AVERAGE_P_KNOW: ", max(avg_p_knows))
-    # print("IMPROVEMENT: ", final_avg_p_know - init_avg_p_know)
-    # print(final_p_know - init_p_know)
+    print()
+    print(init_p_know)
+    print(final_p_know)
+    print("INITIAL AVERAGE P_KNOW: ", init_avg_p_know)
+    print("FINAL AVERAGE_P_KNOW: ", final_avg_p_know)
+    print("MIN AVERAGE_P_KNOW: ", min(avg_p_knows))
+    print("MAX AVERAGE_P_KNOW: ", max(avg_p_knows))
+    print("IMPROVEMENT: ", final_avg_p_know - init_avg_p_know)
+    print(final_p_know - init_p_know)

@@ -77,43 +77,44 @@ class ActorCriticAgent(object):
         self.skill_groups = skill_groups
         self.skill_group_to_activity_map = skill_group_to_activity_map
     
-    # def choose_action(self, state, explore=False):
+    def choose_action(self, state, explore=False):
         
-    #     policy, critic_value = self.actor_critic.forward(state)
-    #     # softmax ensures actions add up to one which is a requirement for probabilities
-    #     policy = F.softmax(policy)
+        policy, critic_value = self.actor_critic.forward(state)
+        # softmax ensures actions add up to one which is a requirement for probabilities
+        policy = F.softmax(policy)
 
-    #     # Sample an action from these proba's and get the log proba's.
-    #     action_probs = torch.distributions.Categorical(policy)
-    #     action = action_probs.sample()
-    #     self.log_probs = action_probs.log_prob(action)
+        # # Sample an action from these proba's and get the log proba's.
+        action_probs = torch.distributions.Categorical(policy)
+        action = action_probs.sample()
+        self.log_probs = action_probs.log_prob(action)
         
-    #     skills = self.skill_groups[action]
-    #     skill_group = skills.copy()
+        skills = self.skill_groups[action]
+        skill_group = skills.copy()
 
-    #     # Assumption (needs to be changed): All activities within a skill group contribute to same amount and there is no difference between them in same skill group
-    #     # So, we just sample a random activity under this skill group to present it to the student 
-    #     activity = np.random.choice(self.skill_group_to_activity_map[str(action.item())])
+        # # Assumption (needs to be changed): All activities within a skill group contribute to same amount and there is no difference between them in same skill group
+        # # So, we just sample a random activity under this skill group to present it to the student 
+        activity = np.random.choice(self.skill_group_to_activity_map[str(action.item())])
 
-    #     # action is a tensor. Hence we return action.item() which is just the value
-    #     return action.item(), explore, skills, activity
+        # action is a tensor. Hence we return action.item() which is just the value
+        return action.item(), explore, skills, activity
+        
 
-    # def learn(self, state, reward, state_, done):
-    #     self.actor_critic.optimizer.zero_grad()
+    def learn(self, state, reward, state_, done):
+        self.actor_critic.optimizer.zero_grad()
 
-    #     _, critic_value = self.actor_critic.forward(state)
-    #     _, critic_value_ = self.actor_critic.forward(state_)
+        _, critic_value = self.actor_critic.forward(state)
+        _, critic_value_ = self.actor_critic.forward(state_)
 
-    #     reward = torch.tensor(reward, dtype=torch.float).to(self.actor_critic.device)
+        reward = torch.tensor(reward, dtype=torch.float).to(self.actor_critic.device)
 
-    #     # TD ERROR
-    #     delta = reward + (self.gamma * critic_value_ * (1-int(done))) - critic_value 
+        # TD ERROR
+        delta = reward + (self.gamma * critic_value_ * (1-int(done))) - critic_value 
 
-    #     actor_loss = -self.log_probs * delta
-    #     critic_loss = delta**2
+        actor_loss = -self.log_probs * delta
+        critic_loss = delta**2
 
-    #     (actor_loss + critic_loss).backward()
-    #     self.actor_critic.optimizer.step()
+        (actor_loss + critic_loss).backward()
+        self.actor_critic.optimizer.step()
 
         
 # used only in ppo_agent.py for PPO algo, Actor Critic Algo uses the class `ActorCriticNetwork`

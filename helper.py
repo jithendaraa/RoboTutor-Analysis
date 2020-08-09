@@ -64,10 +64,10 @@ def remove_iter_suffix(tutor):
     
     return None
 
-def skill_probas(activityName, tutorID_to_kc_dict, skill_to_number_map, p_know):
+def skill_probas(activityName, tutorID_to_kc_dict, kc_list, p_know):
     """
         Given:
-            ActivityName, TutorID to KC skill mapping, skill_to_number_map and p_know for each skill
+            ActivityName, TutorID to KC skill mapping
         Returns:
             P_know of those skills exercised by Activity Name
     """
@@ -77,7 +77,8 @@ def skill_probas(activityName, tutorID_to_kc_dict, skill_to_number_map, p_know):
     skillNames = tutorID_to_kc_dict[activityName]
     skillNums = []
     for skillName in skillNames:
-        skillNums.append(skill_to_number_map[skillName])
+        skill_num = kc_list.index(skillName)
+        skillNums.append(skill_num)
     
     for skill in skillNums:
         proba.append(p_know[skill])
