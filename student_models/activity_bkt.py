@@ -131,7 +131,7 @@ class ActivityBKT():
             p_know[j] = p_know[j]/act_counts_per_skill[j]
         self.know[student_num] = p_know
         
-    def update(self, activity_observations, student_nums, activities, tutor_ids):
+    def update(self, activity_observations, student_nums, activities):
         for i in range(len(activities)):
             student_num = student_nums[i]
             student_id = self.uniq_student_ids[student_num]
@@ -180,8 +180,7 @@ class ActivityBKT():
             # min_correct_preds_rmse = rmse(actual_observations, min_correct_preds)
             # print("FULL RESPONSIBILITY P(Correct) prediction RMSE: ", correct_preds_rmse)
             # print("BLAME WORST P(Correct) prediction RMSE: ", min_correct_preds_rmse)
-        
-            return correct_preds_rmse, min_correct_preds_rmse
+            # return correct_preds_rmse, min_correct_preds_rmse
         
         return correct_preds, min_correct_preds
 
@@ -191,7 +190,6 @@ class ActivityBKT():
             correct_prob = correct_preds[0]
         elif types == 'hardest_skill':
             correct_prob = min_correct_preds[0]
-        
         # Sample response from Bern(correct_prob)
-        response = np.random.binomial(n=1, p=p_correct_prob)
+        response = np.random.binomial(n=1, p=correct_prob)
         return response

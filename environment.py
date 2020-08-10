@@ -49,21 +49,21 @@ class StudentEnv():
             student_model.know[self.student_num] = self.initial_state.tolist().copy()
         return self.initial_state
     
-    def step(self, action, timesteps, max_timesteps):
+    def step(self, action, timesteps, max_timesteps, activityName):
         """
             action: int, activities[action] refers to the activity that the RL policy suggests/outputs.
         """
         done = False
         student_ids = [self.student_id]
         student_nums = [self.student_num]
-        skills = []
         skill_group = self.skill_groups[action]
         skills = [skill_group]
+        activity = self.student_simulator.underscore_to_colon_tutor_id_dict[activityName]
 
         if self.student_simulator.student_model_name == 'ActivityBKT':
         
             # Simulate student with current BKT params and get student response (predictions) according to full responsibility and blame-worst responsibility
-            correct_preds, min_correct_preds = self.student_simulator.student_model.predict_percent_correct(student_nums, skills)
+            correct_preds, min_correct_preds = self.student_simulator.student_model.predict_percent_correct(student_ids, skills)
 
             # should be min_correct_preds for "blame worst" responsibility
             student_response = correct_preds 
@@ -72,17 +72,15 @@ class StudentEnv():
             prior_know = self.student_simulator.student_model.know[self.student_num].copy()
 
             # BKT update based on student_response aka %correct
-            # self.student_simulator.student_model.update(activity_observations=student_response, 
-            #                                             student_nums=student_nums,  
-            #                                             skills=skills)
+            self.student_simulator.student_model.update(activity_observations=student_response, 
+                                                        student_nums=student_nums,  
+                                                        activities=[activity])
 
             # Get next state as updated P(Know) based on student_response. Set next_state as current_state
-            next_state = self.student_simulator.student_model.know[self.student_num]
+            posterior_know = self.student_simulator.student_model.know[self.student_num].copy()
+            next_state = self.student_simulator.student_model.know[self.student_num].copy()
             next_state = np.array(next_state)
             self.state = next_state.copy()
-
-            # Get posterior P(Know) ie P(Know) after BKT update from student_response 
-            posterior_know = self.student_simulator.student_model.know[self.student_num].copy()
 
         # Get avg P(Know) before and after student attempts the activities
         avg_prior_know = np.mean(np.array(prior_know))
@@ -91,10 +89,7 @@ class StudentEnv():
         # Reward after each attempt/opportunity
         reward = 1000 * (avg_posterior_know - avg_prior_know) # reward = 100 * np.mean(np.array(self.activity_bkt.know))
 
-        if reward <= 0.0:
+        if reward <= 0.0 or timesteps >= max_timesteps:
             done = True
-
-        # if timesteps >= max_timesteps:
-        #     done = True
 
         return next_state, reward, student_response[0], done, posterior_know

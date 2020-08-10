@@ -106,6 +106,13 @@ def clear_files(algo, clear):
         file.truncate(0)
         file.close()
 
+def output_avg_p_know(episode_num, avg_over_episodes, scores, filename, avg_p_know):
+    if episode_num % avg_over_episodes == 0 and episode_num > 0:
+        avg_score = np.mean(scores[max(0, episode_num-avg_over_episodes): episode_num+1])
+        with open(filename, "a") as f:
+            text = str(episode_num/avg_over_episodes) + "," + str(avg_p_know) + "\n"
+            f.write(text)
+
 def plot_learning(learning_progress, student_ids, timesteps, new_student_avg, algo):
     """
         Given 
