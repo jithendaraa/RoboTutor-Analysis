@@ -36,10 +36,10 @@ class StudentEnv():
         student_num = self.student_simulator.uniq_student_ids.index(self.student_id)
         
         if self.student_simulator.student_model_name == 'ActivityBKT':
-            self.initial_state = np.array(student_model.know[student_num])
+            self.initial_state = np.array(student_model.know[student_num]).copy()
     
         elif self.student_simulator.student_model_name == 'hotDINA_skill':
-            self.initial_state = np.array(student_model.knews[student_num])
+            self.initial_state = np.array(student_model.knews[student_num]).copy()
 
         self.state = self.initial_state.copy()
 
@@ -47,9 +47,15 @@ class StudentEnv():
     def reset(self):
         student_model = self.student_simulator.student_model
         if self.student_simulator.student_model_name == 'ActivityBKT':
-            self.student_simulator.student_model.know[self.student_num] = self.initial_state.tolist().copy()
-            self.student_simulator.student_model.learning_progress = {}
+            self.initial_state = self.checkpoint_know.copy()
+            self.student_simulator.student_model.know[self.student_num] = self.checkpoint_know.tolist().copy()
+            self.student_simulator.student_model.learning_progress = self.checkpoint_learning_progress
         return self.initial_state.copy()
+
+    def checkpoint(self):
+        #  Saves some values so env.reset() resets env values to checkpoint values
+        self.checkpoint_know = self.student_simulator.student_model.know[self.student_num]
+        self.checkpoint_learning_progress = self.student_simulator.student_model.learning_progress.copy()
     
     def step(self, action, timesteps, max_timesteps, activityName):
         """

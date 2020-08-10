@@ -83,11 +83,8 @@ if __name__ == "__main__":
     data_dict = extract_activity_table(uniq_student_ids, kc_list, CONSTANTS['MATRIX_TYPE'], CONSTANTS["NUM_OBS"])
     student_simulator.update_on_log_data(data_dict)
 
-
-    # activity_bkt, activity_to_kc_dict, skill_to_number_map, student_id_to_number_map = train_on_obs(1.0, train_students=[CONSTANTS["STUDENT_ID"]])
-
-    # student_num         = uniq_student_ids.index(CONSTANTS["STUDENT_ID"])
-    # initial_state       = np.array(activity_bkt.know[student_id])
+    student_num         = uniq_student_ids.index(CONSTANTS["STUDENT_ID"])
+    initial_state       = np.array(student_simulator.student_model.know[student_num])
     # env                 = StudentEnv(initial_state, 
     #                                 cta_tutor_ids, 
     #                                 activity_bkt,
