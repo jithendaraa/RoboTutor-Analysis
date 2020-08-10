@@ -1,6 +1,5 @@
 import sys
-sys.path.append("../lib")
-sys.path.append('../')
+sys.path.append('lib')
 
 import argparse
 import math
@@ -15,22 +14,31 @@ from tensorboardX import SummaryWriter
 from common import mkdir
 from multiprocessing_env import SubprocVecEnv
 
-from actor_critic_agent import ActorCritic
+from RL_agents.actor_critic_agent import ActorCritic
 from environment import StudentEnv
 from student_simulator import StudentSimulator
 
 from helper import *
 from reader import *
 
-train_and_play = False
+def set_constants(args):
+    CONSTANTS['ENV_ID']     = args.name
+    CONSTANTS['NUM_OBS']    = args.observations
+    CONSTANTS['VILLAGE']    = args.village_num
+    CONSTANTS['MATRIX_TYPE']= args.matrix_type
 
-CONSTANTS = {
-                "NUM_ENVS"          : 8,
+if __name__ == "__main__":
+    from ppo_helper import *
+
+    train_and_play = False
+
+    CONSTANTS = {
+                "NUM_ENVS"          : 4,
                 "STUDENT_ID"        : "new_student",
                 "ENV_ID"            : "RoboTutor",
                 "TARGET_P_KNOW"     : 0.85,
                 "STATE_SIZE"        : 18,
-                "ACTION_SIZE"       : 33,
+                "ACTION_SIZE"       : 43,
                 "FC1_DIMS"          : 256,
                 "RUN_NUM"           : 0,
                 "AVG_OVER_RUNS"     : 50,
@@ -50,17 +58,7 @@ CONSTANTS = {
                 'VILLAGE'           : '130',
                 'NUM_OBS'           : '1000',
                 'MATRIX_TYPE'       : 'math',
-            }
-
-def set_constants(args):
-    CONSTANTS['ENV_ID']     = args.name
-    CONSTANTS['NUM_OBS']    = args.observations
-    CONSTANTS['VILLAGE']    = args.village_num
-    CONSTANTS['MATRIX_TYPE']= args.matrix_type
-
-# TRAIN
-if __name__ == "__main__":
-    # from ppo_helper import normalize, compute_gae, test_env, ppo_update, make_env
+    }
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--name", default=CONSTANTS["ENV_ID"], help="Name of the run")
@@ -71,7 +69,6 @@ if __name__ == "__main__":
 
     set_constants(args)
 
-    os.chdir('..')
     kc_list, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map  = read_data()
 
     student_simulator = StudentSimulator(village=CONSTANTS["VILLAGE"], 
@@ -85,61 +82,58 @@ if __name__ == "__main__":
 
     student_num         = uniq_student_ids.index(CONSTANTS["STUDENT_ID"])
     initial_state       = np.array(student_simulator.student_model.know[student_num])
-    # env                 = StudentEnv(initial_state, 
-    #                                 cta_tutor_ids, 
-    #                                 activity_bkt,
-    #                                 tutorID_to_kc_dict,
-    #                                 student_id,
-    #                                 skill_to_number_map,
-    #                                 uniq_skill_groups,
-    #                                 skill_group_to_activity_map,
-    #                                 CONSTANTS["ACTION_SIZE"],
-    #                                 None)
 
-    # init_p_know                   = env.reset()
-    # init_avg_p_know               = np.mean(np.array(init_p_know))
-    # target_avg_p_know             = CONSTANTS["TARGET_P_KNOW"]
-    # final_p_know                  = init_p_know.copy()
-    # final_avg_p_know              = init_avg_p_know
-    # CONSTANTS["TARGET_REWARD"]    = 1000 * (target_avg_p_know - init_avg_p_know)
+    kc_list = student_simulator.kc_list
+    cta_df = student_simulator.cta_df
+    _, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map  = read_data()
+    
+    env = StudentEnv(student_simulator=student_simulator,
+                    skill_groups=uniq_skill_groups,
+                    skill_group_to_activity_map = skill_group_to_activity_map,
+                    action_size=CONSTANTS["ACTION_SIZE"],
+                    student_id=CONSTANTS["STUDENT_ID"])
+    env.checkpoint()
+
+    init_p_know                   = env.reset()
+    init_avg_p_know               = np.mean(np.array(init_p_know))
+    target_avg_p_know             = CONSTANTS["TARGET_P_KNOW"]
+    final_p_know                  = init_p_know.copy()
+    final_avg_p_know              = init_avg_p_know
+    CONSTANTS["TARGET_REWARD"]    = 1000 * (target_avg_p_know - init_avg_p_know)
 
     # clear log files: ppo_logs
-    # clear_files("ppo", True)
-
-    # mkdir('.', 'checkpoints')
-    
+    clear_files("ppo", True)
+    mkdir('.', 'checkpoints')
     # writer = SummaryWriter(comment="ppo_" + args.name)
 
-    # # Autodetect CUDA
-    # use_cuda = torch.cuda.is_available()
-    # device = torch.device("cuda:0" if use_cuda else "cpu:0")
-    # print('Device:', device)
+    # Autodetect CUDA
+    use_cuda = torch.cuda.is_available()
+    device = torch.device("cuda:0" if use_cuda else "cpu:0")
+    print('Device:', device)
 
-    # # Prepare environments
-    # envs = [make_env(i+1, 
-    #                 initial_state, 
-    #                 cta_tutor_ids, 
-    #                 activity_bkt, 
-    #                 tutorID_to_kc_dict, 
-    #                 student_id, 
-    #                 skill_to_number_map, 
-    #                 uniq_skill_groups, 
-    #                 skill_group_to_activity_map, 
-    #                 CONSTANTS["ACTION_SIZE"]) for i in range(CONSTANTS["NUM_ENVS"])]
-    # envs = SubprocVecEnv(envs)
+    # Prepare environments
+    envs = [make_env(i+1, 
+                    student_simulator, 
+                    CONSTANTS["STUDENT_ID"], 
+                    uniq_skill_groups, 
+                    skill_group_to_activity_map, 
+                    CONSTANTS["ACTION_SIZE"]) for i in range(CONSTANTS["NUM_ENVS"])]
+    envs = SubprocVecEnv(envs)
+    envs.checkpoint()
     
-    # num_inputs  = CONSTANTS["STATE_SIZE"]
-    # n_actions = CONSTANTS["ACTION_SIZE"]
+    num_inputs  = CONSTANTS["STATE_SIZE"]
+    n_actions = CONSTANTS["ACTION_SIZE"]
 
-    # model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[num_inputs], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=n_actions)
-    # # model.load_state_dict(torch.load("checkpoints/RoboTutor_best_+804.453_30720.dat"))
-    # frame_idx = 0
-    # train_epoch = 0
-    # best_reward = None
+    model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[num_inputs], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=n_actions)
+    # model.load_state_dict(torch.load("checkpoints/RoboTutor_best_+804.453_30720.dat"))
+    frame_idx = 0
+    train_epoch = 0
+    best_reward = None
 
     # # returns a state list, one for each env we make. dim: NUM_ENVS * STATE_SIZE
-    # state       = envs.reset()
-    # early_stop  = False
+    state       = envs.reset()
+    early_stop  = False
+    print(state)
 
     # while not early_stop:
     #     # lists to store training data

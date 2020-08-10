@@ -17,6 +17,9 @@ def worker(remote, parent_remote, env_fn_wrapper):
         elif cmd == 'reset':
             ob = env.reset()
             remote.send(ob)
+        elif cmd == 'checkpoint':
+            ob = env.checkpoint()
+            remote.send(ob)
         elif cmd == 'reset_task':
             ob = env.reset_task()
             remote.send(ob)
@@ -133,6 +136,11 @@ class SubprocVecEnv(VecEnv):
     def reset(self):
         for remote in self.remotes:
             remote.send(('reset', None))
+        return np.stack([remote.recv() for remote in self.remotes])
+
+    def checkpoint(self):
+        for remote in self.remotes:
+            remote.send(('checkpoint', None))
         return np.stack([remote.recv() for remote in self.remotes])
 
     def reset_task(self):

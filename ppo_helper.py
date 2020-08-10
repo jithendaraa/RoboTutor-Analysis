@@ -1,5 +1,4 @@
 import sys
-sys.path.append('../')
 
 import numpy as np
 import torch
@@ -13,21 +12,14 @@ from reader import *
 
 STUDENT_ID = ["CQCKBY_105"]
 
-kc_list, num_skills, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map  = read_data()
-activity_bkt, activity_to_kc_dict, skill_to_number_map, student_id_to_number_map = train_on_obs(1.0, train_students=STUDENT_ID)
-
-def make_env(i, initial_state, cta_tutor_ids, activity_bkt, tutorID_to_kc_dict, student_id, skill_to_number_map, uniq_skill_groups, skill_group_to_activity_map, ACTION_SIZE):
+def make_env(i, student_simulator, student_id, uniq_skill_groups, skill_group_to_activity_map, ACTION_SIZE):
     # returns a functions which creates a single environment
     def _thunk():
-        env = StudentEnv(initial_state=initial_state, 
-                            activities=cta_tutor_ids, 
-                            activity_bkt=activity_bkt,
-                            tutorID_to_kc_dict=tutorID_to_kc_dict,
-                            student_id=student_id,
-                            skill_to_number_map=skill_to_number_map,
+        env = StudentEnv(student_simulator=student_simulator,
                             skill_groups=uniq_skill_groups,
-                            skill_group_to_activity_map=skill_group_to_activity_map,
+                            skill_group_to_activity_map = skill_group_to_activity_map,
                             action_size=ACTION_SIZE,
+                            student_id=student_id,
                             env_num=i)
         return env
     return _thunk

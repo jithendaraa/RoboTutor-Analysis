@@ -174,6 +174,7 @@ if __name__ == '__main__':
                     skill_group_to_activity_map = skill_group_to_activity_map,
                     action_size=CONSTANTS["ACTION_SIZE"],
                     student_id=student_id)
+    env.checkpoint()
 
     init_p_know = get_init_know(student_simulator, student_id)
     init_avg_p_know = np.mean(init_p_know)
