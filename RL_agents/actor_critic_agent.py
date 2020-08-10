@@ -57,6 +57,7 @@ class ActorCriticNetwork(nn.Module):
 class ActorCriticAgent(object):
     def __init__(self, alpha, input_dims, 
                     skill_groups, 
+                    student_simulator,
                     skill_group_to_activity_map,
                     gamma,
                     layer1_size, 
@@ -68,6 +69,7 @@ class ActorCriticAgent(object):
         self.alpha = alpha    
         self.gamma = gamma
         self.epsilon = 0.0
+        self.student_simulator = student_simulator
         
         self.actor_critic = ActorCriticNetwork(alpha, input_dims,
                                                 layer1_size, layer2_size, layer3_size, layer4_size,
@@ -76,28 +78,29 @@ class ActorCriticAgent(object):
         self.log_probs = None
         self.skill_groups = skill_groups
         self.skill_group_to_activity_map = skill_group_to_activity_map
-    
+
+
     def choose_action(self, state, explore=False):
-        
+
         policy, critic_value = self.actor_critic.forward(state)
-        # softmax ensures actions add up to one which is a requirement for probabilities
-        policy = F.softmax(policy)
-
-        # # Sample an action from these proba's and get the log proba's.
+        policy = F.softmax(policy)  # softmax ensures actions add up to one which is a requirement for probabilities
         action_probs = torch.distributions.Categorical(policy)
-        action = action_probs.sample()
+        action = action_probs.sample()  # Sample an action from these proba's and get the log proba's.
         self.log_probs = action_probs.log_prob(action)
+
+        student_model_name = self.student_simulator.student_model_name
+
+        if student_model_name == 'ActivityBKT':
+            # Assumption (needs to be changed): All activities within a skill group contribute to same amount 
+            # and there is no difference between them in same skill group
+            # So, we just sample a random activity under this skill group to present it to the student 
+            # Possible Fix: Fit params per activity
+            skills = self.skill_groups[action]
+            skill_group = skills.copy()
+            activity = np.random.choice(self.skill_group_to_activity_map[str(action.item())])
         
-        skills = self.skill_groups[action]
-        skill_group = skills.copy()
-
-        # # Assumption (needs to be changed): All activities within a skill group contribute to same amount and there is no difference between them in same skill group
-        # # So, we just sample a random activity under this skill group to present it to the student 
-        activity = np.random.choice(self.skill_group_to_activity_map[str(action.item())])
-
-        # action is a tensor. Hence we return action.item() which is just the value
         return action.item(), explore, skills, activity
-        
+
 
     def learn(self, state, reward, state_, done):
         self.actor_critic.optimizer.zero_grad()

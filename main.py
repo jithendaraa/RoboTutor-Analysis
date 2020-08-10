@@ -94,13 +94,14 @@ def set_state_size(num_skills):
     if CONSTANTS['ACTION_TYPE'] == 'per_skill_group':
         CONSTANTS['STATE_SIZE'] = num_skills
 
-def init_agent(skill_groups, skill_group_to_activity_map, tutorID_to_kc_dict, kc_to_tutorID_dict, cta_tutor_ids, kc_list):
-    
+def init_agent(skill_groups, student_simulator, skill_group_to_activity_map, tutorID_to_kc_dict, kc_to_tutorID_dict, cta_tutor_ids, kc_list):
+
     if CONSTANTS['ALGO'] == 'actor_critic':
         agent = agent = ActorCriticAgent(alpha=CONSTANTS["LEARNING_RATE"], 
                                     input_dims=[CONSTANTS["STATE_SIZE"]], 
                                     skill_groups=uniq_skill_groups,
                                     skill_group_to_activity_map=skill_group_to_activity_map,
+                                    student_simulator=student_simulator,
                                     gamma=CONSTANTS["GAMMA"],
                                     layer1_size=4096, 
                                     layer2_size=2048,
@@ -120,6 +121,8 @@ def init_agent(skill_groups, skill_group_to_activity_map, tutorID_to_kc_dict, kc
                         cta_tutor_ids=cta_tutor_ids, 
                         kc_list=kc_list)
     
+    print("SKILL GROUPS:", skill_groups)
+
     return agent
 
 def load_params(PATH, agent):
@@ -180,7 +183,7 @@ if __name__ == '__main__':
     init_avg_p_know = np.mean(init_p_know)
     set_state_size(num_skills)
 
-    agent = init_agent(uniq_skill_groups, skill_group_to_activity_map, tutorID_to_kc_dict, kc_to_tutorID_dict, cta_tutor_ids, kc_list)
+    agent = init_agent(uniq_skill_groups, student_simulator, skill_group_to_activity_map, tutorID_to_kc_dict, kc_to_tutorID_dict, cta_tutor_ids, kc_list)
 
     scores = []
     eps_history = []    # can be used to see how epsilon changes with each timestep/opportunity
@@ -192,7 +195,7 @@ if __name__ == '__main__':
     PATH = "saved_model_parameters/" + CONSTANTS["ALGO"] + ".pth"
     agent = load_params(PATH, agent)
 
-    for i in range(CONSTANTS["START_EPISODE"], CONSTANTS["NUM_EPISODES"]):
+    for i in range(10):
 
         score = 0
         state = env.reset()
@@ -236,7 +239,7 @@ if __name__ == '__main__':
             #         explore_status = "EXPLORE"
             #     text = "----------------------------------------------------------------------------------------------\n" + "RUN: " + str(CONSTANTS["RUN"]) + "\nTIMESTEPS: " + str(timesteps) + "\n EPISODE: " + str(i) + "\n" + explore_status + "\n" + "SAMPLED SKILL: " + str(sample_skill) + "\n" + "Action chosen: " + activityName + "\n" + " Skills: " + str(skillNums) + "\n" + " Prior P(Know) for these skills: " + str(prior_know) + "\n" + " Posterior P(Know) for these skills: " + str(posterior_know) + "\nSTUDENT RESPONSE: " + str(student_response) + "\n" + "GAIN: " + str(gain) + "\nREWARD: " + str(reward) + "\n" + " EPSILON: " + str(agent.epsilon) + "\n"
             #     f.write(text)
-
+            break
             p_know = env.student_simulator.student_model.know[student_num].copy()
 
             if done:
@@ -249,16 +252,16 @@ if __name__ == '__main__':
     #     with open(CONSTANTS["ALGO"]+"_logs/rewards.txt", "a") as f:
     #         text = str(i) + "," + str(avg_p_know) + "\n"
     #         f.write(text)
+    
+    # final_p_know = np.array(env.student_simulator.student_model.know[student_id])
+    # final_avg_p_know = np.mean(final_p_know)
 
-    final_p_know = np.array(env.activity_bkt.know[student_id])
-    final_avg_p_know = np.mean(final_p_know)
-
-    print()
-    print(init_p_know)
-    print(final_p_know)
-    print("INITIAL AVERAGE P_KNOW: ", init_avg_p_know)
-    print("FINAL AVERAGE_P_KNOW: ", final_avg_p_know)
-    print("MIN AVERAGE_P_KNOW: ", min(avg_p_knows))
-    print("MAX AVERAGE_P_KNOW: ", max(avg_p_knows))
-    print("IMPROVEMENT: ", final_avg_p_know - init_avg_p_know)
-    print(final_p_know - init_p_know)
+    # print()
+    # print(init_p_know)
+    # print(final_p_know)
+    # print("INITIAL AVERAGE P_KNOW: ", init_avg_p_know)
+    # print("FINAL AVERAGE_P_KNOW: ", final_avg_p_know)
+    # print("MIN AVERAGE_P_KNOW: ", min(avg_p_knows))
+    # print("MAX AVERAGE_P_KNOW: ", max(avg_p_knows))
+    # print("IMPROVEMENT: ", final_avg_p_know - init_avg_p_know)
+    # print(final_p_know - init_p_know)
