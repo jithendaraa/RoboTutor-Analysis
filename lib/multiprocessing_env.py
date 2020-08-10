@@ -10,7 +10,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
             action = data[0]
             timestep = data[1]
             max_timestep = data[2]
-            next_state, reward, student_response, done, posterior = env.step(action, timestep, max_timestep)
+            activityName = data[3]
+            next_state, reward, student_response, done, posterior = env.step(action, timestep, max_timestep, activityName)
             if done:
                 next_state = env.reset()
             remote.send((next_state, reward, student_response, done, posterior))
@@ -51,7 +52,7 @@ class VecEnv(object):
         """
         pass
 
-    def step_async(self, actions, timesteps, max_timesteps):
+    def step_async(self, actions, timesteps, max_timesteps, activityNames):
         """
         Tell all the environments to start taking a step
         with the given actions.
@@ -80,8 +81,8 @@ class VecEnv(object):
         """
         pass
 
-    def step(self, actions, timesteps, max_timesteps):
-        self.step_async(actions, timesteps, max_timesteps)
+    def step(self, actions, timesteps, max_timesteps, activityNames):
+        self.step_async(actions, timesteps, max_timesteps, activityNames)
         return self.step_wait()
 
     
@@ -121,9 +122,9 @@ class SubprocVecEnv(VecEnv):
         observation_space, action_space = self.remotes[0].recv()
         VecEnv.__init__(self, nenvs, observation_space, action_space)
 
-    def step_async(self, actions, timesteps, max_timesteps):
-        for remote, action, timestep, max_timestep in zip(self.remotes, actions, timesteps, max_timesteps):
-            data = [action, timestep, max_timestep]
+    def step_async(self, actions, timesteps, max_timesteps, activityNames):
+        for remote, action, timestep, max_timestep, activityName in zip(self.remotes, actions, timesteps, max_timesteps, activityNames):
+            data = [action, timestep, max_timestep, activityName]
             remote.send(('step', data))
         self.waiting = True
 

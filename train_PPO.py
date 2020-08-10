@@ -33,11 +33,11 @@ if __name__ == "__main__":
     train_and_play = False
 
     CONSTANTS = {
-                "NUM_ENVS"          : 4,
+                "NUM_ENVS"          : 2,
                 "STUDENT_ID"        : "new_student",
                 "ENV_ID"            : "RoboTutor",
                 "TARGET_P_KNOW"     : 0.85,
-                "STATE_SIZE"        : 18,
+                "STATE_SIZE"        : 22,
                 "ACTION_SIZE"       : 43,
                 "FC1_DIMS"          : 256,
                 "RUN_NUM"           : 0,
@@ -84,6 +84,7 @@ if __name__ == "__main__":
     initial_state       = np.array(student_simulator.student_model.know[student_num])
 
     kc_list = student_simulator.kc_list
+    CONSTANTS['STATE_SIZE'] = len(kc_list)
     cta_df = student_simulator.cta_df
     _, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map  = read_data()
     
@@ -133,50 +134,59 @@ if __name__ == "__main__":
     # # returns a state list, one for each env we make. dim: NUM_ENVS * STATE_SIZE
     state       = envs.reset()
     early_stop  = False
-    print(state)
 
-    # while not early_stop:
-    #     # lists to store training data
-    #     log_probs       = []
-    #     critic_values   = []
-    #     states          = []
-    #     actions         = []
-    #     rewards         = []
-    #     dones           = []
-    #     timesteps       = 0
+    while not early_stop:
+        # lists to store training data
+        log_probs       = []
+        critic_values   = []
+        states          = []
+        actions         = []
+        rewards         = []
+        dones           = []
+        timesteps       = 0
 
-    #     for _ in range(CONSTANTS["PPO_STEPS"]):
-    #         timesteps += 1
-    #         state = torch.Tensor(state).to(device)
-    #         policy, critic_value = model.forward(state)
-    #         # softmax ensures actions add up to one which is a requirement for probabilities
-    #         policy = F.softmax(policy, dim=1)
-    #         action_probs = torch.distributions.Categorical(policy)
-    #         action = action_probs.sample()
-    #         next_state, reward, student_response, done, posterior = envs.step(action.cpu().numpy(), [timesteps] * CONSTANTS["NUM_ENVS"], [CONSTANTS["MAX_TIMESTEPS"]] * CONSTANTS["NUM_ENVS"])
-    #         log_prob = action_probs.log_prob(action)
-    #         log_probs.append(log_prob)
-    #         critic_values.append(critic_value)
-    #         rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
-    #         dones.append(torch.Tensor(1 - done).unsqueeze(1).to(device))
-    #         states.append(state)
-    #         actions.append(action)
-    #         state = next_state
-    #         frame_idx += 1
+        for _ in range(CONSTANTS["PPO_STEPS"]):
+            timesteps += 1
+            if isinstance(state, np.ndarray) == False and state.get_device() != 'cpu:0':
+                state = state.to('cpu:0')
+            state = torch.FloatTensor(state)
+            if state.get_device() != 'cuda:0':
+                state = state.to(device)
+            policy, critic_value = model.forward(state)
+            # softmax ensures actions add up to one which is a requirement for probabilities
+            policy = F.softmax(policy, dim=1)
+            action_probs = torch.distributions.Categorical(policy)
+            action = action_probs.sample()
+            activity_names = []
+            for item in action.tolist():
+                skill_group = uniq_skill_groups[item].copy()
+                activity_name = np.random.choice(skill_group_to_activity_map[str(item)])
+                activity_names.append(activity_name)
+            next_state, reward, student_response, done, posterior = envs.step(action.cpu().numpy(), [timesteps] * CONSTANTS["NUM_ENVS"], [CONSTANTS["MAX_TIMESTEPS"]] * CONSTANTS["NUM_ENVS"], activity_names)
+            log_prob = action_probs.log_prob(action)
+            log_probs.append(log_prob)
+            critic_values.append(critic_value)
+            rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
+            dones.append(torch.Tensor(1 - done).unsqueeze(1).to(device))
+            states.append(state)
+            actions.append(action)
+            state = next_state
+            frame_idx += 1
 
-    #     _, critic_value_ = model(torch.Tensor(next_state).to(device))
-    #     returns = compute_gae(critic_value_, rewards, dones, critic_values, CONSTANTS["GAMMA"], CONSTANTS["GAE_LAMBDA"])
-    #     returns         = torch.cat(returns).detach()
-    #     log_probs       = torch.cat(log_probs).detach()
-    #     critic_values   = torch.cat(critic_values).detach()
-    #     states          = torch.cat(states)
-    #     actions         = torch.cat(actions)
-    #     advantage       = returns - critic_values
-    #     advantage       = normalize(advantage)
+        _, critic_value_ = model(torch.Tensor(next_state).to(device))
+        returns = compute_gae(critic_value_, rewards, dones, critic_values, CONSTANTS["GAMMA"], CONSTANTS["GAE_LAMBDA"])
+        returns         = torch.cat(returns).detach()
+        log_probs       = torch.cat(log_probs).detach()
+        critic_values   = torch.cat(critic_values).detach()
+        states          = torch.cat(states)
+        actions         = torch.cat(actions)
+        advantage       = returns - critic_values
+        advantage       = normalize(advantage)
 
-    #     # According to PPO paper: (states, actions, log_probs, returns, advantage) is together referred to as a "trajectory"
-    #     ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS)
-    #     train_epoch += 1
+        # According to PPO paper: (states, actions, log_probs, returns, advantage) is together referred to as a "trajectory"
+        # ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS)
+        train_epoch += 1
+        break
         
     #     if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
     #         env = StudentEnv(initial_state, cta_tutor_ids, activity_bkt, tutorID_to_kc_dict, student_id, skill_to_number_map, uniq_skill_groups, skill_group_to_activity_map, CONSTANTS["ACTION_SIZE"], None)

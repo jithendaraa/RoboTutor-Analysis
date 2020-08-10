@@ -83,7 +83,7 @@ class ActorCriticAgent(object):
     def choose_action(self, state, explore=False):
 
         policy, critic_value = self.actor_critic.forward(state)
-        policy = F.softmax(policy)  # softmax ensures actions add up to one which is a requirement for probabilities
+        policy = F.softmax(policy, dim=1)  # softmax ensures actions add up to one which is a requirement for probabilities
         action_probs = torch.distributions.Categorical(policy)
         action = action_probs.sample()  # Sample an action from these proba's and get the log proba's.
         self.log_probs = action_probs.log_prob(action)
@@ -97,9 +97,9 @@ class ActorCriticAgent(object):
             # Possible Fix: Fit params per activity
             skills = self.skill_groups[action]
             skill_group = skills.copy()
-            activity = np.random.choice(self.skill_group_to_activity_map[str(action.item())])
+            activityName = np.random.choice(self.skill_group_to_activity_map[str(action.item())])
         
-        return action.item(), explore, skills, activity
+        return action.item(), explore, skills, activityName
 
 
     def learn(self, state, reward, state_, done):
@@ -132,14 +132,16 @@ class ActorCritic(nn.Module):
         #  Policy and critic value v
         self.pi = nn.Linear(self.fc1_dims, n_actions)
         self.v = nn.Linear(self.fc1_dims, 1)
-        
+
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu:0")
         self.optimizer = optim.Adam(self.parameters(), lr = lr)
         self.to(self.device)
 
     def forward(self, state):
         # state should be a torch.Tensor
-        x = F.relu(self.fc1(state))
+        x = self.fc1(state)
+        x = F.relu(x)
+
         pi = self.pi(x)
         v = self.v(x)
         return pi, v
