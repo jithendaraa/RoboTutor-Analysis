@@ -33,11 +33,11 @@ def read_cta_table(path_to_cta_table):
     cta_df = pd.read_excel(path_to_cta_table).astype({'Quantifying': str})
     return cta_df
 
-def read_data():
+def read_data(path=""):
     """
         Reads and returns some useful data from CTA Table and activity_table.
     """
-    cta_df = read_cta_table("Data/CTA.xlsx")
+    cta_df = read_cta_table(path + "Data/CTA.xlsx")
     kc_list = get_kc_list_from_cta_table(cta_df)
     num_skills = len(kc_list)
     kc_to_tutorID_dict = init_kc_to_tutorID_dict(kc_list)
@@ -142,14 +142,19 @@ def extract_step_transac(path_to_data, uniq_student_ids, kc_list_spaceless, stud
     
     return student_ids, student_nums, skill_names, skill_nums, corrects, test_idx
 
-def extract_activity_table(activity_df, act_student_id_to_number_map, kc_list):
+def extract_activity_table(uniq_student_ids, kc_list, matrix_type='math', num_obs='1000'):
     """
         Reads actiivty table, gets necessary data from it and gets all details that are necessary to do the activityBKT update.
         Returns observations, student_ids, skills involved with each of these attempts, num_corrects and num_attempts
         ith row of each of these lists give info about the ith opportunity or corresponds to ith row of activity_df
     """
+    path_to_activity_table = "Data/extracted_Activity_table_KCSubtest_sl2.xlsx"
+    activity_df = pd.read_excel(path_to_activity_table)
 
-    activity_skills = []
+    if matrix_type != 'all':
+        activity_df = activity_df[activity_df["Matrix_ActivityName"] == matrix_type]
+    if num_obs != 'all':
+        activity_df = activity_df[:int(num_obs)]
 
     activity_observations = get_col_vals_from_df(activity_df, "%correct", unique=False)
     student_ids = get_col_vals_from_df(activity_df, "Unique_Child_ID_1", unique=False)
@@ -160,8 +165,9 @@ def extract_activity_table(activity_df, act_student_id_to_number_map, kc_list):
 
     student_nums = []
     for student_id in student_ids:
-        student_nums.append(act_student_id_to_number_map[student_id])
+        student_nums.append(uniq_student_ids.index(student_id))
     
+    activity_skills = []
     for kc_subtest in kc_subtests:
         if kc_subtest == 'Listening Comp':
             kc_subtest = 'Listening Comprehension'

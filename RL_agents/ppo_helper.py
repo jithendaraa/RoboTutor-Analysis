@@ -1,9 +1,15 @@
+import sys
+sys.path.append('../')
+
 import numpy as np
 import torch
 import torch.nn.functional as F
+
 from environment import StudentEnv
-from helper import read_data, plot_learning
-from student_simulator import train_on_obs
+from student_simulator import StudentSimulator
+
+from helper import *
+from reader import *
 
 STUDENT_ID = ["CQCKBY_105"]
 

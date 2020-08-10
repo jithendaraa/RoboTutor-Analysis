@@ -15,7 +15,7 @@ from student_models.hotDINA_skill import hotDINA_skill
 
 
 class StudentSimulator():
-    def __init__(self, village="114", observations="10000", student_model_name="ItemBKT", subscript="student_specific"):
+    def __init__(self, village="114", observations="10000", student_model_name="ItemBKT", subscript="student_specific", matrix_type='math'):
 
         self.CONSTANTS = {
             "PATH_TO_CTA"                           : "Data/CTA.xlsx",
@@ -38,7 +38,7 @@ class StudentSimulator():
         self.hotDINA_full_slurm_files = {}
         self.params_dict = {}
         self.set_village_paths()
-        self.set_data()
+        self.set_data(matrix_type)
         self.set_slurm_files()
         self.set_params_dict()
         exec(self.CONSTANTS['STUDENT_MODEL_INITIALISER'][student_model_name])
@@ -49,13 +49,15 @@ class StudentSimulator():
         file = "Data/village_" + village + "/village_" + village + "_step_transac.txt"
         self.CONSTANTS["PATH_TO_VILLAGE_STEP_TRANSAC_FILES"].append(file)
     
-    def set_data(self):
+    def set_data(self, matrix_type='math'):
 
         self.cta_df = read_cta_table(self.CONSTANTS["PATH_TO_CTA"])
         self.kc_list = self.cta_df.columns.tolist()
         
         if self.student_model_name == "ActivityBKT":
             self.activity_df = pd.read_excel(self.CONSTANTS['PATH_TO_ACTIVITY_TABLE'])
+            if matrix_type != 'all':
+                self.activity_df = self.activity_df[self.activity_df["Matrix_ActivityName"] == matrix_type]
             if self.CONSTANTS['OBSERVATIONS'] != 'all':
                 self.set_uniq_activities()
                 self.num_activities = len(self.uniq_activities)
@@ -212,9 +214,7 @@ class StudentSimulator():
         
         self.student_model.update(activity_observations, 
                                     student_nums, 
-                                    activities, 
-                                    self.cta_tutor_ids,
-                                    self.underscore_to_colon_tutor_id_dict)
+                                    activities)
 
 def check_hotDINA_skill(village, observations, student_simulator):
     from pathlib import Path
