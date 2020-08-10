@@ -17,7 +17,7 @@ from student_simulator import StudentSimulator
 
 CONSTANTS = {
                 "LOAD"                  : False,
-                "CLEAR_FILES"           : False,
+                "CLEAR_FILES"           : True,
                 "STUDENT_ID"            : "new_student",
                 "ALGO"                  : "actor_critic",
                 "STUDENT_MODEL_NAME"    : "ActivityBKT",
@@ -26,7 +26,7 @@ CONSTANTS = {
                 "NUM_EPISODES"          : 1000,
                 "RUN"                   : 0,
                 "AVG_OVER_EPISODES"     : 50,
-                "MAX_TIMESTEPS"         : 300,
+                "MAX_TIMESTEPS"         : 150,
                 "LEARNING_RATE"         : 2e-5,
                 "STATE_SIZE"            : 22,
                 "ACTION_SIZE"           : 43,
@@ -162,13 +162,14 @@ if __name__ == '__main__':
                                         observations=CONSTANTS["NUM_OBS"], 
                                         student_model_name=CONSTANTS["STUDENT_MODEL_NAME"])
 
+    student_num = student_simulator.uniq_student_ids.index(student_id)
+
     kc_list = student_simulator.kc_list
     cta_df = student_simulator.cta_df
     kc_to_tutorID_dict = init_kc_to_tutorID_dict(kc_list)
     cta_tutor_ids = get_cta_tutor_ids(kc_to_tutorID_dict, kc_list, cta_df)
     tutorID_to_kc_dict = get_tutorID_to_kc_dict(kc_to_tutorID_dict)
     uniq_skill_groups, skill_group_to_activity_map = get_skill_groups_info(tutorID_to_kc_dict, kc_list)
-    student_num = student_simulator.uniq_student_ids.index(student_id)
     num_skills = len(kc_list)
 
     env = StudentEnv(student_simulator=student_simulator,
@@ -193,7 +194,7 @@ if __name__ == '__main__':
     PATH = "saved_model_parameters/" + CONSTANTS["ALGO"] + ".pth"
     agent = load_params(PATH, agent)
 
-    for i in range(10):
+    for i in range(CONSTANTS['NUM_EPISODES']):
 
         score = 0
         state = env.reset()
@@ -227,12 +228,13 @@ if __name__ == '__main__':
             score += reward
             gain = np.sum(np.array(posterior_know) - np.array(prior_know))/num_skills
 
-            # with open(CONSTANTS["ALGO"]+"_logs/run.txt", "a") as f:
-            #     explore_status = "EXPLOIT"
-            #     if explore:
-            #         explore_status = "EXPLORE"
-            #     text = "----------------------------------------------------------------------------------------------\n" + "RUN: " + str(CONSTANTS["RUN"]) + "\nTIMESTEPS: " + str(timesteps) + "\n EPISODE: " + str(i) + "\n" + explore_status + "\n" + "SAMPLED SKILL: " + str(sample_skill) + "\n" + "Action chosen: " + activityName + "\n" + " Skills: " + str(skillNums) + "\n" + " Prior P(Know) for these skills: " + str(prior_know) + "\n" + " Posterior P(Know) for these skills: " + str(posterior_know) + "\nSTUDENT RESPONSE: " + str(student_response) + "\n" + "GAIN: " + str(gain) + "\nREWARD: " + str(reward) + "\n" + " EPSILON: " + str(agent.epsilon) + "\n"
-            #     f.write(text)
+            with open(CONSTANTS["ALGO"]+"_logs/run.txt", "a") as f:
+                explore_status = "EXPLOIT"
+                if explore:
+                    explore_status = "EXPLORE"
+                text = "----------------------------------------------------------------------------------------------\n" + "RUN: " + str(CONSTANTS["RUN"]) + "\nTIMESTEPS: " + str(timesteps) + "\n EPISODE: " + str(i) + "\n" + explore_status + "\n" + "SAMPLED SKILL: " + str(sample_skill) + "\n" + "Action chosen: " + activityName + "\n" + " Skills: " + str(skillNums) + "\n" + " Prior P(Know) for these skills: " + str(prior_know) + "\n" + " Posterior P(Know) for these skills: " + str(posterior_know) + "\nSTUDENT RESPONSE: " + str(student_response) + "\n" + "GAIN: " + str(gain) + "\nREWARD: " + str(reward) + "\n" + " EPSILON: " + str(agent.epsilon) + "\n"
+                f.write(text)
+
             p_know = env.student_simulator.student_model.know[student_num].copy()
 
             if done:
@@ -242,11 +244,11 @@ if __name__ == '__main__':
         print("episode: ", i, ", score: ", score, ", Avg_p_know: ", avg_p_know, ", TIMESTEPS: ", timesteps)
         scores.append(score)
 
-    #     with open(CONSTANTS["ALGO"]+"_logs/rewards.txt", "a") as f:
-    #         text = str(i) + "," + str(avg_p_know) + "\n"
-    #         f.write(text)
+        with open(CONSTANTS["ALGO"]+"_logs/rewards.txt", "a") as f:
+            text = str(i) + "," + str(avg_p_know) + "\n"
+            f.write(text)
     
-    final_p_know = np.array(env.student_simulator.student_model.know[student_id])
+    final_p_know = np.array(env.student_simulator.student_model.know[student_num])
     final_avg_p_know = np.mean(final_p_know)
 
     print()

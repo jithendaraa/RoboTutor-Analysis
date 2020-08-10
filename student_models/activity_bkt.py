@@ -145,7 +145,11 @@ class ActivityBKT():
                 for j in range(len(skills)):
                     if skills[j] == 1:
                         self.update_per_skill(activity_observations[i], student_num, j)
-            self.learning_progress[student_id].append(self.know[student_num].tolist())
+            
+            if student_id not in self.learning_progress:
+                self.learning_progress[student_id] = [self.know[student_num].tolist()]
+            else:
+                self.learning_progress[student_id].append(self.know[student_num].tolist())
 
     def predict_percent_correct(self, student_ids, skills, actual_observations=None):
         # print("PREDICTING P(Correct)....")

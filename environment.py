@@ -41,13 +41,15 @@ class StudentEnv():
         elif self.student_simulator.student_model_name == 'hotDINA_skill':
             self.initial_state = np.array(student_model.knews[student_num])
 
-        self.state = self.initial_state
+        self.state = self.initial_state.copy()
+
 
     def reset(self):
         student_model = self.student_simulator.student_model
         if self.student_simulator.student_model_name == 'ActivityBKT':
-            student_model.know[self.student_num] = self.initial_state.tolist().copy()
-        return self.initial_state
+            self.student_simulator.student_model.know[self.student_num] = self.initial_state.tolist().copy()
+            self.student_simulator.student_model.learning_progress = {}
+        return self.initial_state.copy()
     
     def step(self, action, timesteps, max_timesteps, activityName):
         """
