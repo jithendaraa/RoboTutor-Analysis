@@ -23,9 +23,9 @@ CONSTANTS = {
                 "STUDENT_MODEL_NAME"    : "ActivityBKT",
                 "VILLAGE"               : "130",
                 "START_EPISODE"         : 0,
-                "NUM_EPISODES"          : 1000,
+                "NUM_EPISODES"          : 100,
                 "RUN"                   : 0,
-                "AVG_OVER_EPISODES"     : 50,
+                "AVG_OVER_EPISODES"     : 10,
                 "MAX_TIMESTEPS"         : 150,
                 "LEARNING_RATE"         : 2e-5,
                 "STATE_SIZE"            : 22,
@@ -166,10 +166,7 @@ if __name__ == '__main__':
 
     kc_list = student_simulator.kc_list
     cta_df = student_simulator.cta_df
-    kc_to_tutorID_dict = init_kc_to_tutorID_dict(kc_list)
-    cta_tutor_ids = get_cta_tutor_ids(kc_to_tutorID_dict, kc_list, cta_df)
-    tutorID_to_kc_dict = get_tutorID_to_kc_dict(kc_to_tutorID_dict)
-    uniq_skill_groups, skill_group_to_activity_map = get_skill_groups_info(tutorID_to_kc_dict, kc_list)
+    _, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map  = read_data()
     num_skills = len(kc_list)
 
     env = StudentEnv(student_simulator=student_simulator,
@@ -211,7 +208,6 @@ if __name__ == '__main__':
             CONSTANTS["RUN"] += 1
 
             action, explore, sample_skill, activityName = agent.choose_action(state, explore=False)
-            skillNums = uniq_skill_groups[action]
 
             prior_know = skill_probas(activityName, tutorID_to_kc_dict, kc_list, env.student_simulator.student_model.know[student_num])
             next_state, reward, student_response, done, posterior = env.step(action, timesteps, CONSTANTS["MAX_TIMESTEPS"], activityName)
@@ -232,7 +228,7 @@ if __name__ == '__main__':
                 explore_status = "EXPLOIT"
                 if explore:
                     explore_status = "EXPLORE"
-                text = "----------------------------------------------------------------------------------------------\n" + "RUN: " + str(CONSTANTS["RUN"]) + "\nTIMESTEPS: " + str(timesteps) + "\n EPISODE: " + str(i) + "\n" + explore_status + "\n" + "SAMPLED SKILL: " + str(sample_skill) + "\n" + "Action chosen: " + activityName + "\n" + " Skills: " + str(skillNums) + "\n" + " Prior P(Know) for these skills: " + str(prior_know) + "\n" + " Posterior P(Know) for these skills: " + str(posterior_know) + "\nSTUDENT RESPONSE: " + str(student_response) + "\n" + "GAIN: " + str(gain) + "\nREWARD: " + str(reward) + "\n" + " EPSILON: " + str(agent.epsilon) + "\n"
+                text = "----------------------------------------------------------------------------------------------\n" + "RUN: " + str(CONSTANTS["RUN"]) + "\nTIMESTEPS: " + str(timesteps) + "\n EPISODE: " + str(i) + "\n" + explore_status + "\n" + "Action chosen: " + activityName + "\n" + " Skills: " + str(sample_skill) + "\n" + " Prior P(Know) for these skills: " + str(prior_know) + "\n" + " Posterior P(Know) for these skills: " + str(posterior_know) + "\nSTUDENT RESPONSE: " + str(student_response) + "\n" + "GAIN: " + str(gain) + "\nREWARD: " + str(reward) + "\n" + " EPSILON: " + str(agent.epsilon) + "\n"
                 f.write(text)
 
             p_know = env.student_simulator.student_model.know[student_num].copy()

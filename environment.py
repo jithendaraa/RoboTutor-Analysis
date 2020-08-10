@@ -91,7 +91,7 @@ class StudentEnv():
         # Reward after each attempt/opportunity
         reward = 1000 * (avg_posterior_know - avg_prior_know) # reward = 100 * np.mean(np.array(self.activity_bkt.know))
 
-        if reward <= 0.0 or timesteps >= max_timesteps:
+        if timesteps >= max_timesteps:
             done = True
 
         return next_state, reward, student_response[0], done, posterior_know
