@@ -18,15 +18,15 @@ from student_simulator import StudentSimulator
 CONSTANTS = {
                 "LOAD"                  : False,
                 "CLEAR_FILES"           : True,
-                "STUDENT_ID"            : "new_student",
+                "STUDENT_ID"            : "VPRQEF_101",
                 "ALGO"                  : "actor_critic",
                 "STUDENT_MODEL_NAME"    : "ActivityBKT",
                 "VILLAGE"               : "130",
                 "START_EPISODE"         : 0,
-                "NUM_EPISODES"          : 100,
+                "NUM_EPISODES"          : 500,
                 "RUN"                   : 0,
                 "AVG_OVER_EPISODES"     : 10,
-                "MAX_TIMESTEPS"         : 150,
+                "MAX_TIMESTEPS"         : 100,
                 "LEARNING_RATE"         : 2e-5,
                 "STATE_SIZE"            : 22,
                 "ACTION_SIZE"           : 43,
@@ -34,7 +34,8 @@ CONSTANTS = {
                 "GAMMA"                 : 0.99,
                 "NUM_OBS"               : "all",
                 'NUM_SKILL_GROUPS'      : 43,
-                'EPSILON'               : 1.0
+                'EPSILON'               : 1.0,
+                'MATRIX_TYPE'           : 'all'
             }
 
 def set_constants(args):
@@ -43,6 +44,7 @@ def set_constants(args):
     CONSTANTS['STUDENT_ID']         = args.student_id
     CONSTANTS['STUDENT_MODEL_NAME'] = args.student_model_name
     CONSTANTS['ACTION_TYPE']        = args.action_type
+    CONSTANTS['MATRIX_TYPE']        = args.matrix_type
 
     cta_df = read_cta_table("Data/CTA.xlsx")
     kc_list = get_kc_list_from_cta_table(cta_df)
@@ -146,10 +148,10 @@ if __name__ == '__main__':
     clear_files(CONSTANTS["ALGO"], CONSTANTS["CLEAR_FILES"])
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("-o", "--observations", help="NUM_ENTRIES that have to be extracted from a given transactions table. Should be a number or 'all'. If inputted number > total records for the village, this will assume a value of 'all'", default='1000')
-    parser.add_argument("-v", "--village_num", help="village_num whose transactions data has to be extracted, should be between 114 and 141", default="130")
-    parser.add_argument('-m', '--matrix_type', help="math literacy or stories", default='math')
-    parser.add_argument('-sid', '--student_id', help="Student id", required=False, default='new_student')
+    parser.add_argument("-o", "--observations", help="NUM_ENTRIES that have to be extracted from a given transactions table. Should be a number or 'all'. If inputted number > total records for the village, this will assume a value of 'all'", default=CONSTANTS['NUM_OBS'])
+    parser.add_argument("-v", "--village_num", help="village_num whose transactions data has to be extracted, should be between 114 and 141", default=CONSTANTS['VILLAGE'])
+    parser.add_argument('-m', '--matrix_type', help="math literacy or stories", default=CONSTANTS['MATRIX_TYPE'])
+    parser.add_argument('-sid', '--student_id', help="Student id", required=False, default=CONSTANTS['STUDENT_ID'])
     parser.add_argument('-smn', '--student_model_name', help="Name of student model: (ItemBKT, ActivityBKT, hotDINA_skill)", required=False, default='ActivityBKT')
     parser.add_argument('-at', '--action_type', help="per_skill_group (43), per_activity (1712), transition (4; prev, same, next, next-next), thresholds, transition-threshold. All are single actions except 'transition threshold which takes 2 actions from a (num_thresholds,num_activities) actions space' ", default='per_skill_group')
     args = parser.parse_args()
@@ -160,14 +162,17 @@ if __name__ == '__main__':
 
     student_simulator = StudentSimulator(village=CONSTANTS["VILLAGE"], 
                                         observations=CONSTANTS["NUM_OBS"], 
-                                        student_model_name=CONSTANTS["STUDENT_MODEL_NAME"])
+                                        student_model_name=CONSTANTS["STUDENT_MODEL_NAME"],
+                                        matrix_type=CONSTANTS['MATRIX_TYPE'])
 
     student_num = student_simulator.uniq_student_ids.index(student_id)
-
     kc_list = student_simulator.kc_list
     cta_df = student_simulator.cta_df
     _, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map  = read_data()
     num_skills = len(kc_list)
+
+    data_dict = extract_activity_table(student_simulator.uniq_student_ids, kc_list, CONSTANTS['MATRIX_TYPE'], CONSTANTS["NUM_OBS"], CONSTANTS['STUDENT_ID'])
+    student_simulator.update_on_log_data(data_dict)
 
     env = StudentEnv(student_simulator=student_simulator,
                     skill_groups=uniq_skill_groups,
@@ -210,9 +215,9 @@ if __name__ == '__main__':
 
             action, explore, sample_skill, activityName = agent.choose_action(state, explore=False)
 
-            prior_know = skill_probas(activityName, tutorID_to_kc_dict, kc_list, env.student_simulator.student_model.know[student_num])
+            prior_know = skill_probas(activityName, tutorID_to_kc_dict, kc_list, state)
             next_state, reward, student_response, done, posterior = env.step(action, timesteps, CONSTANTS["MAX_TIMESTEPS"], activityName)
-            posterior_know = skill_probas(activityName, tutorID_to_kc_dict, kc_list, env.student_simulator.student_model.know[student_num])
+            posterior_know = skill_probas(activityName, tutorID_to_kc_dict, kc_list, next_state)
 
             if CONSTANTS["ALGO"] == "dqn":
                 agent.store_transition(state, action, reward, next_state, done)
@@ -221,7 +226,7 @@ if __name__ == '__main__':
             elif CONSTANTS["ALGO"] == "actor_critic":
                 agent.learn(state, reward, next_state, done)
 
-            state = next_state
+            state = next_state.copy()
             score += reward
             gain = np.sum(np.array(posterior_know) - np.array(prior_know))/num_skills
 

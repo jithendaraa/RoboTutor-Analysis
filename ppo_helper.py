@@ -45,7 +45,8 @@ def ppo_iter(states, actions, log_probs, returns, advantages, PPO_STEPS, NUM_ENV
         rand_ids = np.random.randint(0, batch_size, MINI_BATCH_SIZE)
         yield states[rand_ids, :], actions.view(PPO_STEPS * NUM_ENVS, -1)[rand_ids, :], log_probs.view(PPO_STEPS * NUM_ENVS, -1)[rand_ids, :], returns[rand_ids, :], advantages[rand_ids, :]
 
-def test_env(env, model, device, CONSTANTS, deterministic=False):
+def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map, uniq_skill_groups, deterministic=False):
+    
     state = env.reset()
     init_state = state.copy()
     done = False
@@ -61,10 +62,11 @@ def test_env(env, model, device, CONSTANTS, deterministic=False):
         
         if deterministic is False:
             action = action_probs.sample().item()
+        
+        activity_name = np.random.choice(skill_group_to_activity_map[str(action)])
 
-        next_state, reward, student_response, done, posterior = env.step(action, timesteps, CONSTANTS["MAX_TIMESTEPS"])
+        next_state, reward, student_response, done, posterior = env.step(action, timesteps, CONSTANTS["MAX_TIMESTEPS"], activity_name)
 
-        activityName = np.random.choice(skill_group_to_activity_map[str(action)])
         skill_group = uniq_skill_groups[action]
         prior = state[0]
         posterior = torch.Tensor(next_state).unsqueeze(0).to(device)[0]
@@ -79,7 +81,7 @@ def test_env(env, model, device, CONSTANTS, deterministic=False):
             prior_know.append(prior[skill_idx].item())
             posterior_know.append(posterior[skill_idx].item())
 
-        run_text = "Run Number: " + str(CONSTANTS["RUN_NUM"]) + "\Action: " + str(action) + " Skill group: " + str(skill_group) + "\nPrior Know: " + str(prior_know) + "\nPost. Know: " + str(posterior_know) + "\nTimestep: " + str(timesteps) + " Reward: " + str(reward) + " ActivityName: " + activityName + "\nPrior: " + str(prior_avg_know) + " Posterior: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
+        run_text = "Run Number: " + str(CONSTANTS["RUN_NUM"]) + "\Action: " + str(action) + " Skill group: " + str(skill_group) + "\nPrior Know: " + str(prior_know) + "\nPost. Know: " + str(posterior_know) + "\nTimestep: " + str(timesteps) + " Reward: " + str(reward) + " ActivityName: " + activity_name + "\nPrior: " + str(prior_avg_know) + " Posterior: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
 
         state = next_state
         total_reward += reward

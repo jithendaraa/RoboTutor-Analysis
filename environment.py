@@ -18,6 +18,7 @@ class StudentEnv():
         self.student_simulator = student_simulator
         self.student_id = student_id
         self.student_num = self.student_simulator.uniq_student_ids.index(self.student_id)
+        print(self.student_id, self.student_num)
         self.skill_groups                   = skill_groups
         self.skill_group_to_activity_map    = skill_group_to_activity_map
         
@@ -46,16 +47,21 @@ class StudentEnv():
 
     def reset(self):
         student_model = self.student_simulator.student_model
+        self.state = self.checkpoint_know.copy()
         if self.student_simulator.student_model_name == 'ActivityBKT':
-            self.initial_state = self.checkpoint_know.copy()
             self.student_simulator.student_model.know[self.student_num] = self.checkpoint_know.tolist().copy()
-            self.student_simulator.student_model.learning_progress = self.checkpoint_learning_progress
-        return self.initial_state.copy()
+            self.student_simulator.student_model.know_act[self.student_num] = self.checkpoint_know_act.tolist().copy()
+            print("RESSET CHECKPOINT LP: ", len(self.checkpoint_learning_progress[self.student_id].copy()))
+            self.student_simulator.student_model.learning_progress = self.checkpoint_learning_progress.copy()
+        
+        return self.state.copy()
 
     def checkpoint(self):
         #  Saves some values so env.reset() resets env values to checkpoint values
-        self.checkpoint_know = self.student_simulator.student_model.know[self.student_num]
+        self.checkpoint_know = self.student_simulator.student_model.know[self.student_num].copy()
+        self.checkpoint_know_act = self.student_simulator.student_model.know_act[self.student_num].copy()
         self.checkpoint_learning_progress = self.student_simulator.student_model.learning_progress.copy()
+        print("CHECKPOINT KNOW:", self.checkpoint_know)
     
     def step(self, action, timesteps, max_timesteps, activityName):
         """
@@ -100,4 +106,5 @@ class StudentEnv():
         if timesteps >= max_timesteps:
             done = True
 
+        # print('next_state @env.py: ', next_state)
         return next_state, reward, student_response[0], done, posterior_know

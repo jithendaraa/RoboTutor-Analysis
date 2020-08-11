@@ -134,6 +134,8 @@ class ActivityBKT():
     def update(self, activity_observations, student_nums, activities):
         for i in range(len(activities)):
             student_num = student_nums[i]
+            if i > 0 and student_num != student_nums[i-1]:
+                print("Updating", student_num, "out of", student_nums[-1], "students")
             student_id = self.uniq_student_ids[student_num]
             activity_num = self.uniq_activities.index(activities[i])
             activity_name = activities[i]

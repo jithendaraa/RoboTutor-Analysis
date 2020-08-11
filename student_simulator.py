@@ -59,12 +59,13 @@ class StudentSimulator():
             if matrix_type != 'all':
                 self.activity_df = self.activity_df[self.activity_df["Matrix_ActivityName"] == matrix_type]
             if self.CONSTANTS['OBSERVATIONS'] != 'all':
-                self.set_uniq_activities()
-                self.num_activities = len(self.uniq_activities)
                 num_obs = int(self.CONSTANTS['OBSERVATIONS'])
                 self.activity_df = self.activity_df[:num_obs]
-                self.uniq_student_ids = get_col_vals_from_df(self.activity_df, "Unique_Child_ID_1", unique=True)
-                self.uniq_student_ids.append("new_student")
+            self.set_uniq_activities()
+            self.num_activities = len(self.uniq_activities)
+            self.uniq_student_ids = get_col_vals_from_df(self.activity_df, "Unique_Child_ID_1", unique=True)
+            self.uniq_student_ids.append("new_student")
+            
         else:
             self.uniq_student_ids, self.student_id_to_village_map = get_uniq_transac_student_ids(self.CONSTANTS["PATH_TO_VILLAGE_STEP_TRANSAC_FILES"], [self.CONSTANTS["VILLAGE"]])
             self.student_id_to_village_map['new_student'] = [int(self.CONSTANTS['VILLAGE'])]

@@ -33,7 +33,7 @@ if __name__ == "__main__":
     train_and_play = False
 
     CONSTANTS = {
-                "NUM_ENVS"          : 2,
+                "NUM_ENVS"          : 4,
                 "STUDENT_ID"        : "new_student",
                 "ENV_ID"            : "RoboTutor",
                 "TARGET_P_KNOW"     : 0.85,
@@ -42,7 +42,7 @@ if __name__ == "__main__":
                 "FC1_DIMS"          : 256,
                 "RUN_NUM"           : 0,
                 "AVG_OVER_RUNS"     : 50,
-                "MAX_TIMESTEPS"     : 250,
+                "MAX_TIMESTEPS"     : 150,
                 "LEARNING_RATE"     : 1e-4,
                 "GAMMA"             : 0.99,
                 "GAE_LAMBDA"        : 0.95,     # smoothing factor
@@ -57,7 +57,7 @@ if __name__ == "__main__":
                 'STUDENT_MODEL_NAME': 'ActivityBKT',
                 'VILLAGE'           : '130',
                 'NUM_OBS'           : '1000',
-                'MATRIX_TYPE'       : 'math',
+                'MATRIX_TYPE'       : 'all',
     }
 
     parser = argparse.ArgumentParser()
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     # clear log files: ppo_logs
     clear_files("ppo", True)
     mkdir('.', 'checkpoints')
-    # writer = SummaryWriter(comment="ppo_" + args.name)
+    writer = SummaryWriter(comment="ppo_" + args.name)
 
     # Autodetect CUDA
     use_cuda = torch.cuda.is_available()
@@ -133,6 +133,7 @@ if __name__ == "__main__":
 
     # # returns a state list, one for each env we make. dim: NUM_ENVS * STATE_SIZE
     state       = envs.reset()
+    print("State", state)
     early_stop  = False
 
     while not early_stop:
@@ -152,11 +153,12 @@ if __name__ == "__main__":
             state = torch.FloatTensor(state)
             if state.get_device() != 'cuda:0':
                 state = state.to(device)
+            
             policy, critic_value = model.forward(state)
-            # softmax ensures actions add up to one which is a requirement for probabilities
-            policy = F.softmax(policy, dim=1)
+            policy = F.softmax(policy, dim=1)   # softmax ensures actions add up to one which is a requirement for probabilities
             action_probs = torch.distributions.Categorical(policy)
             action = action_probs.sample()
+            print('Action', action.tolist())
             activity_names = []
             for item in action.tolist():
                 skill_group = uniq_skill_groups[item].copy()
@@ -170,7 +172,9 @@ if __name__ == "__main__":
             dones.append(torch.Tensor(1 - done).unsqueeze(1).to(device))
             states.append(state)
             actions.append(action)
-            state = next_state
+            state = next_state.copy()
+            print('-----------------------------------------------------------------------------------------------------------')
+            print("Next state: ", next_state)
             frame_idx += 1
 
         _, critic_value_ = model(torch.Tensor(next_state).to(device))
@@ -184,33 +188,37 @@ if __name__ == "__main__":
         advantage       = normalize(advantage)
 
         # According to PPO paper: (states, actions, log_probs, returns, advantage) is together referred to as a "trajectory"
-        # ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS)
+        ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS)
         train_epoch += 1
-        break
         
-    #     if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
-    #         env = StudentEnv(initial_state, cta_tutor_ids, activity_bkt, tutorID_to_kc_dict, student_id, skill_to_number_map, uniq_skill_groups, skill_group_to_activity_map, CONSTANTS["ACTION_SIZE"], None)
-    #         test_reward = np.mean([test_env(env, model, device, CONSTANTS) for _ in range(CONSTANTS["NUM_TESTS"])])
-    #         writer.add_scalar("test_rewards", test_reward, frame_idx)
-    #         print('Frame %s. reward: %s' % (frame_idx, test_reward))
-    #         print("FINAL AVG P(Know) after run ", CONSTANTS["RUN_NUM"], ": ", (test_reward/1000 + init_avg_p_know))
-    #         print("FINAL P(Know): after run ", CONSTANTS["RUN_NUM"], ": ", env.state)
-    #         final_p_know = env.state
-    #         final_avg_p_know = np.mean(np.array(final_p_know))
-    #         # Save a checkpoint every time we achieve a best reward
-    #         if best_reward is None or best_reward < test_reward:
-    #             if best_reward is not None:
-    #                 print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
-    #                 name = "%s_best_%+.3f_%d.dat" % (args.name, test_reward, frame_idx)
-    #                 fname = os.path.join('.', 'checkpoints', name)
-    #                 torch.save(model.state_dict(), fname)
-    #             best_reward = test_reward
-    #         if test_reward > CONSTANTS["TARGET_REWARD"]: 
-    #             early_stop = True
+        if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
+            env = StudentEnv(student_simulator=student_simulator,
+                    skill_groups=uniq_skill_groups,
+                    skill_group_to_activity_map = skill_group_to_activity_map,
+                    action_size=CONSTANTS["ACTION_SIZE"],
+                    student_id=CONSTANTS["STUDENT_ID"])
+            env.checkpoint()
+            test_reward = np.mean([test_env(env, model, device, CONSTANTS, skill_group_to_activity_map, uniq_skill_groups) for _ in range(CONSTANTS["NUM_TESTS"])])
+            writer.add_scalar("test_rewards", test_reward, frame_idx)
+            print('Frame %s. reward: %s' % (frame_idx, test_reward))
+            print("FINAL AVG P(Know) after run ", CONSTANTS["RUN_NUM"], ": ", (test_reward/1000 + init_avg_p_know))
+            print("FINAL P(Know): after run ", CONSTANTS["RUN_NUM"], ": ", env.state)
+            final_p_know = env.state
+            final_avg_p_know = np.mean(np.array(final_p_know))
+            # Save a checkpoint every time we achieve a best reward
+            if best_reward is None or best_reward < test_reward:
+                if best_reward is not None:
+                    print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
+                    name = "%s_best_%+.3f_%d.dat" % (args.name, test_reward, frame_idx)
+                    fname = os.path.join('.', 'checkpoints', name)
+                    torch.save(model.state_dict(), fname)
+                best_reward = test_reward
+            if test_reward > CONSTANTS["TARGET_REWARD"]: 
+                early_stop = True
 
-    # print("INIT P(Know): \n", init_p_know)
-    # print("FINAL P(Know): \n", final_p_know)
-    # print("IMPROVEMENT PER SKILL: \n", np.array(final_p_know) - np.array(init_p_know))
-    # print("INIT AVG P(KNOW): ", init_avg_p_know)
-    # print("FINAL AVG P(KNOW): ", final_avg_p_know)
-    # print("TOTAL RUNS: ", CONSTANTS["RUN_NUM"])
+    print("INIT P(Know): \n", init_p_know)
+    print("FINAL P(Know): \n", final_p_know)
+    print("IMPROVEMENT PER SKILL: \n", np.array(final_p_know) - np.array(init_p_know))
+    print("INIT AVG P(KNOW): ", init_avg_p_know)
+    print("FINAL AVG P(KNOW): ", final_avg_p_know)
+    print("TOTAL RUNS: ", CONSTANTS["RUN_NUM"])
