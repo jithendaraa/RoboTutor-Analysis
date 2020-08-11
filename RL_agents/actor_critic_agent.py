@@ -82,7 +82,6 @@ class ActorCriticAgent(object):
 
     def choose_action(self, state, explore=False):
         
-        # print("state @agent.py:", state)
         policy, critic_value = self.actor_critic.forward(state)
         policy = F.softmax(policy)  # softmax ensures actions add up to one which is a requirement for probabilities
         action_probs = torch.distributions.Categorical(policy)

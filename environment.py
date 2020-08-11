@@ -51,7 +51,6 @@ class StudentEnv():
         if self.student_simulator.student_model_name == 'ActivityBKT':
             self.student_simulator.student_model.know[self.student_num] = self.checkpoint_know.tolist().copy()
             self.student_simulator.student_model.know_act[self.student_num] = self.checkpoint_know_act.tolist().copy()
-            print("RESSET CHECKPOINT LP: ", len(self.checkpoint_learning_progress[self.student_id].copy()))
             self.student_simulator.student_model.learning_progress = self.checkpoint_learning_progress.copy()
         
         return self.state.copy()
@@ -61,7 +60,6 @@ class StudentEnv():
         self.checkpoint_know = self.student_simulator.student_model.know[self.student_num].copy()
         self.checkpoint_know_act = self.student_simulator.student_model.know_act[self.student_num].copy()
         self.checkpoint_learning_progress = self.student_simulator.student_model.learning_progress.copy()
-        print("CHECKPOINT KNOW:", self.checkpoint_know)
     
     def step(self, action, timesteps, max_timesteps, activityName):
         """

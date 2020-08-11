@@ -26,6 +26,7 @@ def set_constants(args):
     CONSTANTS['NUM_OBS']    = args.observations
     CONSTANTS['VILLAGE']    = args.village_num
     CONSTANTS['MATRIX_TYPE']= args.matrix_type
+    CONSTANTS['STUDENT_ID'] = args.student_id
 
 if __name__ == "__main__":
     from ppo_helper import *
@@ -34,7 +35,7 @@ if __name__ == "__main__":
 
     CONSTANTS = {
                 "NUM_ENVS"          : 4,
-                "STUDENT_ID"        : "new_student",
+                "STUDENT_ID"        : "VPRQEF_101",
                 "ENV_ID"            : "RoboTutor",
                 "TARGET_P_KNOW"     : 0.85,
                 "STATE_SIZE"        : 22,
@@ -65,6 +66,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--observations", default=CONSTANTS["NUM_OBS"], help="Number of observations to train on")
     parser.add_argument("-v", "--village_num", default=CONSTANTS["VILLAGE"], help="Village to train on (not applicable for Activity BKT)")
     parser.add_argument("-m", "--matrix_type", default=CONSTANTS["MATRIX_TYPE"], help="Matrix type for the 3 content matrices or 'all'")
+    parser.add_argument('-sid', '--student_id', help="Student id", required=False, default=CONSTANTS['STUDENT_ID'])
     args = parser.parse_args()
 
     set_constants(args)
@@ -130,10 +132,8 @@ if __name__ == "__main__":
     frame_idx = 0
     train_epoch = 0
     best_reward = None
-
-    # # returns a state list, one for each env we make. dim: NUM_ENVS * STATE_SIZE
+    # returns a state list, one for each env we make. dim: NUM_ENVS * STATE_SIZE
     state       = envs.reset()
-    print("State", state)
     early_stop  = False
 
     while not early_stop:
@@ -158,7 +158,6 @@ if __name__ == "__main__":
             policy = F.softmax(policy, dim=1)   # softmax ensures actions add up to one which is a requirement for probabilities
             action_probs = torch.distributions.Categorical(policy)
             action = action_probs.sample()
-            print('Action', action.tolist())
             activity_names = []
             for item in action.tolist():
                 skill_group = uniq_skill_groups[item].copy()
@@ -173,8 +172,6 @@ if __name__ == "__main__":
             states.append(state)
             actions.append(action)
             state = next_state.copy()
-            print('-----------------------------------------------------------------------------------------------------------')
-            print("Next state: ", next_state)
             frame_idx += 1
 
         _, critic_value_ = model(torch.Tensor(next_state).to(device))
