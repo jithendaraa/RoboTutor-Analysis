@@ -59,7 +59,7 @@ if __name__ == "__main__":
     train_and_play = False
 
     CONSTANTS = {
-                "NUM_ENVS"          : 4,
+                "NUM_ENVS"          : 1,
                 "STUDENT_ID"        : "new_student",
                 "ENV_ID"            : "RoboTutor",
                 "TARGET_P_KNOW"     : 0.65,

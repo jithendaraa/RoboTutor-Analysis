@@ -92,16 +92,16 @@ class hotDINA_skill():
             plt.show()
 
     def predict_response(self, item, user, update=False, bayesian_update=True, plot=False):
-
+        
         current_know = self.knows[user][-1]
         skills = self.Q[item]
         p_correct = 1.0
         p_min_correct = 1.0
 
-        for k in len(skills):
+        for k in range(len(skills)):
             skill = skills[k]
             if skill == 1:
-                p_correct_skill = (current_know[k] * self.ss[item]) + ((1 - current_know[k]) * self.g[item])
+                p_correct_skill = (current_know[k] * self.ss[k]) + ((1 - current_know[k]) * self.g[k])
                 p_correct = p_correct * p_correct_skill
                 p_min_correct = min(p_min_correct, p_correct_skill)
         

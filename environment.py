@@ -73,7 +73,7 @@ class StudentEnv():
             self.checkpoint_knews       = student_model.knews
             self.checkpoint_avg_knows   = student_model.avg_knows
     
-    def step(self, action, timesteps, max_timesteps, activityName):
+    def step(self, action, timesteps, max_timesteps, activityName, bayesian_update=True, plot=False):
         """
             action: int, activities[action] refers to the activity that the RL policy suggests/outputs.
         """
@@ -83,18 +83,16 @@ class StudentEnv():
         skill_group = self.skill_groups[action]
         skills = [skill_group]
         activity = self.student_simulator.underscore_to_colon_tutor_id_dict[activityName]
+        activity_num = self.student_simulator.uniq_activities.index(activity)
+        activity_nums = [activity_num]
 
         if self.student_simulator.student_model_name == 'ActivityBKT':
         
             # Simulate student with current BKT params and get student response (predictions) according to full responsibility and blame-worst responsibility
             correct_preds, min_correct_preds = self.student_simulator.student_model.predict_percent_correct(student_ids, skills)
-
-            # should be min_correct_preds for "blame worst" responsibility
-            student_response = correct_preds 
-
+            student_response = correct_preds    # should be min_correct_preds for "blame worst" responsibility
             # P(Know) as a list before attempting the question (before doing BKT update based on student_response)
             prior_know = self.student_simulator.student_model.know[self.student_num].copy()
-
             # BKT update based on student_response aka %correct
             self.student_simulator.student_model.update(activity_observations=student_response, 
                                                         student_nums=student_nums,  
@@ -102,15 +100,24 @@ class StudentEnv():
 
             # Get next state as updated P(Know) based on student_response. Set next_state as current_state
             posterior_know = self.student_simulator.student_model.know[self.student_num].copy()
-            next_state = self.student_simulator.student_model.know[self.student_num].copy()
-            next_state = np.array(next_state)
+            next_state = np.array(posterior_know.copy())
             self.state = next_state.copy()
         
         if self.student_simulator.student_model_name == 'hotDINA_skill':
         
             # Simulate student with current BKT params and get student response (predictions) according to full responsibility and blame-worst responsibility
-            correct_preds, min_correct_preds = self.student_simulator.student_model.predict_percent_correct(student_ids, skills)
+            correct_response, min_correct_response = self.student_simulator.student_model.predict_response(activity_num, self.student_num)
 
+            # should be min_correct_response for "blame worst" responsibility
+            student_response = [correct_response]
+            prior_know = self.student_simulator.student_model.knows[self.student_num][-1].copy()
+
+            # hotDINA update based on student_response (binary)
+            self.student_simulator.student_model.update(student_response, activity_nums, student_nums, bayesian_update, plot)
+
+            posterior_know = self.student_simulator.student_model.knows[self.student_num][-1].copy()
+            next_state = np.array(posterior_know.copy())
+            self.state = next_state.copy()
 
         # Get avg P(Know) before and after student attempts the activities
         avg_prior_know = np.mean(np.array(prior_know))
