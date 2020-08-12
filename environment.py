@@ -117,6 +117,7 @@ class StudentEnv():
 
             posterior_know = self.student_simulator.student_model.knows[self.student_num][-1].copy()
             next_state = np.array(posterior_know.copy())
+            
             self.state = next_state.copy()
 
         # Get avg P(Know) before and after student attempts the activities

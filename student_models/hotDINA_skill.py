@@ -52,7 +52,6 @@ class hotDINA_skill():
             elif y == 0:
                 posterior_know = (1 - self.ss[k]) * prior_know / p_wrong
         
-            # print(posterior_know)
             posterior_know = posterior_know + (1-posterior_know) * self.learn[k]    
         
         else:

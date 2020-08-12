@@ -59,7 +59,7 @@ if __name__ == "__main__":
     train_and_play = False
 
     CONSTANTS = {
-                "NUM_ENVS"          : 1,
+                "NUM_ENVS"          : 4,
                 "STUDENT_ID"        : "new_student",
                 "ENV_ID"            : "RoboTutor",
                 "TARGET_P_KNOW"     : 0.65,
@@ -68,19 +68,19 @@ if __name__ == "__main__":
                 "FC1_DIMS"          : 256,
                 "RUN_NUM"           : 0,
                 "AVG_OVER_RUNS"     : 50,
-                "MAX_TIMESTEPS"     : 150,
+                "MAX_TIMESTEPS"     : 100,
                 "LEARNING_RATE"     : 1e-4,
                 "GAMMA"             : 0.99,
                 "GAE_LAMBDA"        : 0.95,     # smoothing factor
                 "PPO_EPSILON"       : 0.2,      # clip betweeen 0.8 and 1.2
                 "CRITIC_DISCOUNT"   : 0.5,      # critic loss usually greater than actor loss, so we scale it down by this value; improves training
                 "ENTROPY_BETA"      : 0.001,    # amount of importance given to entropy which helps to explore
-                "PPO_STEPS"         : 256,      # number of transitions we sample for each training iteration; Each step collects transition from parallel envs. So total data is PPO_STEPS 8 NUM_ENVS -> 256 * 8 = 2048
+                "PPO_STEPS"         : 200,      # number of transitions we sample for each training iteration; Each step collects transition from parallel envs. So total data is PPO_STEPS 8 NUM_ENVS -> 256 * 8 = 2048
                 "MINI_BATCH_SIZE"   : 64,       # number of samples that are randomly selected from the total amount of stored data
                 "PPO_EPOCHS"        : 10,
                 "TEST_EPOCHS"       : 10,
                 "NUM_TESTS"         : 50,
-                'STUDENT_MODEL_NAME': 'ActivityBKT',
+                'STUDENT_MODEL_NAME': 'hotDINA_skill',
                 'VILLAGE'           : '130',
                 'NUM_OBS'           : 'all',
                 'MATRIX_TYPE'       : 'all',
@@ -114,8 +114,8 @@ if __name__ == "__main__":
     student_num         = uniq_student_ids.index(CONSTANTS["STUDENT_ID"])
     CONSTANTS['STATE_SIZE'] = len(kc_list)
     
-    data_dict = get_data_dict(uniq_student_ids, kc_list)
-    student_simulator.update_on_log_data(data_dict, plot=False, bayesian_update=True)
+    # data_dict = get_data_dict(uniq_student_ids, kc_list)
+    # student_simulator.update_on_log_data(data_dict, plot=False, bayesian_update=True)
 
     if CONSTANTS['STUDENT_MODEL_NAME'] == 'ActivityBKT':
         initial_state       = np.array(student_simulator.student_model.know[student_num])
@@ -133,6 +133,7 @@ if __name__ == "__main__":
     env.checkpoint()
 
     init_p_know                   = env.reset()
+    print(init_p_know)
     init_avg_p_know               = np.mean(np.array(init_p_know))
     target_avg_p_know             = CONSTANTS["TARGET_P_KNOW"]
     final_p_know                  = init_p_know.copy()
@@ -224,6 +225,12 @@ if __name__ == "__main__":
         train_epoch += 1
         
         if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
+            student_simulator = StudentSimulator(village=CONSTANTS["VILLAGE"], 
+                                        observations=CONSTANTS["NUM_OBS"], 
+                                        student_model_name=CONSTANTS["STUDENT_MODEL_NAME"],
+                                        matrix_type=CONSTANTS['MATRIX_TYPE'])
+            # data_dict = get_data_dict(uniq_student_ids, kc_list)
+            # student_simulator.update_on_log_data(data_dict, plot=False, bayesian_update=True)
             env = StudentEnv(student_simulator=student_simulator,
                     skill_groups=uniq_skill_groups,
                     skill_group_to_activity_map = skill_group_to_activity_map,
