@@ -199,15 +199,15 @@ if __name__ == "__main__":
                 activity_names.append(activity_name)
             
             next_state, reward, student_response, done, posterior = envs.step(action.cpu().numpy(), [timesteps] * CONSTANTS["NUM_ENVS"], [CONSTANTS["MAX_TIMESTEPS"]] * CONSTANTS["NUM_ENVS"], activity_names)
-            log_prob = action_probs.log_prob(action)
-            log_probs.append(log_prob)
-            critic_values.append(critic_value)
-            rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
-            dones.append(torch.Tensor(1 - done).unsqueeze(1).to(device))
-            states.append(state)
-            actions.append(action)
-            state = next_state.copy()
-            frame_idx += 1
+            # log_prob = action_probs.log_prob(action)
+            # log_probs.append(log_prob)
+            # critic_values.append(critic_value)
+            # rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
+            # dones.append(torch.Tensor(1 - done).unsqueeze(1).to(device))
+            # states.append(state)
+            # actions.append(action)
+            # state = next_state.copy()
+            # frame_idx += 1
             break
         break
 

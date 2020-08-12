@@ -105,6 +105,12 @@ class StudentEnv():
             next_state = self.student_simulator.student_model.know[self.student_num].copy()
             next_state = np.array(next_state)
             self.state = next_state.copy()
+        
+        if self.student_simulator.student_model_name == 'hotDINA_skill':
+        
+            # Simulate student with current BKT params and get student response (predictions) according to full responsibility and blame-worst responsibility
+            correct_preds, min_correct_preds = self.student_simulator.student_model.predict_percent_correct(student_ids, skills)
+
 
         # Get avg P(Know) before and after student attempts the activities
         avg_prior_know = np.mean(np.array(prior_know))

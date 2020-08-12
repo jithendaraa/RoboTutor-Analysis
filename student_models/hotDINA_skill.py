@@ -96,20 +96,23 @@ class hotDINA_skill():
         current_know = self.knows[user][-1]
         skills = self.Q[item]
         p_correct = 1.0
+        p_min_correct = 1.0
 
         for k in len(skills):
             skill = skills[k]
             if skill == 1:
                 p_correct_skill = (current_know[k] * self.ss[item]) + ((1 - current_know[k]) * self.g[item])
                 p_correct = p_correct * p_correct_skill
+                p_min_correct = min(p_min_correct, p_correct_skill)
         
         # response = Bern(p_correct)
-        predicted_response = int(np.random.binomial(n=1, p=p_correct))
+        correct_response        = int(np.random.binomial(n=1, p=p_correct))
+        min_correct_response    = int(np.random.binomial(n=1, p=p_min_correct))
 
         if update:
             self.update([predicted_response], [item], [user], bayesian_update, plot)
         
-        return predicted_response
+        return correct_response, min_correct_response
     
     def predict_responses(self, items, users, bayesian_update=True, plot=False, observations=None):
         
