@@ -199,60 +199,58 @@ if __name__ == "__main__":
                 activity_names.append(activity_name)
             
             next_state, reward, student_response, done, posterior = envs.step(action.cpu().numpy(), [timesteps] * CONSTANTS["NUM_ENVS"], [CONSTANTS["MAX_TIMESTEPS"]] * CONSTANTS["NUM_ENVS"], activity_names)
-            # log_prob = action_probs.log_prob(action)
-            # log_probs.append(log_prob)
-            # critic_values.append(critic_value)
-            # rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
-            # dones.append(torch.Tensor(1 - done).unsqueeze(1).to(device))
-            # states.append(state)
-            # actions.append(action)
-            # state = next_state.copy()
-            # frame_idx += 1
-            break
-        break
+            log_prob = action_probs.log_prob(action)
+            log_probs.append(log_prob)
+            critic_values.append(critic_value)
+            rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
+            dones.append(torch.Tensor(1 - done).unsqueeze(1).to(device))
+            states.append(state)
+            actions.append(action)
+            state = next_state.copy()
+            frame_idx += 1
 
-        # _, critic_value_ = model(torch.Tensor(next_state).to(device))
-        # returns = compute_gae(critic_value_, rewards, dones, critic_values, CONSTANTS["GAMMA"], CONSTANTS["GAE_LAMBDA"])
-        # returns         = torch.cat(returns).detach()
-        # log_probs       = torch.cat(log_probs).detach()
-        # critic_values   = torch.cat(critic_values).detach()
-        # states          = torch.cat(states)
-        # actions         = torch.cat(actions)
-        # advantage       = returns - critic_values
-        # advantage       = normalize(advantage)
+        _, critic_value_ = model(torch.Tensor(next_state).to(device))
+        returns = compute_gae(critic_value_, rewards, dones, critic_values, CONSTANTS["GAMMA"], CONSTANTS["GAE_LAMBDA"])
+        returns         = torch.cat(returns).detach()
+        log_probs       = torch.cat(log_probs).detach()
+        critic_values   = torch.cat(critic_values).detach()
+        states          = torch.cat(states)
+        actions         = torch.cat(actions)
+        advantage       = returns - critic_values
+        advantage       = normalize(advantage)
 
         # According to PPO paper: (states, actions, log_probs, returns, advantage) is together referred to as a "trajectory"
-    #     ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS)
-    #     train_epoch += 1
+        ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS)
+        train_epoch += 1
         
-    #     if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
-    #         env = StudentEnv(student_simulator=student_simulator,
-    #                 skill_groups=uniq_skill_groups,
-    #                 skill_group_to_activity_map = skill_group_to_activity_map,
-    #                 action_size=CONSTANTS["ACTION_SIZE"],
-    #                 student_id=CONSTANTS["STUDENT_ID"])
-    #         env.checkpoint()
-    #         test_reward = np.mean([test_env(env, model, device, CONSTANTS, skill_group_to_activity_map, uniq_skill_groups) for _ in range(CONSTANTS["NUM_TESTS"])])
-    #         writer.add_scalar("test_rewards", test_reward, frame_idx)
-    #         print('Frame %s. reward: %s' % (frame_idx, test_reward))
-    #         print("FINAL AVG P(Know) after run ", CONSTANTS["RUN_NUM"], ": ", (test_reward/1000 + init_avg_p_know))
-    #         print("FINAL P(Know): after run ", CONSTANTS["RUN_NUM"], ": ", env.state)
-    #         final_p_know = env.state
-    #         final_avg_p_know = np.mean(np.array(final_p_know))
-    #         # Save a checkpoint every time we achieve a best reward
-    #         if best_reward is None or best_reward < test_reward:
-    #             if best_reward is not None:
-    #                 print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
-    #                 name = CONSTANTS['STUDENT_MODEL_NAME'] + ("%s_best_%+.3f_%d.dat" % (args.name, test_reward, frame_idx))
-    #                 fname = os.path.join('.', 'checkpoints', name)
-    #                 torch.save(model.state_dict(), fname)
-    #             best_reward = test_reward
-    #         if test_reward > CONSTANTS["TARGET_REWARD"]: 
-    #             early_stop = True
+        if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
+            env = StudentEnv(student_simulator=student_simulator,
+                    skill_groups=uniq_skill_groups,
+                    skill_group_to_activity_map = skill_group_to_activity_map,
+                    action_size=CONSTANTS["ACTION_SIZE"],
+                    student_id=CONSTANTS["STUDENT_ID"])
+            env.checkpoint()
+            test_reward = np.mean([test_env(env, model, device, CONSTANTS, skill_group_to_activity_map, uniq_skill_groups) for _ in range(CONSTANTS["NUM_TESTS"])])
+            writer.add_scalar("test_rewards", test_reward, frame_idx)
+            print('Frame %s. reward: %s' % (frame_idx, test_reward))
+            print("FINAL AVG P(Know) after run ", CONSTANTS["RUN_NUM"], ": ", (test_reward/1000 + init_avg_p_know))
+            print("FINAL P(Know): after run ", CONSTANTS["RUN_NUM"], ": ", env.state)
+            final_p_know = env.state
+            final_avg_p_know = np.mean(np.array(final_p_know))
+            # Save a checkpoint every time we achieve a best reward
+            if best_reward is None or best_reward < test_reward:
+                if best_reward is not None:
+                    print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
+                    name = CONSTANTS['STUDENT_MODEL_NAME'] + ("%s_best_%+.3f_%d.dat" % (args.name, test_reward, frame_idx))
+                    fname = os.path.join('.', 'checkpoints', name)
+                    torch.save(model.state_dict(), fname)
+                best_reward = test_reward
+            if test_reward > CONSTANTS["TARGET_REWARD"]: 
+                early_stop = True
 
-    # print("INIT P(Know): \n", init_p_know)
-    # print("FINAL P(Know): \n", final_p_know)
-    # print("IMPROVEMENT PER SKILL: \n", np.array(final_p_know) - np.array(init_p_know))
-    # print("INIT AVG P(KNOW): ", init_avg_p_know)
-    # print("FINAL AVG P(KNOW): ", final_avg_p_know)
-    # print("TOTAL RUNS: ", CONSTANTS["RUN_NUM"])
+    print("INIT P(Know): \n", init_p_know)
+    print("FINAL P(Know): \n", final_p_know)
+    print("IMPROVEMENT PER SKILL: \n", np.array(final_p_know) - np.array(init_p_know))
+    print("INIT AVG P(KNOW): ", init_avg_p_know)
+    print("FINAL AVG P(KNOW): ", final_avg_p_know)
+    print("TOTAL RUNS: ", CONSTANTS["RUN_NUM"])
