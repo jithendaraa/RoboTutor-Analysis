@@ -41,6 +41,7 @@ class StudentSimulator():
         self.set_data(matrix_type)
         self.set_slurm_files()
         self.set_params_dict()
+        self.set_uniq_activities()
         exec(self.CONSTANTS['STUDENT_MODEL_INITIALISER'][student_model_name])
         print("StudentSimulator initialised (type: " + self.student_model_name + ')')
 

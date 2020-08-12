@@ -105,6 +105,10 @@ if __name__ == "__main__":
                                         matrix_type=CONSTANTS['MATRIX_TYPE'])
     
     uniq_student_ids = student_simulator.uniq_student_ids
+    
+    if CONSTANTS['STUDENT_ID'] not in uniq_student_ids:
+        CONSTANTS['STUDENT_ID'] = uniq_student_ids[0]
+
     kc_list = student_simulator.kc_list
     cta_df = student_simulator.cta_df
     student_num         = uniq_student_ids.index(CONSTANTS["STUDENT_ID"])
@@ -184,29 +188,26 @@ if __name__ == "__main__":
             if state.get_device() != 'cuda:0':
                 state = state.to(device)
             
-            print(state)
             policy, critic_value = model.forward(state)
             policy = F.softmax(policy, dim=1)   # softmax ensures actions add up to one which is a requirement for probabilities
             action_probs = torch.distributions.Categorical(policy)
             action = action_probs.sample()
             activity_names = []
-            print(uniq_skill_groups, len(uniq_skill_groups))
-            print(action)
-            for item in action.tolist():
-                print(item)
-                # activity_name = np.random.choice(skill_group_to_activity_map[str(item)])
-            #     activity_names.append(activity_name)
             
-            # next_state, reward, student_response, done, posterior = envs.step(action.cpu().numpy(), [timesteps] * CONSTANTS["NUM_ENVS"], [CONSTANTS["MAX_TIMESTEPS"]] * CONSTANTS["NUM_ENVS"], activity_names)
-            # log_prob = action_probs.log_prob(action)
-            # log_probs.append(log_prob)
-            # critic_values.append(critic_value)
-            # rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
-            # dones.append(torch.Tensor(1 - done).unsqueeze(1).to(device))
-            # states.append(state)
-            # actions.append(action)
-            # state = next_state.copy()
-            # frame_idx += 1
+            for item in action.tolist():
+                activity_name = np.random.choice(skill_group_to_activity_map[str(item)])
+                activity_names.append(activity_name)
+            
+            next_state, reward, student_response, done, posterior = envs.step(action.cpu().numpy(), [timesteps] * CONSTANTS["NUM_ENVS"], [CONSTANTS["MAX_TIMESTEPS"]] * CONSTANTS["NUM_ENVS"], activity_names)
+            log_prob = action_probs.log_prob(action)
+            log_probs.append(log_prob)
+            critic_values.append(critic_value)
+            rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
+            dones.append(torch.Tensor(1 - done).unsqueeze(1).to(device))
+            states.append(state)
+            actions.append(action)
+            state = next_state.copy()
+            frame_idx += 1
             break
         break
 
