@@ -236,7 +236,7 @@ def check_hotDINA_skill(village, observations, student_simulator):
     os.chdir('../RoboTutor-Analysis')
     students = student_simulator.uniq_student_ids[:2]
     student_simulator.update_on_log_data(1.0, train_students=students, data_dict=data_dict, bayesian_update=True, plot=True)
-    plt.show()
+    
     # plot_learning(student_simulator.student_model.learning_progress, students, 0, [], 'ppo')
 
 def check_ActivityBKT(village, observations, student_simulator, matrix_type='math', student_id=None):

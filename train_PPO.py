@@ -6,6 +6,8 @@ import math
 import os
 import random
 import numpy as np
+from pathlib import Path
+import pickle
 
 import torch 
 import torch.nn.functional as F
@@ -22,12 +24,35 @@ from helper import *
 from reader import *
 
 def set_constants(args):
-    CONSTANTS['ENV_ID']     = args.name
-    CONSTANTS['NUM_OBS']    = args.observations
-    CONSTANTS['VILLAGE']    = args.village_num
-    CONSTANTS['MATRIX_TYPE']= args.matrix_type
-    CONSTANTS['STUDENT_ID'] = args.student_id
+    CONSTANTS['ENV_ID']             = args.name
+    CONSTANTS['NUM_OBS']            = args.observations
+    CONSTANTS['VILLAGE']            = args.village_num
+    CONSTANTS['MATRIX_TYPE']        = args.matrix_type
+    CONSTANTS['STUDENT_ID']         = args.student_id
+    CONSTANTS['STUDENT_MODEL_NAME'] = args.student_model_name
 
+def get_data_dict(uniq_student_ids, kc_list):
+    if CONSTANTS['STUDENT_MODEL_NAME'] == 'ActivityBKT':
+        data_dict = extract_activity_table(uniq_student_ids, kc_list, CONSTANTS['MATRIX_TYPE'], CONSTANTS["NUM_OBS"], CONSTANTS['STUDENT_ID'])
+    
+    elif CONSTANTS['STUDENT_MODEL_NAME'] == 'hotDINA_skill':
+        path_to_data_file = os.getcwd() + '/../hotDINA/pickles/data/data'+ CONSTANTS['VILLAGE'] + '_' + CONSTANTS['NUM_OBS'] +'.pickle'
+        data_file = Path(path_to_data_file)
+        if data_file.is_file() == False:
+            # if data_file does not exist, get it
+            print("NO")
+            os.chdir('../hotDINA')
+            get_data_file_command = 'python get_data_for_village_n.py -v ' + CONSTANTS['VILLAGE'] + ' -o ' + CONSTANTS['NUM_OBS'] 
+            os.system(get_data_file_command)
+            os.chdir('../RoboTutor-Analysis')
+
+        os.chdir('../hotDINA')
+        with open(path_to_data_file, 'rb') as handle:
+            data_dict = pickle.load(handle)
+        os.chdir('../RoboTutor-Analysis')
+    
+    return data_dict
+    
 if __name__ == "__main__":
     from ppo_helper import *
 
@@ -35,9 +60,9 @@ if __name__ == "__main__":
 
     CONSTANTS = {
                 "NUM_ENVS"          : 4,
-                "STUDENT_ID"        : "VPRQEF_101",
+                "STUDENT_ID"        : "new_student",
                 "ENV_ID"            : "RoboTutor",
-                "TARGET_P_KNOW"     : 0.85,
+                "TARGET_P_KNOW"     : 0.65,
                 "STATE_SIZE"        : 22,
                 "ACTION_SIZE"       : 43,
                 "FC1_DIMS"          : 256,
@@ -57,7 +82,7 @@ if __name__ == "__main__":
                 "NUM_TESTS"         : 50,
                 'STUDENT_MODEL_NAME': 'ActivityBKT',
                 'VILLAGE'           : '130',
-                'NUM_OBS'           : '1000',
+                'NUM_OBS'           : 'all',
                 'MATRIX_TYPE'       : 'all',
     }
 
@@ -66,7 +91,8 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--observations", default=CONSTANTS["NUM_OBS"], help="Number of observations to train on")
     parser.add_argument("-v", "--village_num", default=CONSTANTS["VILLAGE"], help="Village to train on (not applicable for Activity BKT)")
     parser.add_argument("-m", "--matrix_type", default=CONSTANTS["MATRIX_TYPE"], help="Matrix type for the 3 content matrices or 'all'")
-    parser.add_argument('-sid', '--student_id', help="Student id", required=False, default=CONSTANTS['STUDENT_ID'])
+    parser.add_argument('-sid', '--student_id', default=CONSTANTS['STUDENT_ID'], help="Student id")
+    parser.add_argument('-smn', '--student_model_name', default=CONSTANTS['STUDENT_MODEL_NAME'], help="Student model name")
     args = parser.parse_args()
 
     set_constants(args)
@@ -79,15 +105,20 @@ if __name__ == "__main__":
                                         matrix_type=CONSTANTS['MATRIX_TYPE'])
     
     uniq_student_ids = student_simulator.uniq_student_ids
-    data_dict = extract_activity_table(uniq_student_ids, kc_list, CONSTANTS['MATRIX_TYPE'], CONSTANTS["NUM_OBS"])
-    student_simulator.update_on_log_data(data_dict)
-
-    student_num         = uniq_student_ids.index(CONSTANTS["STUDENT_ID"])
-    initial_state       = np.array(student_simulator.student_model.know[student_num])
-
     kc_list = student_simulator.kc_list
-    CONSTANTS['STATE_SIZE'] = len(kc_list)
     cta_df = student_simulator.cta_df
+    student_num         = uniq_student_ids.index(CONSTANTS["STUDENT_ID"])
+    CONSTANTS['STATE_SIZE'] = len(kc_list)
+    
+    data_dict = get_data_dict(uniq_student_ids, kc_list)
+    student_simulator.update_on_log_data(data_dict, plot=False, bayesian_update=True)
+
+    if CONSTANTS['STUDENT_MODEL_NAME'] == 'ActivityBKT':
+        initial_state       = np.array(student_simulator.student_model.know[student_num])
+    
+    elif CONSTANTS['STUDENT_MODEL_NAME'] == 'hotDINA_skill':
+        initial_state       = np.array(student_simulator.student_model.knows[student_num])
+
     _, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map  = read_data()
     
     env = StudentEnv(student_simulator=student_simulator,
@@ -132,7 +163,6 @@ if __name__ == "__main__":
     frame_idx = 0
     train_epoch = 0
     best_reward = None
-    # returns a state list, one for each env we make. dim: NUM_ENVS * STATE_SIZE
     state       = envs.reset()
     early_stop  = False
 
@@ -154,68 +184,74 @@ if __name__ == "__main__":
             if state.get_device() != 'cuda:0':
                 state = state.to(device)
             
+            print(state)
             policy, critic_value = model.forward(state)
             policy = F.softmax(policy, dim=1)   # softmax ensures actions add up to one which is a requirement for probabilities
             action_probs = torch.distributions.Categorical(policy)
             action = action_probs.sample()
             activity_names = []
+            print(uniq_skill_groups, len(uniq_skill_groups))
+            print(action)
             for item in action.tolist():
-                skill_group = uniq_skill_groups[item].copy()
-                activity_name = np.random.choice(skill_group_to_activity_map[str(item)])
-                activity_names.append(activity_name)
-            next_state, reward, student_response, done, posterior = envs.step(action.cpu().numpy(), [timesteps] * CONSTANTS["NUM_ENVS"], [CONSTANTS["MAX_TIMESTEPS"]] * CONSTANTS["NUM_ENVS"], activity_names)
-            log_prob = action_probs.log_prob(action)
-            log_probs.append(log_prob)
-            critic_values.append(critic_value)
-            rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
-            dones.append(torch.Tensor(1 - done).unsqueeze(1).to(device))
-            states.append(state)
-            actions.append(action)
-            state = next_state.copy()
-            frame_idx += 1
+                print(item)
+                # activity_name = np.random.choice(skill_group_to_activity_map[str(item)])
+            #     activity_names.append(activity_name)
+            
+            # next_state, reward, student_response, done, posterior = envs.step(action.cpu().numpy(), [timesteps] * CONSTANTS["NUM_ENVS"], [CONSTANTS["MAX_TIMESTEPS"]] * CONSTANTS["NUM_ENVS"], activity_names)
+            # log_prob = action_probs.log_prob(action)
+            # log_probs.append(log_prob)
+            # critic_values.append(critic_value)
+            # rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
+            # dones.append(torch.Tensor(1 - done).unsqueeze(1).to(device))
+            # states.append(state)
+            # actions.append(action)
+            # state = next_state.copy()
+            # frame_idx += 1
+            break
+        break
 
-        _, critic_value_ = model(torch.Tensor(next_state).to(device))
-        returns = compute_gae(critic_value_, rewards, dones, critic_values, CONSTANTS["GAMMA"], CONSTANTS["GAE_LAMBDA"])
-        returns         = torch.cat(returns).detach()
-        log_probs       = torch.cat(log_probs).detach()
-        critic_values   = torch.cat(critic_values).detach()
-        states          = torch.cat(states)
-        actions         = torch.cat(actions)
-        advantage       = returns - critic_values
-        advantage       = normalize(advantage)
+        # _, critic_value_ = model(torch.Tensor(next_state).to(device))
+        # returns = compute_gae(critic_value_, rewards, dones, critic_values, CONSTANTS["GAMMA"], CONSTANTS["GAE_LAMBDA"])
+        # returns         = torch.cat(returns).detach()
+        # log_probs       = torch.cat(log_probs).detach()
+        # critic_values   = torch.cat(critic_values).detach()
+        # states          = torch.cat(states)
+        # actions         = torch.cat(actions)
+        # advantage       = returns - critic_values
+        # advantage       = normalize(advantage)
 
         # According to PPO paper: (states, actions, log_probs, returns, advantage) is together referred to as a "trajectory"
-        ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS)
-        train_epoch += 1
+    #     ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS)
+    #     train_epoch += 1
         
-        if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
-            env = StudentEnv(student_simulator=student_simulator,
-                    skill_groups=uniq_skill_groups,
-                    skill_group_to_activity_map = skill_group_to_activity_map,
-                    action_size=CONSTANTS["ACTION_SIZE"],
-                    student_id=CONSTANTS["STUDENT_ID"])
-            env.checkpoint()
-            test_reward = np.mean([test_env(env, model, device, CONSTANTS, skill_group_to_activity_map, uniq_skill_groups) for _ in range(CONSTANTS["NUM_TESTS"])])
-            writer.add_scalar("test_rewards", test_reward, frame_idx)
-            print('Frame %s. reward: %s' % (frame_idx, test_reward))
-            print("FINAL AVG P(Know) after run ", CONSTANTS["RUN_NUM"], ": ", (test_reward/1000 + init_avg_p_know))
-            print("FINAL P(Know): after run ", CONSTANTS["RUN_NUM"], ": ", env.state)
-            final_p_know = env.state
-            final_avg_p_know = np.mean(np.array(final_p_know))
-            # Save a checkpoint every time we achieve a best reward
-            if best_reward is None or best_reward < test_reward:
-                if best_reward is not None:
-                    print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
-                    name = "%s_best_%+.3f_%d.dat" % (args.name, test_reward, frame_idx)
-                    fname = os.path.join('.', 'checkpoints', name)
-                    torch.save(model.state_dict(), fname)
-                best_reward = test_reward
-            if test_reward > CONSTANTS["TARGET_REWARD"]: 
-                early_stop = True
+    #     if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
+    #         env = StudentEnv(student_simulator=student_simulator,
+    #                 skill_groups=uniq_skill_groups,
+    #                 skill_group_to_activity_map = skill_group_to_activity_map,
+    #                 action_size=CONSTANTS["ACTION_SIZE"],
+    #                 student_id=CONSTANTS["STUDENT_ID"])
+    #         env.checkpoint()
+    #         test_reward = np.mean([test_env(env, model, device, CONSTANTS, skill_group_to_activity_map, uniq_skill_groups) for _ in range(CONSTANTS["NUM_TESTS"])])
+    #         writer.add_scalar("test_rewards", test_reward, frame_idx)
+    #         print('Frame %s. reward: %s' % (frame_idx, test_reward))
+    #         print("FINAL AVG P(Know) after run ", CONSTANTS["RUN_NUM"], ": ", (test_reward/1000 + init_avg_p_know))
+    #         print("FINAL P(Know): after run ", CONSTANTS["RUN_NUM"], ": ", env.state)
+    #         final_p_know = env.state
+    #         final_avg_p_know = np.mean(np.array(final_p_know))
+    #         # Save a checkpoint every time we achieve a best reward
+    #         if best_reward is None or best_reward < test_reward:
+    #             if best_reward is not None:
+    #                 print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
+    #                 name = CONSTANTS['STUDENT_MODEL_NAME'] + ("%s_best_%+.3f_%d.dat" % (args.name, test_reward, frame_idx))
+    #                 fname = os.path.join('.', 'checkpoints', name)
+    #                 torch.save(model.state_dict(), fname)
+    #             best_reward = test_reward
+    #         if test_reward > CONSTANTS["TARGET_REWARD"]: 
+    #             early_stop = True
 
-    print("INIT P(Know): \n", init_p_know)
-    print("FINAL P(Know): \n", final_p_know)
-    print("IMPROVEMENT PER SKILL: \n", np.array(final_p_know) - np.array(init_p_know))
-    print("INIT AVG P(KNOW): ", init_avg_p_know)
-    print("FINAL AVG P(KNOW): ", final_avg_p_know)
-    print("TOTAL RUNS: ", CONSTANTS["RUN_NUM"])
+    # print("INIT P(Know): \n", init_p_know)
+    # print("FINAL P(Know): \n", final_p_know)
+    # print("IMPROVEMENT PER SKILL: \n", np.array(final_p_know) - np.array(init_p_know))
+    # print("INIT AVG P(KNOW): ", init_avg_p_know)
+    # print("FINAL AVG P(KNOW): ", final_avg_p_know)
+    # print("TOTAL RUNS: ", CONSTANTS["RUN_NUM"])

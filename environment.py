@@ -38,28 +38,40 @@ class StudentEnv():
         
         if self.student_simulator.student_model_name == 'ActivityBKT':
             self.initial_state = np.array(student_model.know[student_num]).copy()
-    
         elif self.student_simulator.student_model_name == 'hotDINA_skill':
-            self.initial_state = np.array(student_model.knews[student_num]).copy()
+            self.initial_state = np.array(student_model.knows[student_num][-1]).copy()
 
         self.state = self.initial_state.copy()
 
 
     def reset(self):
         student_model = self.student_simulator.student_model
-        self.state = self.checkpoint_know.copy()
-        if self.student_simulator.student_model_name == 'ActivityBKT':
-            self.student_simulator.student_model.know[self.student_num] = self.checkpoint_know.tolist().copy()
-            self.student_simulator.student_model.know_act[self.student_num] = self.checkpoint_know_act.tolist().copy()
-            self.student_simulator.student_model.learning_progress = self.checkpoint_learning_progress.copy()
         
+        if self.student_simulator.student_model_name == 'ActivityBKT':
+            self.student_simulator.student_model.know               = self.checkpoint_know.copy()
+            self.student_simulator.student_model.know_act           = self.checkpoint_know_act.copy()
+            self.student_simulator.student_model.learning_progress  = self.checkpoint_learning_progress.copy()
+            self.state                                              = self.checkpoint_state.copy()
+        
+        elif self.student_simulator.student_model_name == 'hotDINA_skill':
+            self.student_simulator.student_model.knows = self.checkpoint_knows.copy()
+            self.state                                 = self.checkpoint_knows[self.student_num][-1].copy()
+
         return self.state.copy()
 
     def checkpoint(self):
-        #  Saves some values so env.reset() resets env values to checkpoint values
-        self.checkpoint_know = self.student_simulator.student_model.know[self.student_num].copy()
-        self.checkpoint_know_act = self.student_simulator.student_model.know_act[self.student_num].copy()
-        self.checkpoint_learning_progress = self.student_simulator.student_model.learning_progress.copy()
+        #  Saves some values as checkpoints so env.reset() resets env values to checkpoint values
+        student_model = self.student_simulator.student_model
+        if self.student_simulator.student_model_name == 'ActivityBKT':
+            self.checkpoint_know                = student_model.know.copy()
+            self.checkpoint_know_act            = student_model.know_act.copy()
+            self.checkpoint_learning_progress   = student_model.learning_progress.copy()
+            self.checkpoint_state               = student_model.know[self.student_num].copy()
+       
+        elif self.student_simulator.student_model_name == 'hotDINA_skill':
+            self.checkpoint_knows       = student_model.knows
+            self.checkpoint_knews       = student_model.knews
+            self.checkpoint_avg_knows   = student_model.avg_knows
     
     def step(self, action, timesteps, max_timesteps, activityName):
         """

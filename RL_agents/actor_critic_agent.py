@@ -79,7 +79,6 @@ class ActorCriticAgent(object):
         self.skill_groups = skill_groups
         self.skill_group_to_activity_map = skill_group_to_activity_map
 
-
     def choose_action(self, state, explore=False):
         
         policy, critic_value = self.actor_critic.forward(state)

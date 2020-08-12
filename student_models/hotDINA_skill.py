@@ -22,6 +22,7 @@ class hotDINA_skill():
         self.g      = params_dict['g']
         self.ss     = params_dict['ss']
 
+        self.bayesian_update = True
         # P(Know)'s of every student for every skill after every opportunity
         self.knows  = {}
         self.avg_knows = {}
@@ -30,7 +31,6 @@ class hotDINA_skill():
             self.avg_knows[i] = []
 
         self.knews  = np.zeros((self.I, self.K))
-        self.bayesian_update = True
 
         # Insert "knews" as knows@t=0
         for i in range(self.I):
@@ -89,6 +89,7 @@ class hotDINA_skill():
                     plt.plot(x, y, label="student_" + str(i) + "_bayesian" )
                 else:
                     plt.plot(x, y, label="student_" + str(i) + "_no_bayesian" )
+            plt.show()
 
     def predict_response(self, item, user, update=False, bayesian_update=True, plot=False):
 
