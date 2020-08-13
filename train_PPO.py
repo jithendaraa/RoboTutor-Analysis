@@ -225,10 +225,7 @@ if __name__ == "__main__":
         train_epoch += 1
         
         if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
-            student_simulator = StudentSimulator(village=CONSTANTS["VILLAGE"], 
-                                        observations=CONSTANTS["NUM_OBS"], 
-                                        student_model_name=CONSTANTS["STUDENT_MODEL_NAME"],
-                                        matrix_type=CONSTANTS['MATRIX_TYPE'])
+            
             # data_dict = get_data_dict(uniq_student_ids, kc_list)
             # student_simulator.update_on_log_data(data_dict, plot=False, bayesian_update=True)
             env = StudentEnv(student_simulator=student_simulator,

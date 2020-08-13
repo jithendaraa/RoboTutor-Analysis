@@ -26,12 +26,11 @@ class StudentSimulator():
             "PRINT_PARAMS_FOR_STUDENT"              : True,
             "PATH_TO_VILLAGE_STEP_TRANSAC_FILES"    : [],
             "STUDENT_MODEL_INITIALISER"             : {
-                                                        # "ItemBKT"       : "self.student_model = ItemBKT(self.params_dict, self.kc_list, self.uniq_student_ids)",
+                                                        "ItemBKT"       : "self.student_model = ItemBKT(self.params_dict, self.kc_list, self.uniq_student_ids)",
                                                         "ActivityBKT"   : "self.student_model = ActivityBKT(self.params_dict, self.kc_list, self.uniq_student_ids, self.uniq_activities, self.activity_learning_progress)",
                                                         "hotDINA_skill" : "self.student_model = hotDINA_skill(self.params_dict, path_to_Qmatrix)"
                                                     },
         }
-
         path_to_Qmatrix = os.getcwd() + '/../hotDINA/qmatrix.txt'
         self.student_model_name = student_model_name
         self.hotDINA_skill_slurm_files = {}
@@ -136,6 +135,32 @@ class StudentSimulator():
             path = os.getcwd() + "/slurm_outputs"
             self.params_dict = slurm_output_params(path, village, self.hotDINA_skill_slurm_files[village])
 
+    def reset(self):
+        student_model = self.student_model
+
+        if self.student_model_name == 'ActivityBKT':
+            student_model.know              = self.checkpoint_know.copy()
+            student_model.know_act          = self.checkpoint_know_act.copy()
+            student_model.learning_progress = self.checkpoint_learning_progress.copy()
+
+        elif self.student_model_name == 'hotDINA_skill':
+            student_model.knows     = self.checkpoint_knows.copy()
+            student_model.knews     = self.checkpoint_knews.copy()
+            student_model.avg_knows = self.checkpoint_avg_knows.copy()
+
+    def checkpoint(self):
+        student_model = self.student_model
+        
+        if self.student_model_name == 'ActivityBKT':
+            self.checkpoint_know                = student_model.know.copy()
+            self.checkpoint_know_act            = student_model.know_act.copy()
+            self.checkpoint_learning_progress   = student_model.learning_progress.copy()
+        
+        elif self.student_model_name == 'hotDINA_skill':
+            self.checkpoint_knows               = student_model.knows.copy()
+            self.checkpoint_knews               = student_model.knews.copy()
+            self.checkpoint_avg_knows           = student_model.avg_knows.copy()
+
     def update_on_log_data(self, data_dict, train_split=1.0, train_students=None, bayesian_update=True, plot=True):
         """
             Description: Takes a train_split (float) and train_students (list). If train_size is 1, trains on all rows of activity table, else trains on (1 - train_size)*rows of activity_df.
@@ -152,7 +177,10 @@ class StudentSimulator():
             self.activity_bkt_update(data_dict)
         
         elif self.student_model_name == 'hotDINA_skill':
-            self.hotDINA_skill_update(train_students, data_dict, bayesian_update, plot)
+            self.hotDINA_skill_update(data_dict, bayesian_update, plot)
+        
+        elif self.student_model_name == 'hotDINA_full':
+            self.hotDINA_full_update(data_dict)
 
     def item_bkt_update(self, train_split, train_students):
         
@@ -175,11 +203,7 @@ class StudentSimulator():
             for student_village in self.student_id_to_village_map[student_id]:
 
                 data_file = "Data/village_" + str(student_village) + "/village_" + str(student_village) + "_step_transac.txt"
-                student_ids, student_nums, skill_names, skill_nums, corrects, test_idx = extract_step_transac(data_file, 
-                                                                                                                self.uniq_student_ids, 
-                                                                                                                self.kc_list_spaceless, 
-                                                                                                                student_id, 
-                                                                                                                train_split)  
+                student_ids, student_nums, skill_names, skill_nums, corrects, test_idx = extract_step_transac(data_file, self.uniq_student_ids, self.kc_list_spaceless, student_id, train_split)  
 
                 if test_idx == None:
                     test_idx = len(student_ids)
@@ -192,8 +216,13 @@ class StudentSimulator():
                     # total_full_resp_rmse += full_resp_rmse
                 print("Updated student_id:", pd.unique(np.array(student_ids)).tolist(), "with", str(test_idx), "rows")
 
-    def hotDINA_skill_update(self, train_students, data_dict, bayesian_update=True, plot=True):
+    def activity_bkt_update(self, data_dict):
+        activity_observations   = data_dict['activity_observations']
+        student_nums            = data_dict['student_nums']
+        activities              = data_dict['activity_names']                
+        self.student_model.update(activity_observations, student_nums, activities)
 
+    def hotDINA_skill_update(self, data_dict, bayesian_update=True, plot=True):
         if self.CONSTANTS["PRINT_PARAMS_FOR_STUDENT"] == True and self.student_model_name == 'hotDINA_skill':
             print("theta: ", self.params_dict['theta'])
             print('a: ', self.params_dict['a'])
@@ -207,16 +236,9 @@ class StudentSimulator():
         items = data_dict['items']
         users = data_dict['users']
         self.student_model.update(observations, items, users, bayesian_update, plot)
-
-    def activity_bkt_update(self, data_dict):
-
-        activity_observations   = data_dict['activity_observations']
-        student_nums            = data_dict['student_nums']
-        activities              = data_dict['activity_names']                
-        
-        self.student_model.update(activity_observations, 
-                                    student_nums, 
-                                    activities)
+    
+    def hotDINA_full_update(self, data_dict):
+        pass
 
 def check_hotDINA_skill(village, observations, student_simulator):
     from pathlib import Path
@@ -237,7 +259,6 @@ def check_hotDINA_skill(village, observations, student_simulator):
     os.chdir('../RoboTutor-Analysis')
     students = student_simulator.uniq_student_ids[:2]
     student_simulator.update_on_log_data(1.0, train_students=students, data_dict=data_dict, bayesian_update=True, plot=True)
-    
     # plot_learning(student_simulator.student_model.learning_progress, students, 0, [], 'ppo')
 
 def check_ActivityBKT(village, observations, student_simulator, matrix_type='math', student_id=None):

@@ -45,33 +45,19 @@ class StudentEnv():
 
 
     def reset(self):
-        student_model = self.student_simulator.student_model
-        
-        if self.student_simulator.student_model_name == 'ActivityBKT':
-            self.student_simulator.student_model.know               = self.checkpoint_know.copy()
-            self.student_simulator.student_model.know_act           = self.checkpoint_know_act.copy()
-            self.student_simulator.student_model.learning_progress  = self.checkpoint_learning_progress.copy()
-            self.state                                              = self.checkpoint_state.copy()
-        
-        elif self.student_simulator.student_model_name == 'hotDINA_skill':
-            self.student_simulator.student_model.knows = self.checkpoint_knows.copy()
-            self.state                                 = self.checkpoint_knows[self.student_num][-1].copy()
-
+        self.student_simulator.reset()
+        self.state  = self.checkpoint_state.copy()
         return self.state.copy()
 
     def checkpoint(self):
-        #  Saves some values as checkpoints so env.reset() resets env values to checkpoint values
-        student_model = self.student_simulator.student_model
+        self.student_simulator.checkpoint()
+        student_model = self.student_simulator.student_model    #  Saves some values as checkpoints so env.reset() resets env values to checkpoint states
+
         if self.student_simulator.student_model_name == 'ActivityBKT':
-            self.checkpoint_know                = student_model.know.copy()
-            self.checkpoint_know_act            = student_model.know_act.copy()
-            self.checkpoint_learning_progress   = student_model.learning_progress.copy()
-            self.checkpoint_state               = student_model.know[self.student_num].copy()
+            self.checkpoint_state   = student_model.know[self.student_num].copy()
        
         elif self.student_simulator.student_model_name == 'hotDINA_skill':
-            self.checkpoint_knows       = student_model.knows
-            self.checkpoint_knews       = student_model.knews
-            self.checkpoint_avg_knows   = student_model.avg_knows
+            self.checkpoint_state   = student_model.knows[self.student_num][-1].copy()
     
     def step(self, action, timesteps, max_timesteps, activityName, bayesian_update=True, plot=False):
         """
