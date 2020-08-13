@@ -1,8 +1,16 @@
+import sys
+sys.path.append('../')
+
 import numpy as np
 import matplotlib.pyplot as plt
 import math
 import pandas as pd
+from pathlib import Path
+import pickle
+import os
+
 from helper import *
+from reader import *
 
 class hotDINA_full():
     def __init__(self, params_dict, path_to_Qmatrix, update_type="bayesian"):
@@ -40,7 +48,7 @@ class hotDINA_full():
             know = [1.0] * J
             for j in range(J):
                 for k in range(K):
-                    know[j] = pow(self.alpha[i][k], Q[j][k]) * know[j]
+                    know[j] = pow(self.alpha[i][k], self.Q[j][k]) * know[j]
             
             self.eta[i].append(know)
             self.avg_knows[i].append(np.mean(know))
@@ -69,7 +77,7 @@ class hotDINA_full():
                 user = users[i]
                 correct = int(observations[i])
                 item = items[i]
-                skills = Q[item]
+                skills = self.Q[item]
                 know = self.eta[user][-1]
                 for k in range(len(skills)):
                     skill = skills[k]
@@ -89,3 +97,46 @@ class hotDINA_full():
             x = np.arange(len(y)).tolist()
             plt.plot(x, y)
         plt.show()
+
+if __name__ == '__main__':
+    
+    I = 8
+    J = 1712
+    K = 22 
+
+    dummy_params_dict = {
+        'theta' : (-np.log(9)/1.7) * np.ones((I, 1)),
+        'a'     : np.ones((K, 1)),
+        'b'     : 0 * np.ones((K, 1)),
+        'learn' : 0.5 * np.ones((K, 1)),
+        'g'     : 0.25 * np.ones((J, 1)),
+        'ss'    : 0.85 *np.ones((J, 1))
+    }
+
+    path_to_Qmatrix = '../../hotDINA/qmatrix.txt'
+
+    model = hotDINA_full(dummy_params_dict, path_to_Qmatrix)
+
+    village = '130'
+    obs = '1000'
+
+    path_to_data_file = os.getcwd() + '/../../hotDINA/pickles/data/data'+ village + '_' + obs +'.pickle'
+    data_file = Path(path_to_data_file)
+    if data_file.is_file() == False:
+        # if data_file does not exist, get it
+        os.chdir('../../hotDINA')
+        get_data_file_command = 'python get_data_for_village_n.py -v ' + village + ' -o ' + obs
+        os.system(get_data_file_command)
+        os.chdir('../RoboTutor-Analysis/student_models')
+
+    os.chdir('../../hotDINA')
+    with open(path_to_data_file, 'rb') as handle:
+        data_dict = pickle.load(handle)
+    os.chdir('../RoboTutor-Analysis/student_models')
+
+    observations    = data_dict['y']
+    items           = data_dict['items']
+    users           = data_dict['users']
+    model.update(observations, items, users)
+
+
