@@ -1,19 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-
-
-# GLOBALLY CONSTANT FOR ANY VILLAGE
-Q = pd.read_csv('../../hotDINA/qmatrix.txt', header=None).to_numpy()
-J = 1712
-K = 22
+import pandas as pd
+from helper import *
 
 class hotDINA_full():
-    def __init__(self, params_dict, update_type="bayesian"):
+    def __init__(self, params_dict, path_to_Qmatrix, update_type="bayesian"):
         
         self.I = len(params_dict['theta'])
         self.J = len(params_dict['g'])
         self.K = len(params_dict['a'])
+        self.Q = pd.read_csv(path_to_Qmatrix, header=None).to_numpy()
 
         self.update_type = update_type
 
