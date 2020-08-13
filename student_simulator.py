@@ -137,7 +137,6 @@ class StudentSimulator():
 
     def reset(self):
         student_model = self.student_model
-
         if self.student_model_name == 'ActivityBKT':
             student_model.know              = self.checkpoint_know.copy()
             student_model.know_act          = self.checkpoint_know_act.copy()
@@ -150,7 +149,6 @@ class StudentSimulator():
 
     def checkpoint(self):
         student_model = self.student_model
-        
         if self.student_model_name == 'ActivityBKT':
             self.checkpoint_know                = student_model.know.copy()
             self.checkpoint_know_act            = student_model.know_act.copy()
