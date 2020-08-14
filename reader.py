@@ -8,6 +8,7 @@ import math
 import matplotlib.pyplot as plt
 import os
 from tqdm import tnrange, tqdm_notebook, tqdm
+import pickle
 
 
 # Read functions
@@ -103,7 +104,7 @@ def extract_transac_table(transac_df, student_id_to_number_map, kc_list, skill_t
 
     return data_dict
 
-def extract_step_transac(path_to_data, uniq_student_ids, kc_list_spaceless, student_id=None, train_split=1.0):
+def extract_step_transac(path_to_data, uniq_student_ids, kc_list_spaceless, student_id=None, train_split=1.0, observations='all'):
 
     student_ids = []
     student_nums = []
@@ -112,7 +113,10 @@ def extract_step_transac(path_to_data, uniq_student_ids, kc_list_spaceless, stud
     corrects = []
 
     df = pd.read_csv(path_to_data, delimiter='\t', header=None).astype({1: str})
-
+    
+    if observations != 'all':
+        df = df[:int(observations)]
+    
     corrects = df[0].values.tolist()
     student_ids = df[1].values.tolist()
     skill_names = df[3].values.tolist()
@@ -160,18 +164,16 @@ def extract_step_transac(path_to_data, uniq_student_ids, kc_list_spaceless, stud
     
     return data_dict
 
-def extract_activity_table(uniq_student_ids, kc_list, matrix_type='math', num_obs='1000', student_id=None):
+def extract_activity_table(path_to_activity_table, uniq_student_ids, kc_list, num_obs='1000', student_id=None):
     """
         Reads actiivty table, gets necessary data from it and gets all details that are necessary to do the activityBKT update.
         Returns observations, student_ids, skills involved with each of these attempts, num_corrects and num_attempts
         ith row of each of these lists give info about the ith opportunity or corresponds to ith row of activity_df
     """
-    path_to_activity_table = "Data/extracted_Activity_table_KCSubtest_sl2.xlsx"
-    activity_df = pd.read_excel(path_to_activity_table)
+    activity_df = pd.read_pickle(path_to_activity_table)
+    print(activity_df)
     if student_id != None:
         activity_df = activity_df[activity_df["Unique_Child_ID_1"] == student_id]
-    if matrix_type != 'all':
-        activity_df = activity_df[activity_df["Matrix_ActivityName"] == matrix_type]
     if num_obs != 'all':
         activity_df = activity_df[:int(num_obs)]
 
@@ -195,7 +197,7 @@ def extract_activity_table(uniq_student_ids, kc_list, matrix_type='math', num_ob
         activity_skills.append(kc_list.index(kc_subtest)) 
 
     data_dict = {
-        'activity_observations' : activity_observations,
+        # 'activity_observations' : activity_observations,
         'student_nums'          : student_nums,
         'activity_skills'       : activity_skills,
         'num_corrects'          : num_corrects,
