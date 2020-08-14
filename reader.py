@@ -84,14 +84,24 @@ def extract_transac_table(transac_df, student_id_to_number_map, kc_list, skill_t
         underscore_tutor_id = transac_tutor_ids[i]
         colon_tutor_id = underscore_to_colon_tutor_id_dict[underscore_tutor_id]
         item_skills[i] = tutorID_to_kc_dict[colon_tutor_id]
-
         res = []
         for row in item_skills[i]:
             res.append(skill_to_number_map[row])
-        
         item_skills[i] = res
 
-    return item_observations, item_student_ids, item_skills, uniq_transac_student_ids
+    student_nums = []
+    for student_id in item_student_ids:
+        student_nums.append(uniq_transac_student_ids.index(student_id))
+
+    data_dict = {
+        'observations'              : item_observations,
+        'student_ids'               : item_student_ids,
+        'student_nums'              : student_nums,
+        'item_skills'               : item_skills,
+        'uniq_transac_student_ids'  : uniq_transac_student_ids
+    }
+
+    return data_dict
 
 def extract_step_transac(path_to_data, uniq_student_ids, kc_list_spaceless, student_id=None, train_split=1.0):
 
@@ -138,8 +148,17 @@ def extract_step_transac(path_to_data, uniq_student_ids, kc_list_spaceless, stud
     test_idx = None
     if train_split != 1.0:
         test_idx = math.floor(train_split * num_entries)
+
+    data_dict = {
+        'student_ids'   : student_ids,
+        'student_nums'  : student_nums,
+        'skill_names'   : skill_names,
+        'skill_nums'    : skill_nums,
+        'corrects'      : corrects,
+        'test_idx'      : test_idx
+    }
     
-    return student_ids, student_nums, skill_names, skill_nums, corrects, test_idx
+    return data_dict
 
 def extract_activity_table(uniq_student_ids, kc_list, matrix_type='math', num_obs='1000', student_id=None):
     """
