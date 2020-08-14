@@ -5,6 +5,7 @@ import math
 import os
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import pickle
 
 from reader import *
 from helper import *
@@ -19,7 +20,7 @@ class StudentSimulator():
 
         self.CONSTANTS = {
             "PATH_TO_CTA"                           : "Data/CTA.xlsx",
-            "PATH_TO_ACTIVITY_TABLE"                : "Data/extracted_Activity_table_KCSubtest_sl2.xlsx",
+            "PATH_TO_ACTIVITY_TABLE"                : "Data/Activity_table_v4.1_22Apr2020.pkl",
             "VILLAGE"                               : village,
             "OBSERVATIONS"                          : observations,
             "SUBSCRIPT"                             : subscript, #"student_specific" or "village_specific" for BKT subscripting
@@ -56,12 +57,12 @@ class StudentSimulator():
         self.kc_list = self.cta_df.columns.tolist()
         
         if self.student_model_name == "ActivityBKT":
-            self.activity_df = pd.read_excel(self.CONSTANTS['PATH_TO_ACTIVITY_TABLE'])
-            if matrix_type != 'all':
-                self.activity_df = self.activity_df[self.activity_df["Matrix_ActivityName"] == matrix_type]
+            self.activity_df = pd.read_pickle(self.CONSTANTS['PATH_TO_ACTIVITY_TABLE'])
+            
             if self.CONSTANTS['OBSERVATIONS'] != 'all':
                 num_obs = int(self.CONSTANTS['OBSERVATIONS'])
                 self.activity_df = self.activity_df[:num_obs]
+
             self.set_uniq_activities()
             self.num_activities = len(self.uniq_activities)
             self.uniq_student_ids = get_col_vals_from_df(self.activity_df, "Unique_Child_ID_1", unique=True)
@@ -262,28 +263,25 @@ def check_hotDINA_skill(village, observations, student_simulator):
 
 def check_ActivityBKT(village, observations, student_simulator, matrix_type='all', student_id=None, train_size=1.0):
 
-    if matrix_type != None:
-        activity_df = student_simulator.activity_df[student_simulator.activity_df["Matrix_ActivityName"] == matrix_type]
-    else:
-        activity_df = student_simulator.activity_df
+    pass
+    # activity_df = student_simulator.activity_df
+    # student_1_act_df = activity_df
+    # if student_id != None:
+    #     student_1_act_df = activity_df[activity_df['Unique_Child_ID_1'] == student_id]
     
-    student_1_act_df = activity_df
-    
-    if student_id != None:
-        student_1_act_df = activity_df[activity_df['Unique_Child_ID_1'] == student_id]
-    
-    data_dict = extract_activity_table(student_1_act_df, 
-                                        student_simulator.act_student_id_to_number_map, 
-                                        student_simulator.kc_list)
+    # data_dict = extract_activity_table(student_1_act_df, 
+    #                                     student_simulator.act_student_id_to_number_map, 
+    #                                     student_simulator.kc_list)
+    # print(data_dict)
 
-    student_simulator.update_on_log_data(data_dict)
+    # student_simulator.update_on_log_data(data_dict)
 
-    studs = []
-    for key in student_simulator.student_model.learning_progress:
-        if len(student_simulator.student_model.learning_progress[key]) > 1:
-            studs.append(key)
+    # studs = []
+    # for key in student_simulator.student_model.learning_progress:
+    #     if len(student_simulator.student_model.learning_progress[key]) > 1:
+    #         studs.append(key)
 
-    plot_learning(student_simulator.student_model.learning_progress, studs, 0, [], 'ppo')
+    # plot_learning(student_simulator.student_model.learning_progress, studs, 0, [], 'ppo')
 
 def check_ItemBKT(village, observations, student_simulator):
 
@@ -302,7 +300,6 @@ def check_ItemBKT(village, observations, student_simulator):
     prob_rmse, sampled_rmse, predicted_responses, predicted_p_corrects = student_simulator.student_model.get_rmse(student_nums, skill_nums, corrects, train_ratio=0.75)
     print("RMSE Values:", prob_rmse, sampled_rmse)
     
-
 def main(check_model):
     import argparse
     parser = argparse.ArgumentParser()
@@ -323,4 +320,4 @@ def main(check_model):
         check_hotDINA_skill(village, observations, student_simulator)
 
 if __name__ == "__main__":
-    main("ItemBKT")
+    main("ActivityBKT")
