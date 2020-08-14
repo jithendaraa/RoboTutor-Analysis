@@ -299,11 +299,9 @@ def check_ItemBKT(village, observations, student_simulator):
     skill_nums          = data_dict['skill_nums']
     student_nums        = data_dict['student_nums']
 
-    prob_rmse, sampled_rmse, predicted_responses, predicted_p_corrects = student_simulator.student_model.get_rmse(student_nums, skill_nums, corrects)
-    print(predicted_responses, corrects, predicted_p_corrects)
-    print(prob_rmse, sampled_rmse)
+    prob_rmse, sampled_rmse, predicted_responses, predicted_p_corrects = student_simulator.student_model.get_rmse(student_nums, skill_nums, corrects, train_ratio=0.75)
+    print("RMSE Values:", prob_rmse, sampled_rmse)
     
-
 
 def main(check_model):
     import argparse
