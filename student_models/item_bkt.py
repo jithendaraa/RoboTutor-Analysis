@@ -38,7 +38,6 @@ class ItemBKT:
         self.students = uniq_student_ids
         self.learning_progress = {}
 
-
         for i in range(self.n):
             student_id = self.students[i]
             self.learning_progress[student_id] = [self.know[i].copy()]
@@ -61,7 +60,6 @@ class ItemBKT:
             posterior_know_given_obs = (prior_know * no_slip / correct)
         elif observation == 0:
             posterior_know_given_obs = (prior_know * slip / wrong)
-        
         posterior_know = (posterior_know_given_obs * no_forget) + (1 - posterior_know_given_obs) * learn
         self.know[i][j] = posterior_know
 
@@ -76,7 +74,7 @@ class ItemBKT:
             
             self.learning_progress[student_id].append(self.know[student_num].copy())
 
-    def predict_p_correct(self, student_id, skills):
+    def predict_p_correct(self, student_id, skills, update=False):
         i = student_id
         correct = 1.0
         for skill in skills:
@@ -88,7 +86,11 @@ class ItemBKT:
             p_not_slip = 1.0 - p_slip
             if self.update_type == 'independent':
                 correct = correct * ((p_know * p_not_slip) + (p_not_know * p_guess))
-            elif self.update_type == 'blame_weakest'
+            elif self.update_type == 'blame_weakest':
                 correct = min(correct, (p_know * p_not_slip) + (p_not_know * p_guess))
         
+        if update == True:
+            student_repsonse = np.random.binomial(n=1, p=correct)
+            self.update([student_id], [skills], [student_repsonse])
+
         return correct
