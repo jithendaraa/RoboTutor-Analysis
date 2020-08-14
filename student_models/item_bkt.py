@@ -57,8 +57,8 @@ class ItemBKT:
         forget = self.forget[i][j]
         no_forget = 1.0 - forget
         posterior_know_given_obs = None
-        correct = (prior_know * no_slip) + (prior_not_know * guess)
-        wrong = (prior_know * slip) + (prior_not_know * no_guess)
+        correct = 10e-8 + (prior_know * no_slip) + (prior_not_know * guess)
+        wrong = 1.0 - correct
         if observation == 1:
             posterior_know_given_obs = (prior_know * no_slip / correct)
         elif observation == 0:
@@ -78,8 +78,8 @@ class ItemBKT:
     def predict_p_correct(self, student_num, skill, update=False):
         i = student_num
         correct = 1.0
+        
         for j in skill:
-            j = skill
             p_know = self.know[i][j]
             p_not_know = 1.0 - p_know
             p_guess = self.guess[i][j]
@@ -90,10 +90,10 @@ class ItemBKT:
             elif self.update_type == 'blame_weakest':
                 correct = min(correct, (p_know * p_not_slip) + (p_not_know * p_guess))
         
-        student_repsonse = None
+        student_response = None
         if update == True:
-            student_repsonse = np.random.binomial(n=1, p=correct)
-            self.update([student_num], [skill], [student_repsonse])
+            student_response = np.random.binomial(1, correct)
+            self.update([student_num], [skill], [student_response])
 
         return correct, student_response
 
@@ -102,12 +102,13 @@ class ItemBKT:
         predicted_responses  = []
         predicted_p_corrects = []
 
-        for student_num in student_nums:
-            for skill in skills:
-                predicted_p_correct, predicted_response = predict_p_correct(student_num, skill, update=True)
-                predicted_p_corrects.append(predicted_p_correct)
-                predicted_responses.append(predicted_response)
+        for i in range(len(student_nums)):
+            student_num = student_nums[i]
+            skill = skills[i]
+            predicted_p_correct, predicted_response = self.predict_p_correct(student_num, skill, update=True)
+            predicted_p_corrects.append(predicted_p_correct)
+            predicted_responses.append(predicted_response)
 
         prob_rmse       = rmse(predicted_p_corrects, observations)
         sampled_rmse    = rmse(predicted_responses, observations)
-        return prob_rmse, sampled_rmse
+        return prob_rmse, sampled_rmse, predicted_responses, predicted_p_corrects
