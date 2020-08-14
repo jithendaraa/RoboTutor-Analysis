@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import sys
 sys.path.append('..')
 from helper import *
@@ -97,18 +98,77 @@ class ItemBKT:
 
         return correct, student_response
 
-    def get_rmse(self, student_nums, skills, observations):
+    def get_rmse(self, student_nums, skills, observations, train_ratio=0.5):
 
         predicted_responses  = []
         predicted_p_corrects = []
+        idxs = []
+        corrects = []
+        unique_student_nums = pd.unique(np.array(student_nums)).tolist()
 
         for i in range(len(student_nums)):
             student_num = student_nums[i]
-            skill = skills[i]
-            predicted_p_correct, predicted_response = self.predict_p_correct(student_num, skill, update=True)
-            predicted_p_corrects.append(predicted_p_correct)
-            predicted_responses.append(predicted_response)
+            if i > 0 and student_num != student_nums[i-1]:
+                idxs.append(i)
+        
+        for i in range(len(idxs)):
+            if i == 0:
+                skills_         = skills[0:idxs[i]]
+                student_nums_   = student_nums[0:idxs[i]] 
+                corrects_       = observations[0:idxs[i]]
 
-        prob_rmse       = rmse(predicted_p_corrects, observations)
-        sampled_rmse    = rmse(predicted_responses, observations)
+            else:
+                skills_         = skills[idxs[i-1]:idxs[i]]
+                student_nums_   = student_nums[idxs[i-1]:idxs[i]]
+                corrects_       = observations[idxs[i-1]:idxs[i]]
+
+            entries = len(skills_) 
+            test_idx = int(train_ratio * entries)
+            # Update on training data
+            self.update(student_nums_[:test_idx], skills_[:test_idx], corrects_[:test_idx])
+            # Test accuracy on test data
+            _student_nums   = student_nums_[test_idx:]
+            _skills         = skills_[test_idx:]
+            _corrects       = corrects_[test_idx:]
+
+            if len(corrects) == 0:
+                corrects = _corrects.copy()
+            else:
+                corrects = corrects + _corrects
+
+            for j in range(len(_student_nums)):
+                student_num = _student_nums[j]
+                skill       = _skills[j]
+                correct, student_response = self.predict_p_correct(student_num, skill, update=True)
+                
+                predicted_p_corrects.append(correct)
+                predicted_responses.append(student_response)
+        
+        skills_         = skills[idxs[-1]:]
+        student_nums_   = student_nums[idxs[-1]:]
+        corrects_       = observations[idxs[-1]:]
+        entries = len(skills_) 
+        test_idx = int(train_ratio * entries)
+        # Update training data
+        self.update(student_nums_[:test_idx], skills_[:test_idx], corrects_[:test_idx])
+        # Test data
+        _student_nums   = student_nums_[test_idx:]
+        _skills         = skills_[test_idx:]
+        _corrects       = corrects_[test_idx:]
+
+        if len(corrects) == 0:
+            corrects = _corrects.copy()
+        else:
+            corrects = corrects + _corrects
+        
+        for j in range(len(_student_nums)):
+            student_num = _student_nums[j]
+            skill       = _skills[j]
+            correct, student_response = self.predict_p_correct(student_num, skill, update=True)
+            
+            predicted_p_corrects.append(correct)
+            predicted_responses.append(student_response)
+
+        prob_rmse       = rmse(predicted_p_corrects, corrects)
+        sampled_rmse    = rmse(predicted_responses, corrects)
         return prob_rmse, sampled_rmse, predicted_responses, predicted_p_corrects
