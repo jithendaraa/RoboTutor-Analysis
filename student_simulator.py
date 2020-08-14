@@ -235,6 +235,7 @@ class StudentSimulator():
         observations = data_dict['y']
         items = data_dict['items']
         users = data_dict['users']
+        entries = len(observations)
         self.student_model.update(observations, items, users, bayesian_update, plot)
     
     def hotDINA_full_update(self, data_dict):
@@ -242,7 +243,6 @@ class StudentSimulator():
 
 def check_hotDINA_skill(village, observations, student_simulator):
     from pathlib import Path
-    import pickle
 
     path_to_data_file = os.getcwd() + '/../hotDINA/pickles/data/data'+ village + '_' + observations +'.pickle'
     data_file = Path(path_to_data_file)
@@ -258,21 +258,25 @@ def check_hotDINA_skill(village, observations, student_simulator):
         data_dict = pickle.load(handle)
     os.chdir('../RoboTutor-Analysis')
     students = student_simulator.uniq_student_ids[:2]
-    student_simulator.update_on_log_data(1.0, train_students=students, data_dict=data_dict, bayesian_update=True, plot=True)
-    # plot_learning(student_simulator.student_model.learning_progress, students, 0, [], 'ppo')
+
+    users = data_dict['users']
+    items = data_dict['items']
+    corrects = data_dict['y']
+
+    rmse_val = student_simulator.student_model.get_rmse(users, items, corrects, train_ratio=0.75)
+    print("HotDINA_skill RMSE:", rmse_val)
 
 def check_ActivityBKT(village, observations, student_simulator, matrix_type='all', student_id=None, train_size=1.0):
 
-    pass
-    # activity_df = student_simulator.activity_df
-    # student_1_act_df = activity_df
-    # if student_id != None:
-    #     student_1_act_df = activity_df[activity_df['Unique_Child_ID_1'] == student_id]
+    activity_df = student_simulator.activity_df
+    student_1_act_df = activity_df
+    if student_id != None:
+        student_1_act_df = activity_df[activity_df['Unique_Child_ID_1'] == student_id]
     
-    # data_dict = extract_activity_table(student_1_act_df, 
-    #                                     student_simulator.act_student_id_to_number_map, 
-    #                                     student_simulator.kc_list)
-    # print(data_dict)
+    data_dict = extract_activity_table("Data/Activity_table_v4.1_22Apr2020.pkl",
+                                        student_simulator.uniq_activities, 
+                                        student_simulator.kc_list)
+    print(data_dict)
 
     # student_simulator.update_on_log_data(data_dict)
 
@@ -298,9 +302,20 @@ def check_ItemBKT(village, observations, student_simulator):
     student_nums        = data_dict['student_nums']
 
     prob_rmse, sampled_rmse, predicted_responses, predicted_p_corrects = student_simulator.student_model.get_rmse(student_nums, skill_nums, corrects, train_ratio=0.75)
-    print("RMSE Values:", prob_rmse, sampled_rmse)
+    print("ItemBKT RMSE Value:", prob_rmse)
     
-def main(check_model):
+def main(check_model, village, observations):
+    
+    student_simulator = StudentSimulator(village, observations, student_model_name=check_model)
+
+    if check_model == 'ItemBKT':
+        check_ItemBKT(village, observations, student_simulator)
+    elif check_model == 'ActivityBKT':
+        check_ActivityBKT(village, observations, student_simulator)
+    elif check_model == 'hotDINA_skill':
+        check_hotDINA_skill(village, observations, student_simulator)
+
+if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("-o", "--observations", help="NUM_ENTRIES that have to be extracted from a given transactions table. Should be a number or 'all'. If inputted number > total records for the village, this will assume a value of 'all'", default="1000", required=False)
@@ -308,16 +323,5 @@ def main(check_model):
     args = parser.parse_args()
     village = args.village_num
     observations = args.observations
-    student_simulator = StudentSimulator(village, observations, student_model_name=check_model)
-
-    if check_model == 'ItemBKT':
-        check_ItemBKT(village, observations, student_simulator)
-
-    elif check_model == 'ActivityBKT':
-        check_ActivityBKT(village, observations, student_simulator)
-    
-    elif check_model == 'hotDINA_skill':
-        check_hotDINA_skill(village, observations, student_simulator)
-
-if __name__ == "__main__":
-    main("ActivityBKT")
+    main("ItemBKT", village, observations)
+    main("hotDINA_skill", village, observations)
