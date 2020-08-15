@@ -32,22 +32,22 @@ class hotDINA_full():
 
         # P(Know)'s of every student for every skill after every opportunity
         self.eta = {}
-        self.alpha = np.zeros((I, K))
+        self.alpha = np.zeros((self.I, self.K))
         self.avg_knows = {}
         
-        for i in range(I):
+        for i in range(self.I):
             self.eta[i] = []
             self.avg_knows[i] = []
 
         # Insert "knews" as knows@t=0
-        for i in range(I):
-            for k in range(K):
+        for i in range(self.I):
+            for k in range(self.K):
                 self.alpha[i][k]    = sigmoid(1.7 * self.a[k] * (self.theta[i] - self.b[k]))
         
-        for i in range(I):
-            know = [1.0] * J
-            for j in range(J):
-                for k in range(K):
+        for i in range(self.I):
+            know = [0.0] * self.J
+            for j in range(self.J):
+                for k in range(self.K):
                     know[j] = pow(self.alpha[i][k], self.Q[j][k]) * know[j]
             
             self.eta[i].append(know)
@@ -64,9 +64,7 @@ class hotDINA_full():
             posterior_know = self.ss[j] * prior_know/p_correct
         elif y == 0:
             posterior_know = prior_know * (1 - self.ss[j]) / p_wrong
-
-        # posterior_know = posterior_know + (1-posterior_know) * self.learn[k]    
-
+        posterior_know = posterior_know + (1-posterior_know) * self.learn[k]    
         know[k] = posterior_know
         return know
 
