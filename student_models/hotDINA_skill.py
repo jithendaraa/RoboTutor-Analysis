@@ -173,6 +173,38 @@ class hotDINA_skill():
                 elif self.responsibilty == 'blame_weakest':
                     predicted_responses.append(min_correct_response)
 
+        if len(idxs) > 0:
+            items_ = items[idxs[-1]:]
+            users_ = users[idxs[-1]:]
+            obs_ = observations[idxs[-1]:]
+        else:
+            items_ = items
+            users_ = users
+            obs_ = observations
+        
+        entries = len(items_) 
+        test_idx = int(train_ratio * entries)
+        # Update training data
+        self.update(obs_[:test_idx], items_[:test_idx], users_[:test_idx], plot=False)
+        # Test data
+        _users = users_[test_idx:]
+        _items = items_[test_idx:]
+        _obs = obs_[test_idx:]
+
+        if len(corrects) == 0:
+            corrects = _obs.copy()
+        else:
+            corrects = corrects + _obs
+            
+        for j in range(len(_users)):
+            user = _users[j]
+            item = _items[j]
+            correct_response, min_correct_response = self.predict_response(item, user, update=True)
+            if self.responsibilty == 'independent':
+                predicted_responses.append(correct_response)
+            elif self.responsibilty == 'blame_weakest':
+                predicted_responses.append(min_correct_response)
+
         rmse_val = rmse(predicted_responses, corrects)
         return rmse_val
 
