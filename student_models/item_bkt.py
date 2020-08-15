@@ -144,9 +144,15 @@ class ItemBKT:
                 predicted_p_corrects.append(correct)
                 predicted_responses.append(student_response)
         
-        skills_         = skills[idxs[-1]:]
-        student_nums_   = student_nums[idxs[-1]:]
-        corrects_       = observations[idxs[-1]:]
+        if len(idxs) > 0:
+            skills_         = skills[idxs[-1]:]
+            student_nums_   = student_nums[idxs[-1]:]
+            corrects_       = observations[idxs[-1]:]
+        else:
+            skills_         = skills
+            student_nums_   = student_nums
+            corrects_       = observations
+        
         entries = len(skills_) 
         test_idx = int(train_ratio * entries)
         # Update training data
