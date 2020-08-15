@@ -93,6 +93,8 @@ class ItemBKT:
         
         student_response = None
         if update == True:
+            if correct > 1 or correct < 0:
+                print(correct)
             student_response = np.random.binomial(1, correct)
             self.update([student_num], [skill], [student_response])
 
@@ -175,6 +177,8 @@ class ItemBKT:
             predicted_p_corrects.append(correct)
             predicted_responses.append(student_response)
 
-        prob_rmse       = rmse(predicted_p_corrects, corrects)
-        sampled_rmse    = rmse(predicted_responses, corrects)
-        return prob_rmse, sampled_rmse, predicted_responses, predicted_p_corrects
+        majority_response   = [1.0] * len(corrects)
+        prob_rmse           = rmse(predicted_p_corrects, corrects)
+        sampled_rmse        = rmse(predicted_responses, corrects)
+        majority_class_rmse = rmse(majority_response, corrects)
+        return prob_rmse, sampled_rmse, majority_class_rmse, predicted_responses, predicted_p_corrects

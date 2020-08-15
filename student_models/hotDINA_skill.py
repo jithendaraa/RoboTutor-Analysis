@@ -128,7 +128,6 @@ class hotDINA_skill():
         return predicted_responses
 
     def get_rmse(self, users, items, observations, train_ratio=0.5):
-
         predicted_responses = []
         idxs = []
         corrects = []
@@ -205,8 +204,10 @@ class hotDINA_skill():
             elif self.responsibilty == 'blame_weakest':
                 predicted_responses.append(min_correct_response)
 
+        majority_response = [1.0] * len(corrects)
+        majority_class_rmse = rmse(majority_response, corrects)
         rmse_val = rmse(predicted_responses, corrects)
-        return rmse_val
+        return rmse_val, majority_class_rmse
 
     def plot_avg_knows(self):
         for i in range(self.I):
