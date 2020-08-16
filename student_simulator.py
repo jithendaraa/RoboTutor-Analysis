@@ -6,6 +6,7 @@ import os
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import pickle
+from pathlib import Path
 
 from reader import *
 from helper import *
@@ -13,11 +14,10 @@ from helper import *
 from student_models.item_bkt import ItemBKT
 from student_models.activity_bkt import ActivityBKT
 from student_models.hotDINA_skill import hotDINA_skill
-
+from student_models.hotDINA_full import hotDINA_full
 
 class StudentSimulator():
     def __init__(self, village="114", observations="10000", student_model_name="ItemBKT", subscript="student_specific", matrix_type='math'):
-
         self.CONSTANTS = {
             "PATH_TO_CTA"                           : "Data/CTA.xlsx",
             "PATH_TO_ACTIVITY_TABLE"                : "Data/Activity_table_v4.1_22Apr2020.pkl",
@@ -67,11 +67,10 @@ class StudentSimulator():
             self.num_activities = len(self.uniq_activities)
             self.uniq_student_ids = get_col_vals_from_df(self.activity_df, "Unique_Child_ID_1", unique=True)
             self.uniq_student_ids.append("new_student")
-            
         else:
             self.uniq_student_ids, self.student_id_to_village_map = get_uniq_transac_student_ids(self.CONSTANTS["PATH_TO_VILLAGE_STEP_TRANSAC_FILES"], [self.CONSTANTS["VILLAGE"]])
             self.student_id_to_village_map['new_student'] = [int(self.CONSTANTS['VILLAGE'])]
-
+        
         self.kc_list_spaceless = remove_spaces(self.kc_list.copy())
     
     def set_uniq_activities(self):
@@ -88,7 +87,8 @@ class StudentSimulator():
         self.hotDINA_skill_slurm_files['130'] = "10301619"
     
     def set_hotDINA_full_slurm_files(self):
-        pass
+        # Remove this later, this slurm file is correct fit only for hotDINA_skill model, not hotDINA_full
+        self.hotDINA_full_slurm_files['130'] = "10301619"
 
     def set_params_dict(self):
         village = self.CONSTANTS['VILLAGE']
@@ -136,7 +136,10 @@ class StudentSimulator():
         elif self.student_model_name == "hotDINA_skill":
             path = os.getcwd() + "/slurm_outputs"
             self.params_dict = slurm_output_params(path, village, self.hotDINA_skill_slurm_files[village])
-
+        
+        elif self.student_model_name == 'hotDINA_full':
+            path = os.getcwd() + "/slurm_outputs"
+            self.params_dict = slurm_output_params(path, village, self.hotDINA_full_slurm_files[village])
     def reset(self):
         student_model = self.student_model
         if self.student_model_name == 'ActivityBKT':
@@ -239,11 +242,47 @@ class StudentSimulator():
         self.student_model.update(observations, items, users, bayesian_update, plot)
     
     def hotDINA_full_update(self, data_dict):
-        pass
+        if self.CONSTANTS["PRINT_PARAMS_FOR_STUDENT"] == True and self.student_model_name == 'hotDINA_skill':
+            print("theta: ", self.params_dict['theta'])
+            print('a: ', self.params_dict['a'])
+            print('b: ', self.params_dict['b'])
+            print("learn: ", self.params_dict['learn'])
+            print("guess: ", self.params_dict['g'])
+            print("ss: ", self.params_dict['ss'])
+            print()
 
-def check_hotDINA_skill(village, observations, student_simulator):
-    from pathlib import Path
+def check_ItemBKT(village, observations, student_simulator, train_ratio=0.75):
+    path_to_step_transac_data   = 'Data/village_' + village + '/village_' + village + '_step_transac.txt'
+    path_to_transac_table_data  = 'Data/village_' + village + '/village_' + village + '_KCSubtests.txt'
+    uniq_student_ids            = student_simulator.uniq_student_ids
+    kc_list_spaceless           = student_simulator.kc_list_spaceless
+    uniq_student_ids, student_id_to_village_map = get_uniq_transac_student_ids([path_to_step_transac_data], [village])
+    data_dict = extract_step_transac(path_to_step_transac_data, uniq_student_ids, kc_list_spaceless, observations=observations) 
+    corrects            = data_dict['corrects']
+    skill_nums          = data_dict['skill_nums']
+    student_nums        = data_dict['student_nums']
+    prob_rmse, sampled_rmse, majority_class_rmse, predicted_responses, predicted_p_corrects = student_simulator.student_model.get_rmse(student_nums, skill_nums, corrects, train_ratio=train_ratio)
+    print("ItemBKT RMSE Value:", prob_rmse)
+    print("Majority Class RMSE:", majority_class_rmse)
 
+# FIXME 
+def check_ActivityBKT(village, observations, student_simulator, matrix_type='all', student_id=None, train_size=1.0):
+    activity_df = student_simulator.activity_df
+    student_1_act_df = activity_df
+    if student_id != None:
+        student_1_act_df = activity_df[activity_df['Unique_Child_ID_1'] == student_id]
+    data_dict = extract_activity_table("Data/Activity_table_v4.1_22Apr2020.pkl",
+                                        student_simulator.uniq_activities, 
+                                        student_simulator.kc_list)
+    print(data_dict)
+    # student_simulator.update_on_log_data(data_dict)
+    # studs = []
+    # for key in student_simulator.student_model.learning_progress:
+    #     if len(student_simulator.student_model.learning_progress[key]) > 1:
+    #         studs.append(key)
+    # plot_learning(student_simulator.student_model.learning_progress, studs, 0, [], 'ppo')
+
+def check_hotDINA_skill(village, observations, student_simulator, train_ratio=0.75):
     path_to_data_file = os.getcwd() + '/../hotDINA/pickles/data/data'+ village + '_' + observations +'.pickle'
     data_file = Path(path_to_data_file)
     if data_file.is_file() == False:
@@ -252,68 +291,51 @@ def check_hotDINA_skill(village, observations, student_simulator):
         get_data_file_command = 'python get_data_for_village_n.py -v ' + village + ' -o ' + observations 
         os.system(get_data_file_command)
         os.chdir('../RoboTutor-Analysis')
-
     os.chdir('../hotDINA')
     with open(path_to_data_file, 'rb') as handle:
         data_dict = pickle.load(handle)
     os.chdir('../RoboTutor-Analysis')
     students = student_simulator.uniq_student_ids[:2]
+    users = data_dict['users']
+    items = data_dict['items']
+    corrects = data_dict['y']
+    rmse_val, majority_class_rmse = student_simulator.student_model.get_rmse(users, items, corrects, train_ratio=train_ratio)
+    print("HotDINA_skill RMSE:", rmse_val)
+    print("Majority class RMSE:", majority_class_rmse)
+
+def check_hotDINA_full(village, observations, student_simulator, train_ratio=0.75):
+    path_to_data_file = os.getcwd() + '/../hotDINA/pickles/data/data'+ village + '_' + observations +'.pickle'
+    data_file = Path(path_to_data_file)
+    if data_file.is_file() == False:
+        # if data_file does not exist, get it
+        os.chdir('../hotDINA')
+        get_data_file_command = 'python get_data_for_village_n.py -v ' + village + ' -o ' + observations 
+        os.system(get_data_file_command)
+        os.chdir('../RoboTutor-Analysis')
+    os.chdir('../hotDINA')
+    with open(path_to_data_file, 'rb') as handle:
+        data_dict = pickle.load(handle)
+    os.chdir('../RoboTutor-Analysis')
 
     users = data_dict['users']
     items = data_dict['items']
     corrects = data_dict['y']
+    majority_class_rmse, predicted_responses_rmse, predicted_p_corrects_rmse = student_simulator.student_model.get_rmse(users, items, corrects, train_ratio=train_ratio)
+    print("Majority class RMSE for hotDINA_full:", majority_class_rmse)
+    print("predicted_responses_rmse hotDINA_full:", predicted_responses_rmse)
+    print("predicted_p_corrects_rmse hotDINA_full:", predicted_p_corrects_rmse)
 
-    rmse_val = student_simulator.student_model.get_rmse(users, items, corrects, train_ratio=0.75)
-    print("HotDINA_skill RMSE:", rmse_val)
 
-def check_ActivityBKT(village, observations, student_simulator, matrix_type='all', student_id=None, train_size=1.0):
-
-    activity_df = student_simulator.activity_df
-    student_1_act_df = activity_df
-    if student_id != None:
-        student_1_act_df = activity_df[activity_df['Unique_Child_ID_1'] == student_id]
-    
-    data_dict = extract_activity_table("Data/Activity_table_v4.1_22Apr2020.pkl",
-                                        student_simulator.uniq_activities, 
-                                        student_simulator.kc_list)
-    print(data_dict)
-
-    # student_simulator.update_on_log_data(data_dict)
-
-    # studs = []
-    # for key in student_simulator.student_model.learning_progress:
-    #     if len(student_simulator.student_model.learning_progress[key]) > 1:
-    #         studs.append(key)
-
-    # plot_learning(student_simulator.student_model.learning_progress, studs, 0, [], 'ppo')
-
-def check_ItemBKT(village, observations, student_simulator):
-
-    path_to_step_transac_data   = 'Data/village_' + village + '/village_' + village + '_step_transac.txt'
-    path_to_transac_table_data  = 'Data/village_' + village + '/village_' + village + '_KCSubtests.txt'
-    uniq_student_ids            = student_simulator.uniq_student_ids
-    kc_list_spaceless           = student_simulator.kc_list_spaceless
-
-    uniq_student_ids, student_id_to_village_map = get_uniq_transac_student_ids([path_to_step_transac_data], [village])
-
-    data_dict = extract_step_transac(path_to_step_transac_data, uniq_student_ids, kc_list_spaceless, observations=observations) 
-    corrects            = data_dict['corrects']
-    skill_nums          = data_dict['skill_nums']
-    student_nums        = data_dict['student_nums']
-
-    prob_rmse, sampled_rmse, predicted_responses, predicted_p_corrects = student_simulator.student_model.get_rmse(student_nums, skill_nums, corrects, train_ratio=0.75)
-    print("ItemBKT RMSE Value:", prob_rmse)
-    
-def main(check_model, village, observations):
-    
+def main(check_model, village, observations, train_ratio=0.75):
     student_simulator = StudentSimulator(village, observations, student_model_name=check_model)
-
     if check_model == 'ItemBKT':
-        check_ItemBKT(village, observations, student_simulator)
+        check_ItemBKT(village, observations, student_simulator, train_ratio)
     elif check_model == 'ActivityBKT':
         check_ActivityBKT(village, observations, student_simulator)
     elif check_model == 'hotDINA_skill':
-        check_hotDINA_skill(village, observations, student_simulator)
+        check_hotDINA_skill(village, observations, student_simulator, train_ratio)
+    elif check_model == 'hotDINA_full':
+        check_hotDINA_full(village, observations, student_simulator, train_ratio)
 
 if __name__ == "__main__":
     import argparse
@@ -323,5 +345,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     village = args.village_num
     observations = args.observations
-    main("ItemBKT", village, observations)
-    main("hotDINA_skill", village, observations)
+    # main("ItemBKT", village, observations, train_ratio=0.75)
+    main("hotDINA_full", village, observations, train_ratio=0.85)

@@ -76,10 +76,25 @@ class hotDINA_full():
             self.avg_knows[user].append(np.mean(alpha))
 
     def predict_response(self, item, user, update=True):
-        pass
+        j = item
+        skills = self.Q[j]
+        eta = 1.0
+        alpha = self.alpha[user][-1].copy()
+        
+        for k in range(self.K):
+            eta = eta * pow(alpha[k], skills[k])
+
+        predicted_p_correct = (self.ss[j] * eta) + (self.g[j] * (1 - eta))
+        predicted_response = np.random.binomial(n=1, p=predicted_p_correct)
+
+        if update:
+            self.update([predicted_response], [item], [user])
+
+        return predicted_p_correct, predicted_response
     
     def get_rmse(self, users, items, observations, train_ratio=0.5):
         predicted_responses = []
+        predicted_p_corrects = []
         idxs = []
         corrects = []
         unique_users = pd.unique(np.array(users)).tolist()
@@ -94,12 +109,10 @@ class hotDINA_full():
                 items_ = items[0:idxs[i]]
                 users_ = users[0:idxs[i]]
                 obs_ = observations[0:idxs[i]]
-
             else:
                 items_ = items[idxs[i-1]:idxs[i]]
                 users_ = users[idxs[i-1]:idxs[i]]
                 obs_ = observations[idxs[i-1]:idxs[i]]
-
             entries = len(items_)
             test_idx = int(train_ratio * entries)
             # Update on training data
@@ -108,22 +121,55 @@ class hotDINA_full():
             _users = users_[test_idx:]
             _items = items_[test_idx:]
             _obs = obs_[test_idx:]
-
             if len(corrects) == 0:
                 corrects = _obs.copy()
             else:
                 corrects = corrects + _obs
-
             for j in range(len(_users)):
                 user = _users[j]
                 item = _items[j]
-            #     correct_response, min_correct_response = self.predict_response(item, user, update=True)
-                # if self.responsibilty == 'independent':
-                #     predicted_responses.append(correct_response)
-            #     elif self.responsibilty == 'blame_weakest':
-            #         predicted_responses.append(min_correct_response)
+                predicted_p_correct, predicted_response = self.predict_response(item, user, update=True)
+                if self.responsibilty == 'independent':
+                    predicted_responses.append(predicted_response)
+                    predicted_p_corrects.append(predicted_p_correct)
 
-        return None, None
+        if len(idxs) > 0:
+            items_ = items[idxs[-1]:]
+            users_ = users[idxs[-1]:]
+            obs_ = observations[idxs[-1]:]
+        else:
+            items_ = items
+            users_ = users
+            obs_ = observations
+        
+        entries = len(items_) 
+        test_idx = int(train_ratio * entries)
+        # Update training data
+        self.update(obs_[:test_idx], items_[:test_idx], users_[:test_idx])
+        # Test data
+        _users = users_[test_idx:]
+        _items = items_[test_idx:]
+        _obs = obs_[test_idx:]
+
+        if len(corrects) == 0:
+            corrects = _obs.copy()
+        else:
+            corrects = corrects + _obs
+            
+        for j in range(len(_users)):
+            user = _users[j]
+            item = _items[j]
+            predicted_p_correct, predicted_response = self.predict_response(item, user, update=True)
+            if self.responsibilty == 'independent':
+                predicted_responses.append(predicted_response)
+                predicted_p_corrects.append(predicted_p_correct)
+
+        majority_response = [1.0] * len(corrects)
+        majority_class_rmse = rmse(majority_response, corrects)
+        predicted_responses_rmse = rmse(predicted_responses, corrects)
+        predicted_p_corrects_rmse = rmse(predicted_p_corrects, corrects)
+
+        return majority_class_rmse, predicted_responses_rmse, predicted_p_corrects_rmse
 
     def plot_avg_knows(self):
         for i in range(self.I):
