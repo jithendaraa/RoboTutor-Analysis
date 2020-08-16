@@ -13,7 +13,7 @@ from helper import *
 from reader import *
 
 class hotDINA_full():
-    def __init__(self, params_dict, path_to_Qmatrix, update_type="bayesian", responsibilty='independent'):
+    def __init__(self, params_dict, path_to_Qmatrix, responsibilty='independent'):
 
         params_dict['g'] = 0.25 * np.ones((1712,1))
         params_dict['ss'] = 0.85 * np.ones((1712,1))
@@ -22,7 +22,6 @@ class hotDINA_full():
         self.J = len(params_dict['g'])
         self.K = len(params_dict['a'])
         self.Q = pd.read_csv(path_to_Qmatrix, header=None).to_numpy()
-        self.update_type = update_type
         self.responsibilty = responsibilty
         # Skills for hotDINA_params. Theta Ix1 vector, guess and slip are Jx1, the rest are Kx1
         self.theta  = params_dict['theta']
@@ -61,7 +60,7 @@ class hotDINA_full():
             for k in range(len(skills)):
                 eta = eta * pow(alpha[k], skills[k])
 
-            if self.update_type == "bayesian":
+            if self.responsibilty == "independent":
                 for k in range(len(skills)):
                     p_correct = (eta * self.ss[j]) + (self.g[j] * (1-eta))
                     p_wrong = 1.0 - p_correct
@@ -105,7 +104,7 @@ class hotDINA_full():
             test_idx = int(train_ratio * entries)
             # Update on training data
             self.update(obs_[:test_idx], items_[:test_idx], users_[:test_idx])
-            # # Test accuracy on test data
+            # Test accuracy on test data
             _users = users_[test_idx:]
             _items = items_[test_idx:]
             _obs = obs_[test_idx:]
@@ -119,8 +118,8 @@ class hotDINA_full():
                 user = _users[j]
                 item = _items[j]
             #     correct_response, min_correct_response = self.predict_response(item, user, update=True)
-            #     if self.responsibilty == 'independent':
-            #         predicted_responses.append(correct_response)
+                # if self.responsibilty == 'independent':
+                #     predicted_responses.append(correct_response)
             #     elif self.responsibilty == 'blame_weakest':
             #         predicted_responses.append(min_correct_response)
 
