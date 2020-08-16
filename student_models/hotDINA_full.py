@@ -13,15 +13,17 @@ from helper import *
 from reader import *
 
 class hotDINA_full():
-    def __init__(self, params_dict, path_to_Qmatrix, update_type="bayesian"):
+    def __init__(self, params_dict, path_to_Qmatrix, update_type="bayesian", responsibilty='independent'):
+
+        params_dict['g'] = 0.25 * np.ones((1712,1))
+        params_dict['ss'] = 0.85 * np.ones((1712,1))
         
         self.I = len(params_dict['theta'])
         self.J = len(params_dict['g'])
         self.K = len(params_dict['a'])
         self.Q = pd.read_csv(path_to_Qmatrix, header=None).to_numpy()
-
         self.update_type = update_type
-
+        self.responsibilty = responsibilty
         # Skills for hotDINA_params. Theta Ix1 vector, guess and slip are Jx1, the rest are Kx1
         self.theta  = params_dict['theta']
         self.a      = params_dict['a']
@@ -29,65 +31,100 @@ class hotDINA_full():
         self.learn  = params_dict['learn']
         self.g      = params_dict['g']
         self.ss     = params_dict['ss']
-
         # P(Know)'s of every student for every skill after every opportunity
         self.eta = {}
-        self.alpha = np.zeros((self.I, self.K))
+        self.alpha = {}
         self.avg_knows = {}
-        
         for i in range(self.I):
             self.eta[i] = []
             self.avg_knows[i] = []
-
-        # Insert "knews" as knows@t=0
+            self.alpha[i] = []
+         # Insert "knews" as knows@t=0
         for i in range(self.I):
+            alpha = np.zeros((self.K)).tolist()
             for k in range(self.K):
-                self.alpha[i][k]    = sigmoid(1.7 * self.a[k] * (self.theta[i] - self.b[k]))
+                alpha[k] = sigmoid(1.7 * self.a[k] * (self.theta[i] - self.b[k]))
+            self.alpha[i].append(alpha)
         
         for i in range(self.I):
-            know = [0.0] * self.J
-            for j in range(self.J):
-                for k in range(self.K):
-                    know[j] = pow(self.alpha[i][k], self.Q[j][k]) * know[j]
-            
-            self.eta[i].append(know)
-            self.avg_knows[i].append(np.mean(know))
-
-    def update_skill(self, i, j, k, t, y, know):
-        
-        prior_know = self.eta[i][-1][k]
-        posterior_know = None
-        p_correct = (self.ss[j] * prior_know) + (self.g[j] * (1 - prior_know)) 
-        p_wrong = 1.0 - p_correct
-
-        if y == 1:
-            posterior_know = self.ss[j] * prior_know/p_correct
-        elif y == 0:
-            posterior_know = prior_know * (1 - self.ss[j]) / p_wrong
-        posterior_know = posterior_know + (1-posterior_know) * self.learn[k]    
-        know[k] = posterior_know
-        return know
+            self.avg_knows[i].append(np.mean(self.alpha[i][-1]))
 
     def update(self, observations, items, users):
+        for i in range(len(observations)):
+            user = users[i]
+            correct = int(observations[i])
+            j = items[i]
+            skills = self.Q[j]
+            alpha = self.alpha[user][-1].copy()
+            eta = 1.0
+            
+            for k in range(len(skills)):
+                eta = eta * pow(alpha[k], skills[k])
 
-        if self.update_type == "bayesian":
-            for i in range(len(observations)):
-                user = users[i]
-                correct = int(observations[i])
-                item = items[i]
-                skills = self.Q[item]
-                know = self.eta[user][-1]
+            if self.update_type == "bayesian":
                 for k in range(len(skills)):
-                    skill = skills[k]
-                    if skill == 1:
-                        know = self.update_skill(user, item, k, i, correct, know)
+                    p_correct = (eta * self.ss[j]) + (self.g[j] * (1-eta))
+                    p_wrong = 1.0 - p_correct
+                    if correct == 1:
+                        eta_given_obs = self.ss[j] * eta/ p_correct
+                    else:
+                        eta_given_obs = (1 - self.g[j]) * (1-eta)/ p_wrong
+                    if skills[k] == 1:
+                        alpha[k] = eta_given_obs
+                    alpha[k] = alpha[k] + (1-alpha[k]) * self.learn[k]
+            
+            self.alpha[user].append(alpha)
+            self.avg_knows[user].append(np.mean(alpha))
 
-                self.eta[user].append(know)
-                self.avg_knows[user].append(np.mean(know))
+    def predict_response(self, item, user, update=True):
+        pass
+    
+    def get_rmse(self, users, items, observations, train_ratio=0.5):
+        predicted_responses = []
+        idxs = []
+        corrects = []
+        unique_users = pd.unique(np.array(users)).tolist()
+
+        for i in range(len(users)):
+            user = users[i]
+            if i > 0 and user != users[i-1]:
+                idxs.append(i)
         
-        elif self.update_type == "hardest_skill":
-            pass
-            # self.avg_knows[user].append(np.mean(know))
+        for i in range(len(idxs)):
+            if i == 0:
+                items_ = items[0:idxs[i]]
+                users_ = users[0:idxs[i]]
+                obs_ = observations[0:idxs[i]]
+
+            else:
+                items_ = items[idxs[i-1]:idxs[i]]
+                users_ = users[idxs[i-1]:idxs[i]]
+                obs_ = observations[idxs[i-1]:idxs[i]]
+
+            entries = len(items_)
+            test_idx = int(train_ratio * entries)
+            # Update on training data
+            self.update(obs_[:test_idx], items_[:test_idx], users_[:test_idx])
+            # # Test accuracy on test data
+            _users = users_[test_idx:]
+            _items = items_[test_idx:]
+            _obs = obs_[test_idx:]
+
+            if len(corrects) == 0:
+                corrects = _obs.copy()
+            else:
+                corrects = corrects + _obs
+
+            for j in range(len(_users)):
+                user = _users[j]
+                item = _items[j]
+            #     correct_response, min_correct_response = self.predict_response(item, user, update=True)
+            #     if self.responsibilty == 'independent':
+            #         predicted_responses.append(correct_response)
+            #     elif self.responsibilty == 'blame_weakest':
+            #         predicted_responses.append(min_correct_response)
+
+        return None, None
 
     def plot_avg_knows(self):
         for i in range(self.I):
