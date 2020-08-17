@@ -167,6 +167,7 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
     timesteps = 0
     prior = None
     posterior = None
+    kc_list, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map  = read_data()
 
     while not done:
         timesteps += 1
@@ -178,11 +179,14 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
         
         if deterministic is False:
             action = action_probs.sample().item()
-
-        next_state, reward, student_response, done, posterior = env.step(action, timesteps, CONSTANTS["MAX_TIMESTEPS"])
-
+        
         activityName = np.random.choice(skill_group_to_activity_map[str(action)])
         skill_group = uniq_skill_groups[action]
+        print("Prior avg: ", np.mean(state.cpu().numpy()[0]))
+        print(activityName, skill_group)
+        next_state, reward, student_response, done, posterior = env.step(action, timesteps, CONSTANTS["MAX_TIMESTEPS"], activityName)
+        print("Posterior avg:", np.mean(next_state[0]))
+
         prior = state[0]
         posterior = torch.Tensor(next_state).unsqueeze(0).to(device)[0]
         posterior_avg_know  =  torch.mean(posterior).item()
@@ -197,7 +201,6 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
             posterior_know.append(posterior[skill_idx].item())
 
         run_text = "Run Number: " + str(timesteps) + "\Action: " + str(action) + " Skill group: " + str(skill_group) + "\nPrior Know: " + str(prior_know) + "\nPost. Know: " + str(posterior_know) + "\nTimestep: " + str(timesteps) + " Reward: " + str(reward) + " ActivityName: " + activityName + "\nPrior: " + str(prior_avg_know) + " Posterior: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
-        print(run_text)
 
         state = next_state
         total_reward += reward
@@ -209,8 +212,10 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
         f.write("Total Reward: " + str(total_reward) + "\n")
     
     print("In %d steps we got %.3f reward" % (timesteps, total_reward))
-    learning_progress = env.activity_bkt.activity_learning_progress
-
+    
+    student_model_name = env.student_simulator.student_model_name
+    if student_model_name == 'hotDINA_full' or student_model_name == 'hotDINA_skill':
+        learning_progress = env.student_simulator.student_model.alpha
     return total_reward, posterior, learning_progress   
 
 def normalize(x):
