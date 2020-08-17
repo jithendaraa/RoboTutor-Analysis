@@ -238,7 +238,6 @@ class StudentSimulator():
         observations = data_dict['y']
         items = data_dict['items']
         users = data_dict['users']
-        entries = len(observations)
         self.student_model.update(observations, items, users, bayesian_update, plot)
     
     def hotDINA_full_update(self, data_dict):
@@ -250,6 +249,11 @@ class StudentSimulator():
             print("guess: ", self.params_dict['g'])
             print("ss: ", self.params_dict['ss'])
             print()
+        observations = data_dict['y']
+        items = data_dict['items']
+        users = data_dict['users']
+        self.student_model.update(observations, items, users)
+        
 
 def check_ItemBKT(village, observations, student_simulator, train_ratio=0.75):
     path_to_step_transac_data   = 'Data/village_' + village + '/village_' + village + '_step_transac.txt'
@@ -325,7 +329,6 @@ def check_hotDINA_full(village, observations, student_simulator, train_ratio=0.7
     print("predicted_responses_rmse hotDINA_full:", predicted_responses_rmse)
     print("predicted_p_corrects_rmse hotDINA_full:", predicted_p_corrects_rmse)
 
-
 def main(check_model, village, observations, train_ratio=0.75):
     student_simulator = StudentSimulator(village, observations, student_model_name=check_model)
     if check_model == 'ItemBKT':
@@ -345,5 +348,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     village = args.village_num
     observations = args.observations
-    # main("ItemBKT", village, observations, train_ratio=0.75)
     main("hotDINA_full", village, observations, train_ratio=0.85)
