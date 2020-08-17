@@ -101,29 +101,24 @@ class ItemBKT:
         return correct, student_response
 
     def get_rmse(self, student_nums, skills, observations, train_ratio=0.5):
-
         predicted_responses  = []
         predicted_p_corrects = []
         idxs = []
         corrects = []
         unique_student_nums = pd.unique(np.array(student_nums)).tolist()
-
         for i in range(len(student_nums)):
             student_num = student_nums[i]
             if i > 0 and student_num != student_nums[i-1]:
                 idxs.append(i)
-        
         for i in range(len(idxs)):
             if i == 0:
                 skills_         = skills[0:idxs[i]]
                 student_nums_   = student_nums[0:idxs[i]] 
                 corrects_       = observations[0:idxs[i]]
-
             else:
                 skills_         = skills[idxs[i-1]:idxs[i]]
                 student_nums_   = student_nums[idxs[i-1]:idxs[i]]
                 corrects_       = observations[idxs[i-1]:idxs[i]]
-
             entries = len(skills_) 
             test_idx = int(train_ratio * entries)
             # Update on training data

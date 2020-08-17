@@ -183,9 +183,11 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
         activityName = np.random.choice(skill_group_to_activity_map[str(action)])
         skill_group = uniq_skill_groups[action]
         print("Prior avg: ", np.mean(state.cpu().numpy()[0]))
-        print(activityName, skill_group)
+        print(state.cpu().numpy()[0])
+        print(action, activityName, skill_group)
         next_state, reward, student_response, done, posterior = env.step(action, timesteps, CONSTANTS["MAX_TIMESTEPS"], activityName)
-        print("Posterior avg:", np.mean(next_state[0]))
+        print(next_state)
+        print("Posterior avg:", np.mean(next_state))
 
         prior = state[0]
         posterior = torch.Tensor(next_state).unsqueeze(0).to(device)[0]

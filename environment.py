@@ -31,11 +31,10 @@ class StudentEnv():
     
     def set_initial_state(self):
         student_model = self.student_simulator.student_model
-        if self.student_simulator.student_model_name == 'ActivityBKT':
+        student_model_name = self.student_simulator.student_model_name
+        if student_model_name == 'ActivityBKT':
             self.state = np.array(student_model.know[self.student_num]).copy()
-        elif self.student_simulator.student_model_name == 'hotDINA_skill':
-            self.state = np.array(student_model.knows[self.student_num][-1]).copy()
-        elif self.student_simulator.student_model_name == 'hotDINA_full':
+        elif student_model_name == 'hotDINA_skill' or student_model_name == 'hotDINA_full':
             self.state = np.array(student_model.alpha[self.student_num][-1]).copy()
 
     def reset(self):
@@ -46,16 +45,14 @@ class StudentEnv():
     def checkpoint(self):
         self.student_simulator.checkpoint()
         student_model = self.student_simulator.student_model    #  Saves some values as checkpoints so env.reset() resets env values to checkpoint states
+        student_model_name = self.student_simulator.student_model_name
 
-        if self.student_simulator.student_model_name == 'ActivityBKT':
-            self.checkpoint_state   = student_model.know[self.student_num].copy()
+        if student_model_name == 'ActivityBKT':
+            self.checkpoint_state = student_model.know[self.student_num].copy()
        
-        elif self.student_simulator.student_model_name == 'hotDINA_skill':
-            self.checkpoint_state   = student_model.knows[self.student_num][-1].copy()
+        elif student_model_name == 'hotDINA_skill' or student_model_name == 'hotDINA_full':
+            self.checkpoint_state = student_model.alpha[self.student_num][-1].copy()
 
-        elif self.student_simulator.student_model_name == 'hotDINA_full':
-            self.checkpoint_state   = student_model.alpha[self.student_num][-1].copy()
-    
     def step(self, action, timesteps, max_timesteps, activityName, bayesian_update=True, plot=False):
         """
             action: int, activities[action] refers to the activity that the RL policy suggests/outputs.
@@ -82,19 +79,18 @@ class StudentEnv():
             self.state = next_state.copy()
         
         elif self.student_simulator.student_model_name == 'hotDINA_skill':
-            prior_know = self.student_simulator.student_model.knows[self.student_num][-1].copy()
-            correct_response, min_correct_response = self.student_simulator.student_model.predict_response(activity_num, self.student_num)
+            prior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
+            correct_response, min_correct_response = self.student_simulator.student_model.predict_response(activity_num, self.student_num, update=True)
+            posterior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
             student_response = correct_response   # should be min_correct_preds for "hardest_skill" responsibility
-            self.student_simulator.student_model.update([student_response], activity_nums, student_nums, bayesian_update, plot)
-            posterior_know = self.student_simulator.student_model.knows[self.student_num][-1].copy()
             next_state = np.array(posterior_know.copy())
             self.state = next_state.copy()
         
         elif self.student_simulator.student_model_name == 'hotDINA_full':
             prior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
             _, predicted_response = self.student_simulator.student_model.predict_response(activity_num, self.student_num, update=True)
-            student_response = predicted_response
             posterior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
+            student_response = predicted_response
             next_state = np.array(posterior_know.copy())
             self.state = next_state.copy()
         

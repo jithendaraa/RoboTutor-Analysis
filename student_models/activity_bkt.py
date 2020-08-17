@@ -8,7 +8,7 @@ import numpy as np
 
 # ActivityBKT is a non-binary BKT Model
 class ActivityBKT():
-    def __init__(self, params_dict, kc_list, uniq_student_ids, uniq_activities, activity_learning_progress={}, update_type='by_activity'):
+    def __init__(self, params_dict, kc_list, uniq_student_ids, uniq_activities, activity_learning_progress={}, update_type='by_activity', responsibility='independent'):
         self.n          = len(uniq_student_ids)
         self.num_skills = len(kc_list)
         self.num_acts   = len(uniq_activities)
@@ -17,6 +17,7 @@ class ActivityBKT():
         self.timestep = np.zeros((self.n, self.num_skills))
         self.timestep_act = np.zeros((self.n, self.num_acts))
         self.learning_progress = activity_learning_progress
+        self.responsibility = responsibility
 
         self.kc_list    = kc_list
         self.know       = params_dict['know']
@@ -40,35 +41,6 @@ class ActivityBKT():
     
     def update_per_skill(self, observation, i, j):
 
-        """
-            Description - update_per_obs()
-            ----------------------
-                Function to do the activity wise bayesian update per observation per skill. 
-                Calc P(Know @t+1 | obs@ @t+1) based on P(Know @t), guess, slip, observation etc. 
-                P(Know @t+1 | obs as %correct) = (%correct * P(Know @t) * P(no slip)/( P(K @t)*P(no slip) + P(K @t)' * P(guess) )) + \
-                                                (1 - %correct) * (P(Know @t) * P(slip)/( P(K @t)*P(slip) + P(K @t)' * P(guess)' ))
-                Then Calc P(Know @t+1) based on P(Learn) 
-                P(Know @t+1) = P(Know @t+1 | obs) * P(no_forget) + P(Know @t+1 | obs)' * P(Learn)
-            Parameters
-            ----------
-            observation: type [float]. 
-        
-            i:  type int 
-                ith index of activity_student_ids will give the "Unique_Child_ID_1" associated with observation
-        
-            j:  type int
-                jth index of self.KC_subtest will give the "KC (subtest)" associated with this observation
-        
-            learning_progress: dict with key as "Unique_Child_ID_1" 
-                                value is a 2Dlist of P(Knows) for every update of P(Know) that happened to every skill for this student
-                                shape of value: (u, *)
-            act_student_ids: list of unique "Unique_Child_ID_1" from activity table maintaining order of first appearance in the activity table
-            Returns
-            -------
-            learning_progress: type dict
-                                After the BKT update, we get P(K @t+1) for skill j student act_student_ids[i]
-                                We append this P(K), the posterior, to learning_progress["Unique_Child_ID_1"][j] before returning
-        """
         t = self.timestep[i][j]
         percent_correct = observation
         percent_incorrect = 1.0 - percent_correct
@@ -85,12 +57,9 @@ class ActivityBKT():
         posterior_know_given_obs = None
         correct = prior_know * no_slip + prior_not_know * guess
         wrong = 1.0 - correct
-        
         posterior_know_given_obs = (percent_correct * ((prior_know * no_slip) / correct )) + \
                                     (percent_incorrect * ((prior_know * slip) / wrong))
-        
         posterior_know = (posterior_know_given_obs * no_forget) + (1 - posterior_know_given_obs) * learn
-
         self.timestep[i][j] = t+1
         self.know[i][j] = posterior_know
     
@@ -153,8 +122,7 @@ class ActivityBKT():
             else:
                 self.learning_progress[student_id].append(self.know[student_num].tolist())
 
-    def predict_percent_correct(self, student_ids, skills, actual_observations=None):
-        # print("PREDICTING P(Correct)....")
+    def predict_percent_corrects(self, student_ids, skills, actual_observations=None):
         correct_preds = []
         min_correct_preds = []
         n = len(student_ids)
@@ -177,21 +145,11 @@ class ActivityBKT():
             
             correct_preds.append(correct)
             min_correct_preds.append(min_correct)
-            
-        # if actual_observations != None:
-            # actual_observations = np.array(actual_observations)
-            # correct_preds = np.array(correct_preds)
-            # min_correct_preds = np.array(min_correct_preds)
-            # correct_preds_rmse = rmse(actual_observations, correct_preds)
-            # min_correct_preds_rmse = rmse(actual_observations, min_correct_preds)
-            # print("FULL RESPONSIBILITY P(Correct) prediction RMSE: ", correct_preds_rmse)
-            # print("BLAME WORST P(Correct) prediction RMSE: ", min_correct_preds_rmse)
-            # return correct_preds_rmse, min_correct_preds_rmse
         
         return correct_preds, min_correct_preds
 
     def simulate_response(self, student_id, skill, types='normal'):
-        correct_preds, min_correct_preds = self.predict_percent_correct([student_id], [skill])
+        correct_preds, min_correct_preds = self.predict_percent_corrects([student_id], [skill])
         if types == 'normal':
             correct_prob = correct_preds[0]
         elif types == 'hardest_skill':
@@ -199,3 +157,23 @@ class ActivityBKT():
         # Sample response from Bern(correct_prob)
         response = np.random.binomial(n=1, p=correct_prob)
         return response
+
+    def predict_p_correct(self, student_num, skill, update=False):
+        i = student_num
+        correct = 1.0
+
+        for j in skill:
+            p_know = self.know[i][j]
+            p_not_know = 1.0 - p_know
+            p_guess = self.guess[i][j]
+            p_slip = self.slip[i][j]
+            p_not_slip = 1.0 - p_slip
+            if self.responsibility == 'independent':
+                correct = correct * ((p_know * p_not_slip) + (p_not_know * p_guess))
+            elif self.responsibility == 'blame_weakest':
+                correct = min(correct, (p_know * p_not_slip) + (p_not_know * p_guess))
+        
+        if update == True:
+            self.update([correct], [student_num], [activity])
+
+        return correct

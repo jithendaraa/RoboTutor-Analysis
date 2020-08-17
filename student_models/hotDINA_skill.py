@@ -26,19 +26,17 @@ class hotDINA_skill():
         self.bayesian_update = True
         self.responsibilty = responsibilty
         # P(Know)'s of every student for every skill after every opportunity
-        self.knows = {}
+        self.alpha = {}
         self.avg_knows = {}
         for i in range(self.I):
-            self.knows[i] = []
+            self.alpha[i] = []
             self.avg_knows[i] = []
         self.knews = np.zeros((self.I, self.K))
         # Insert "knews" as knows@t=0
         for i in range(self.I):
             for k in range(self.K):
-                self.knews[i][k] = sigmoid(
-                    1.7 * self.a[k] * (self.theta[i] - self.b[k]))
-
-            self.knows[i].append(self.knews[i].tolist())
+                self.knews[i][k] = sigmoid(1.7 * self.a[k] * (self.theta[i] - self.b[k]))
+            self.alpha[i].append(self.knews[i].tolist())
             self.avg_knows[i].append(np.mean(self.knews[i]))
 
     def update_skill(self, i, k, t, y, know):
@@ -62,19 +60,21 @@ class hotDINA_skill():
         know[k] = posterior_know
         return know
 
-    def update(self, observations, items, users, bayesian_update=True, plot=True):
+    def update(self, observations, items, users, bayesian_update=True, plot=True, train_students=None):
         self.bayesian_update = bayesian_update
         for i in range(len(observations)):
             user = users[i]
+            if train_students != None and user not in train_students:
+                continue
             correct = int(observations[i])
             item = items[i]
             skills = self.Q[item]
-            know = self.knows[user][-1]
+            know = self.alpha[user][-1]
             for k in range(len(skills)):
                 skill = skills[k]
                 if skill == 1:
                     know = self.update_skill(user, k, i, correct, know)
-            self.knows[user].append(know)
+            self.alpha[user].append(know)
             self.avg_knows[user].append(np.mean(know))
         if plot:
             for i in range(self.I):
@@ -88,7 +88,7 @@ class hotDINA_skill():
             plt.show()
 
     def predict_response(self, item, user, update=False, bayesian_update=True, plot=False):
-        current_know = self.knows[user][-1]
+        current_know = self.alpha[user][-1]
         skills = self.Q[item]
         p_correct = 1.0
         p_min_correct = 1.0

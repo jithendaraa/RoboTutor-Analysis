@@ -31,7 +31,7 @@ CONSTANTS = {
                 "ACTION_SIZE"           : 43,
                 "FC1_DIMS"              : 256,
                 "LEARNING_RATE"         : 1e-4,
-                "MAX_TIMESTEPS"         : 5,
+                "MAX_TIMESTEPS"         : 10,
                 "PLOT_TIMESTEPS"        : 300,
                 'STUDENT_MODEL_NAME'    : 'hotDINA_full',
                 'VILLAGE'               : '130',
@@ -148,5 +148,3 @@ if __name__ == '__main__':
     avg_p_know = np.mean(posterior)
     print("All unique students under this village: ", uniq_student_ids)
     print("Avg. P(Know): ", avg_p_know)
-
-    
