@@ -42,24 +42,27 @@ class hotDINA_full():
         for i in range(self.I):
             alpha = np.zeros((self.K)).tolist()
             for k in range(self.K):
-                alpha[k] = sigmoid(1.7 * self.a[k] * (self.theta[i] - self.b[k]))
+                alpha[k] = 0.1
+                # alpha[k] = sigmoid(1.7 * self.a[k] * (self.theta[i] - self.b[k]))
             self.alpha[i].append(alpha)
         
         for i in range(self.I):
             self.avg_knows[i].append(np.mean(self.alpha[i][-1]))
 
-    def update(self, observations, items, users):
+    def update(self, observations, items, users, train_students=None):
         for i in range(len(observations)):
             user = users[i]
-            correct = int(observations[i])
             j = items[i]
+            if train_students != None and user not in train_students:
+                continue
+            correct = int(observations[i])
             skills = self.Q[j]
             alpha = self.alpha[user][-1].copy()
             eta = 1.0
             
             for k in range(len(skills)):
                 eta = eta * pow(alpha[k], skills[k])
-
+            
             if self.responsibilty == "independent":
                 for k in range(len(skills)):
                     p_correct = (eta * self.ss[j]) + (self.g[j] * (1-eta))
@@ -67,10 +70,10 @@ class hotDINA_full():
                     if correct == 1:
                         eta_given_obs = self.ss[j] * eta/ p_correct
                     else:
-                        eta_given_obs = (1 - self.g[j]) * (1-eta)/ p_wrong
+                        eta_given_obs = (1 - self.ss[j]) * eta/ p_wrong
                     if skills[k] == 1:
                         alpha[k] = eta_given_obs
-                    alpha[k] = alpha[k] + (1-alpha[k]) * self.learn[k]
+                        alpha[k] = alpha[k] + (1-alpha[k]) * self.learn[k]
             
             self.alpha[user].append(alpha)
             self.avg_knows[user].append(np.mean(alpha))
