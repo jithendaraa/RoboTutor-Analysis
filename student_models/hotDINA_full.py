@@ -15,8 +15,8 @@ from reader import *
 class hotDINA_full():
     def __init__(self, params_dict, path_to_Qmatrix, responsibilty='independent'):
 
-        params_dict['g'] = 0.25 * np.ones((1712,1))
-        params_dict['ss'] = 0.85 * np.ones((1712,1))
+        params_dict['g'] = 0.25 * np.ones((1712))
+        params_dict['ss'] = 0.85 * np.ones((1712))
         
         self.I = len(params_dict['theta'])
         self.J = len(params_dict['g'])
