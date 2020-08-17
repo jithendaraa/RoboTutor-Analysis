@@ -122,7 +122,7 @@ def plot_learning(learning_progress, student_ids, timesteps, new_student_avg, al
             Also plots in the same graph, Avg P Know vs #opportunities for an imaginary student 
             who is asked questions from the learned tutor policy of the RL agent
     """
-
+    
     colors = ["red", "green", "yellow", "purple", "blue", "violet", "orange", "brown"]
     for i in range(len(student_ids)):
         student_id = student_ids[i]
@@ -133,12 +133,10 @@ def plot_learning(learning_progress, student_ids, timesteps, new_student_avg, al
             p_avg_know = np.mean(np.array(p_know))
             x.append(j+1)
             y.append(p_avg_know)
-            # if j>70:
-            #     break
         plt.plot(x, y, label=student_id)
     
-    # x = np.arange(1, len(new_student_avg) + 1).tolist()
-    # plt.plot(x, new_student_avg, label="RL Agent", color="black")
+    x = np.arange(1, len(new_student_avg) + 1).tolist()
+    plt.plot(x, new_student_avg, label="RL Agent", color="black")
     plt.legend()
     plt.xlabel("# Opportunities")
     plt.ylabel("Avg P(Know) across skills")
