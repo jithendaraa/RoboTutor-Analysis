@@ -58,6 +58,9 @@ class StudentEnv():
        
         elif self.student_simulator.student_model_name == 'hotDINA_skill':
             self.checkpoint_state   = student_model.knows[self.student_num][-1].copy()
+
+        elif self.student_simulator.student_model_name == 'hotDINA_full':
+            self.checkpoint_state   = student_model.alpha[self.student_num][-1].copy()
     
     def step(self, action, timesteps, max_timesteps, activityName, bayesian_update=True, plot=False):
         """
@@ -75,7 +78,7 @@ class StudentEnv():
         if self.student_simulator.student_model_name == 'ActivityBKT':
         
             # Simulate student with current BKT params and get student response (predictions) according to full responsibility and blame-worst responsibility
-            correct_preds, min_correct_preds = self.student_simulator.student_model.predict_percent_correct(student_ids, skills)
+            correct_preds, min_correct_preds = self.student_simulator.student_model.predict_percent_corrects(student_ids, skills)
             student_response = correct_preds    # should be min_correct_preds for "blame worst" responsibility
             # P(Know) as a list before attempting the question (before doing BKT update based on student_response)
             prior_know = self.student_simulator.student_model.know[self.student_num].copy()

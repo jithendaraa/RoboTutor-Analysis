@@ -140,6 +140,7 @@ class StudentSimulator():
         elif self.student_model_name == 'hotDINA_full':
             path = os.getcwd() + "/slurm_outputs"
             self.params_dict = slurm_output_params(path, village, self.hotDINA_full_slurm_files[village])
+    
     def reset(self):
         student_model = self.student_model
         if self.student_model_name == 'ActivityBKT':
@@ -150,6 +151,10 @@ class StudentSimulator():
         elif self.student_model_name == 'hotDINA_skill':
             student_model.knows     = self.checkpoint_knows.copy()
             student_model.knews     = self.checkpoint_knews.copy()
+            student_model.avg_knows = self.checkpoint_avg_knows.copy()
+        
+        elif self.student_model_name == 'hotDINA_full':
+            student_model.alpha     = self.checkpoint_know.copy()
             student_model.avg_knows = self.checkpoint_avg_knows.copy()
 
     def checkpoint(self):
@@ -162,6 +167,10 @@ class StudentSimulator():
         elif self.student_model_name == 'hotDINA_skill':
             self.checkpoint_knows               = student_model.knows.copy()
             self.checkpoint_knews               = student_model.knews.copy()
+            self.checkpoint_avg_knows           = student_model.avg_knows.copy()
+        
+        elif self.student_model_name == 'hotDINA_full':
+            self.checkpoint_know                = student_model.alpha.copy()
             self.checkpoint_avg_knows           = student_model.avg_knows.copy()
 
     def update_on_log_data(self, data_dict, train_split=1.0, train_students=None, bayesian_update=True, plot=True):
@@ -253,7 +262,6 @@ class StudentSimulator():
         items = data_dict['items']
         users = data_dict['users']
         self.student_model.update(observations, items, users)
-        
 
 def check_ItemBKT(village, observations, student_simulator, train_ratio=0.75):
     path_to_step_transac_data   = 'Data/village_' + village + '/village_' + village + '_step_transac.txt'
