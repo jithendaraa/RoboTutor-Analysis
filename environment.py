@@ -18,10 +18,8 @@ class StudentEnv():
         self.student_simulator = student_simulator
         self.student_id = student_id
         self.student_num = self.student_simulator.uniq_student_ids.index(self.student_id)
-        print(self.student_id, self.student_num)
         self.skill_groups                   = skill_groups
         self.skill_group_to_activity_map    = skill_group_to_activity_map
-        
         self.set_initial_state()
         self.action_size                    = action_size
         self.state_size                     = self.state.shape[0]
@@ -32,17 +30,13 @@ class StudentEnv():
             print("Initialised RoboTutor environment number", env_num, "with", self.state_size, "states and", self.action_size, "actions")
     
     def set_initial_state(self):
-
         student_model = self.student_simulator.student_model
-        student_num = self.student_simulator.uniq_student_ids.index(self.student_id)
-        
         if self.student_simulator.student_model_name == 'ActivityBKT':
-            self.initial_state = np.array(student_model.know[student_num]).copy()
+            self.state = np.array(student_model.know[self.student_num]).copy()
         elif self.student_simulator.student_model_name == 'hotDINA_skill':
-            self.initial_state = np.array(student_model.knows[student_num][-1]).copy()
-
-        self.state = self.initial_state.copy()
-
+            self.state = np.array(student_model.knows[self.student_num][-1]).copy()
+        elif self.student_simulator.student_model_name == 'hotDINA_full':
+            self.state = np.array(student_model.alpha[self.student_num][-1]).copy()
 
     def reset(self):
         self.student_simulator.reset()
@@ -75,49 +69,40 @@ class StudentEnv():
         activity_num = self.student_simulator.uniq_activities.index(activity)
         activity_nums = [activity_num]
 
+        # 1. Get student prior knowledge (before attempting the question)
+        # 2. Simulate student with current model params and get student response (predictions) according to full responsibility
+        # 3. Update model params based on simulated student response and get the posterior know
         if self.student_simulator.student_model_name == 'ActivityBKT':
-        
-            # Simulate student with current BKT params and get student response (predictions) according to full responsibility and blame-worst responsibility
-            correct_preds, min_correct_preds = self.student_simulator.student_model.predict_percent_corrects(student_ids, skills)
-            student_response = correct_preds    # should be min_correct_preds for "blame worst" responsibility
-            # P(Know) as a list before attempting the question (before doing BKT update based on student_response)
             prior_know = self.student_simulator.student_model.know[self.student_num].copy()
-            # BKT update based on student_response aka %correct
-            self.student_simulator.student_model.update(activity_observations=student_response, 
-                                                        student_nums=student_nums,  
-                                                        activities=[activity])
-
-            # Get next state as updated P(Know) based on student_response. Set next_state as current_state
+            correct_preds, min_correct_preds = self.student_simulator.student_model.predict_percent_corrects(student_ids, skills)
+            student_response = correct_preds    # should be min_correct_preds for "hardest_skill" responsibility
+            self.student_simulator.student_model.update(correct_preds, student_nums,[activity])
             posterior_know = self.student_simulator.student_model.know[self.student_num].copy()
             next_state = np.array(posterior_know.copy())
             self.state = next_state.copy()
         
-        if self.student_simulator.student_model_name == 'hotDINA_skill':
-        
-            # Simulate student with current BKT params and get student response (predictions) according to full responsibility and blame-worst responsibility
-            correct_response, min_correct_response = self.student_simulator.student_model.predict_response(activity_num, self.student_num)
-
-            # should be min_correct_response for "blame worst" responsibility
-            student_response = [correct_response]
+        elif self.student_simulator.student_model_name == 'hotDINA_skill':
             prior_know = self.student_simulator.student_model.knows[self.student_num][-1].copy()
-
-            # hotDINA update based on student_response (binary)
-            self.student_simulator.student_model.update(student_response, activity_nums, student_nums, bayesian_update, plot)
-
+            correct_response, min_correct_response = self.student_simulator.student_model.predict_response(activity_num, self.student_num)
+            student_response = correct_response   # should be min_correct_preds for "hardest_skill" responsibility
+            self.student_simulator.student_model.update([student_response], activity_nums, student_nums, bayesian_update, plot)
             posterior_know = self.student_simulator.student_model.knows[self.student_num][-1].copy()
             next_state = np.array(posterior_know.copy())
-            
             self.state = next_state.copy()
-
-        # Get avg P(Know) before and after student attempts the activities
+        
+        elif self.student_simulator.student_model_name == 'hotDINA_full':
+            prior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
+            _, predicted_response = self.student_simulator.student_model.predict_response(activity_num, self.student_num, update=True)
+            student_response = predicted_response
+            posterior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
+            next_state = np.array(posterior_know.copy())
+            self.state = next_state.copy()
+        
         avg_prior_know = np.mean(np.array(prior_know))
         avg_posterior_know = np.mean(np.array(posterior_know))
-
-        # Reward after each attempt/opportunity
-        reward = 1000 * (avg_posterior_know - avg_prior_know) # reward = 100 * np.mean(np.array(self.activity_bkt.know))
-
+        reward = 1000 * (avg_posterior_know - avg_prior_know) 
+        
         if timesteps >= max_timesteps:
             done = True
 
-        # print('next_state @env.py: ', next_state)
-        return next_state, reward, student_response[0], done, posterior_know
+        return next_state, reward, student_response, done, posterior_know
