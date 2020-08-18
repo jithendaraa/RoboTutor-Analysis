@@ -105,7 +105,7 @@ class hotDINA_skill():
         if update:
             if self.responsibilty == 'independent':
                 self.update([correct_response], [item], [user], bayesian_update, plot)
-            elif self.responsibilty == 'blame_weakest':
+            elif self.responsibilty == 'hardest_skill':
                 self.update([min_correct_response], [item], [user], bayesian_update, plot)
 
         return correct_response, min_correct_response
