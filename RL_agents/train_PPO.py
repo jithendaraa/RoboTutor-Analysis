@@ -78,7 +78,6 @@ def get_data_dict(uniq_student_ids, kc_list, path=''):
         with open(path_to_data_file, 'rb') as handle:
             data_dict = pickle.load(handle)
         os.chdir('../RoboTutor-Analysis')
-    
     return data_dict
     
 if __name__ == "__main__":
@@ -153,7 +152,6 @@ if __name__ == "__main__":
     
     num_inputs  = CONSTANTS["STATE_SIZE"]
     n_actions = CONSTANTS["ACTION_SIZE"]
-
     model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[num_inputs], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=n_actions)
     # model.load_state_dict(torch.load("checkpoints/RoboTutor_best_+804.453_30720.dat"))
     frame_idx = 0

@@ -13,7 +13,7 @@ class Discrete():
         self.shape = (size, )
 
 class StudentEnv():
-    def __init__(self, student_simulator, skill_groups, skill_group_to_activity_map, action_size, student_id='new_student', env_num=1):
+    def __init__(self, student_simulator, skill_groups, skill_group_to_activity_map, action_size, student_id='new_student', env_num=1, type=None):
         
         self.student_simulator = student_simulator
         self.student_id = student_id
@@ -27,7 +27,10 @@ class StudentEnv():
         self.action_space                   = Discrete(self.action_size)
 
         if env_num is not None:
-            print("Initialised RoboTutor environment number", env_num, "with", self.state_size, "states and", self.action_size, "actions")
+            if type != None:
+                print("Initialised RoboTutor environment number", env_num, "(Type " + str(type) + ") with", self.state_size, "states and", self.action_size, "actions")
+            else:
+                print("Initialised RoboTutor environment number", env_num, "with", self.state_size, "states and", self.action_size, "actions")
     
     def set_initial_state(self):
         student_model = self.student_simulator.student_model
