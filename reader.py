@@ -68,7 +68,38 @@ def read_activity_matrix():
     stories_matrix = stories_df.values.tolist()
     stories_matrix.insert(0, stories_df.columns.tolist())
 
-    return literacy_matrix, math_matrix, stories_matrix
+    literacy_counts = []
+    math_counts = []
+    stories_counts = []
+    count = 0
+    for row in literacy_matrix:
+        for val in row:
+            if isinstance(val, str):
+                count += 1
+            elif math.isnan(val): 
+                continue
+        literacy_counts.append(count)
+        count = 0
+    
+    for row in math_matrix:
+        for val in row:
+            if isinstance(val, str):
+                count += 1
+            elif math.isnan(val): 
+                continue
+        math_counts.append(count)
+        count = 0
+    
+    for row in stories_matrix:
+        for val in row:
+            if isinstance(val, str):
+                count += 1
+            elif math.isnan(val): 
+                continue
+        stories_counts.append(count)
+        count = 0
+
+    return literacy_matrix, math_matrix, stories_matrix, literacy_counts, math_counts, stories_counts
 
 
 # Extract functions
