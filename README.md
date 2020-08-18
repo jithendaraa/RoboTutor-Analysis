@@ -17,6 +17,7 @@
    
    
 ## Todo:
+- Complete this README.md
 
 ### Student Models
  - [x] ItemBKT
