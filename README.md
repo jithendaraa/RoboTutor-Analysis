@@ -16,7 +16,6 @@
 1. Coming soon!
    
    
-
 ## Todo:
 
 ### Student Models
@@ -25,12 +24,31 @@
  - [x] hotDINA_skill
  - [x] hotDINA_full
 
-### RL Agents (has support for DQN, A3C and PPO but primary usage is meant to be with PPO since it is state-of-the-art)
-- [ ] Type 1
-- [ ] Type 2
-- [ ] Type 3
-- [ ] Type 4
-- [ ] Type 5
+### RL Agents and integrations with student models (primary usage is meant to be with PPO since it is SOTA)
+- [ ] Type 1 (**Action**: Finding optimal performance thresholds t1, t2, t3 per student)
+    - [ ] ItemBKT
+    - [ ] ActivityBKT
+    - [ ] hotDINA_skill
+    - [ ] hotDINA_full
+- [ ] Type 2 (**Action**: Finding optimal performance thresholds t1, t2, t3 per activity)
+    - [ ] ItemBKT
+    - [ ] ActivityBKT
+    - [ ] hotDINA_skill
+    - [ ] hotDINA_full
+- [ ] Type 3 (**Action**: Decide promotion/demotion; choose one out of prev, same, next, next-next)
+    - [ ] ItemBKT
+    - [ ] ActivityBKT
+    - [ ] hotDINA_skill
+    - [ ] hotDINA_full
+- [ ] Type 4 (**Action**: Same as type 3 but transition constraint is no longer 4 (prev, same, next, next-next))
+    - [ ] ItemBKT
+    - [ ] ActivityBKT
+    - [ ] hotDINA_skill
+    - [ ] hotDINA_full
+- [ ] Type 5 (**Action**: Same as 3 but with removed transition constraint and area rotation constraint "Lit-Num-Lit-Sto")
+    - [ ] ItemBKT
+    - [ ] ActivityBKT
+    - [ ] hotDINA_skill
+    - [ ] hotDINA_full
 
 For meaning of "types of RL agent", please refer <a href="https://docs.google.com/document/d/1saE4yC0xdfc8t3REdJMxbOeBfwfSbaFcSIyDA8Yhqbc/edit"> this doc </a>
-
