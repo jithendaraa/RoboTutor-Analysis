@@ -48,10 +48,14 @@ def read_data(path=""):
     
     return kc_list, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map
 
-def read_activity_matrix(PATH_TO_ACTIVITY_DIFFICULTY, LITERACY_SHEET_NAME, MATH_SHEET_NAME, STORIES_SHEET_NAME):
+def read_activity_matrix():
     """
         Takes paths and sheet names as params and returns the 3 activity matrices
     """
+    LITERACY_SHEET_NAME = 'Literacy (with levels as rows)'
+    MATH_SHEET_NAME = 'Math (with levels as rows)'
+    STORIES_SHEET_NAME = 'Stories'
+    PATH_TO_ACTIVITY_DIFFICULTY = 'Data/Code Drop 2 Matrices.xlsx'
     xls = pd.ExcelFile(PATH_TO_ACTIVITY_DIFFICULTY)
 
     # Difficulty with levels as rows
