@@ -121,16 +121,23 @@ class ActorCriticAgent(object):
         
 # used only in ppo_agent.py for PPO algo, Actor Critic Algo uses the class `ActorCriticNetwork`
 class ActorCritic(nn.Module):
-    def __init__(self, lr, input_dims, fc1_dims, n_actions):
+    def __init__(self, lr, input_dims, fc1_dims, n_actions, type=None):
         super(ActorCritic, self).__init__()
         self.input_dims = input_dims
         self.fc1_dims = fc1_dims
         self.n_actions = n_actions
-        
-        self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
-        #  Policy and critic value v
-        self.pi = nn.Linear(self.fc1_dims, n_actions)
-        self.v = nn.Linear(self.fc1_dims, 1)
+        self.type = type
+
+        if type == None:       
+            self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
+            #  Policy and critic value v
+            self.pi = nn.Linear(self.fc1_dims, n_actions)
+            self.v = nn.Linear(self.fc1_dims, 1)
+        elif type == 1:
+            self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
+            #  Policy and critic value v
+            self.pi = nn.Linear(self.fc1_dims, n_actions)
+            self.v = nn.Linear(self.fc1_dims, 1)
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu:0")
         self.optimizer = optim.Adam(self.parameters(), lr = lr)
@@ -138,10 +145,16 @@ class ActorCritic(nn.Module):
 
     def forward(self, state):
         # state should be a torch.Tensor
-        x = self.fc1(state)
-        x = F.relu(x)
-
-        pi = self.pi(x)
-        v = self.v(x)
-        return pi, v
+        if self.type == None:
+            x = self.fc1(state)
+            x = F.relu(x)
+            pi = self.pi(x)
+            v = self.v(x)
+            return pi, v
+        elif self.type == 1:
+            x = self.fc1(state)
+            x = F.relu(x)
+            pi = self.pi(x)
+            v = self.v(x)
+            return pi, v
 
