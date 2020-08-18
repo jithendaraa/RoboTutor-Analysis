@@ -8,11 +8,12 @@ import numpy as np
 
 # ActivityBKT is a non-binary BKT Model
 class ActivityBKT():
-    def __init__(self, params_dict, kc_list, uniq_student_ids, uniq_activities, activity_learning_progress={}, update_type='by_activity', responsibility='independent'):
+    def __init__(self, params_dict, kc_list, uniq_student_ids, uniq_activities, activity_learning_progress={}, update_type='by_activity', responsibility='independent', path=''):
         self.n          = len(uniq_student_ids)
         self.num_skills = len(kc_list)
         self.num_acts   = len(uniq_activities)
-        self.Q = pd.read_csv('../hotDINA/qmatrix.txt', header=None).to_numpy()
+        print(os.getcwd())
+        self.Q = pd.read_csv(path + '../hotDINA/qmatrix.txt', header=None).to_numpy()
         
         self.timestep = np.zeros((self.n, self.num_skills))
         self.timestep_act = np.zeros((self.n, self.num_acts))

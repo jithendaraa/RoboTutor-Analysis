@@ -17,7 +17,7 @@ from student_models.hotDINA_skill import hotDINA_skill
 from student_models.hotDINA_full import hotDINA_full
 
 class StudentSimulator():
-    def __init__(self, village="114", observations="10000", student_model_name="ItemBKT", subscript="student_specific"):
+    def __init__(self, village="114", observations="10000", student_model_name="ItemBKT", subscript="student_specific", path=''):
         self.CONSTANTS = {
             "PATH_TO_CTA"                           : "Data/CTA.xlsx",
             "PATH_TO_ACTIVITY_TABLE"                : "Data/Activity_table_v4.1_22Apr2020.pkl",
@@ -28,16 +28,17 @@ class StudentSimulator():
             "PATH_TO_VILLAGE_STEP_TRANSAC_FILES"    : [],
             "STUDENT_MODEL_INITIALISER"             : {
                                                         "ItemBKT"       : "self.student_model = ItemBKT(self.params_dict, self.kc_list, self.uniq_student_ids)",
-                                                        "ActivityBKT"   : "self.student_model = ActivityBKT(self.params_dict, self.kc_list, self.uniq_student_ids, self.uniq_activities, self.activity_learning_progress)",
+                                                        "ActivityBKT"   : "self.student_model = ActivityBKT(self.params_dict, self.kc_list, self.uniq_student_ids, self.uniq_activities, self.activity_learning_progress, path=path)",
                                                         "hotDINA_skill" : "self.student_model = hotDINA_skill(self.params_dict, path_to_Qmatrix)",
                                                         "hotDINA_full"  : "self.student_model = hotDINA_full(self.params_dict, path_to_Qmatrix)"
                                                     },
         }
-        path_to_Qmatrix = os.getcwd() + '/../hotDINA/qmatrix.txt'
+        path_to_Qmatrix = os.getcwd() + '/' + path + '../hotDINA/qmatrix.txt'
         self.student_model_name = student_model_name
         self.hotDINA_skill_slurm_files = {}
         self.hotDINA_full_slurm_files = {}
         self.params_dict = {}
+        self.path = path
         self.set_village_paths()
         self.set_data()
         self.set_slurm_files()
@@ -48,16 +49,15 @@ class StudentSimulator():
 
     def set_village_paths(self):
         village = self.CONSTANTS["VILLAGE"]
-        file = "Data/village_" + village + "/village_" + village + "_step_transac.txt"
+        file = self.path + "Data/village_" + village + "/village_" + village + "_step_transac.txt"
         self.CONSTANTS["PATH_TO_VILLAGE_STEP_TRANSAC_FILES"].append(file)
     
     def set_data(self):
-
-        self.cta_df = read_cta_table(self.CONSTANTS["PATH_TO_CTA"])
+        self.cta_df = read_cta_table(self.path + self.CONSTANTS["PATH_TO_CTA"])
         self.kc_list = self.cta_df.columns.tolist()
         
         if self.student_model_name == "ActivityBKT":
-            self.activity_df = pd.read_pickle(self.CONSTANTS['PATH_TO_ACTIVITY_TABLE'])
+            self.activity_df = pd.read_pickle(self.path + self.CONSTANTS['PATH_TO_ACTIVITY_TABLE'])
             
             if self.CONSTANTS['OBSERVATIONS'] != 'all':
                 num_obs = int(self.CONSTANTS['OBSERVATIONS'])
@@ -70,7 +70,7 @@ class StudentSimulator():
         else:
             self.uniq_student_ids, self.student_id_to_village_map = get_uniq_transac_student_ids(self.CONSTANTS["PATH_TO_VILLAGE_STEP_TRANSAC_FILES"], [self.CONSTANTS["VILLAGE"]])
             self.uniq_student_ids.append("new_student")
-            self.student_id_to_village_map['new_student'] = [int(self.CONSTANTS['VILLAGE'])]
+            self.student_id_to_village_map['new_student'] = [self.CONSTANTS['VILLAGE']]
         
         self.kc_list_spaceless = remove_spaces(self.kc_list.copy())
     
@@ -99,7 +99,8 @@ class StudentSimulator():
                                                 self.uniq_student_ids, 
                                                 self.student_id_to_village_map, 
                                                 [village], 
-                                                self.CONSTANTS["SUBSCRIPT"]) 
+                                                self.CONSTANTS["SUBSCRIPT"],
+                                                path=self.path) 
 
         elif self.student_model_name == 'ActivityBKT':
 
@@ -134,17 +135,15 @@ class StudentSimulator():
 
             self.activity_learning_progress, self.act_student_id_to_number_map = init_act_student_id_to_number_map(n, u, self.uniq_student_ids, {}, def_knew_skill)
             
-        elif self.student_model_name == "hotDINA_skill":
-            path = os.getcwd() + "/slurm_outputs"
-            self.params_dict = slurm_output_params(path, village, self.hotDINA_skill_slurm_files[village])
+        else:
+            path = os.getcwd() + '/' + self.path + "slurm_outputs"
+            if self.student_model_name == "hotDINA_skill":
+                self.params_dict = slurm_output_params(path, village, self.hotDINA_skill_slurm_files[village])
+            elif self.student_model_name == 'hotDINA_full':
+                self.params_dict = slurm_output_params(path, village, self.hotDINA_full_slurm_files[village])
             # student proficiency for 'new_student'
             self.params_dict['theta'].append(-np.log(9)/1.7)
         
-        elif self.student_model_name == 'hotDINA_full':
-            path = os.getcwd() + "/slurm_outputs"
-            self.params_dict = slurm_output_params(path, village, self.hotDINA_full_slurm_files[village])
-            # student proficiency for 'new_student'
-            self.params_dict['theta'].append(-np.log(9)/1.7)
     
     def reset(self):
         student_model = self.student_model

@@ -85,11 +85,10 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map, uniq_sk
 
         state = next_state
         total_reward += reward
-    
-        with open("ppo_logs/test_run.txt", "a") as f:
+        with open("RL_agents/ppo_logs/test_run.txt", "a") as f:
             f.write(run_text)
 
-    with open("ppo_logs/rewards.txt", "a") as f:
+    with open("RL_agents/ppo_logs/rewards.txt", "a") as f:
         if CONSTANTS["RUN_NUM"] == 0:
             f.write("0,"+ str(np.mean(np.array(init_state))) + "\n")
 
@@ -97,13 +96,13 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map, uniq_sk
         f.write(text)
     
     if CONSTANTS["RUN_NUM"] % CONSTANTS["AVG_OVER_RUNS"] == 0:
-        with open("ppo_logs/avg_scores.txt", "a") as f:
+        with open("RL_agents/ppo_logs/avg_scores.txt", "a") as f:
             text = str(CONSTANTS["RUN_NUM"]/CONSTANTS["AVG_OVER_RUNS"]) + "," + str(posterior_avg_know) + "\n"
             f.write(text)
 
     CONSTANTS["RUN_NUM"] += 1
 
-    with open("ppo_logs/test_run.txt", "a") as f:
+    with open("RL_agents/ppo_logs/test_run.txt", "a") as f:
         f.write("Total Reward: " + str(total_reward) + "\n")
 
     return total_reward
@@ -184,7 +183,7 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
         skill_group = uniq_skill_groups[action]
         print("Prior avg: ", np.mean(state.cpu().numpy()[0]))
         print(state.cpu().numpy()[0])
-        print(action, activityName, skill_group)
+        print(action,activityName, skill_group)
         next_state, reward, student_response, done, posterior = env.step(action, timesteps, CONSTANTS["MAX_TIMESTEPS"], activityName)
         print(next_state)
         print("Posterior avg:", np.mean(next_state))
@@ -207,10 +206,10 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
         state = next_state
         total_reward += reward
     
-        with open("ppo_logs/play_run.txt", "a") as f:
+        with open("RL_agents/ppo_logs/play_run.txt", "a") as f:
             f.write(run_text)
 
-    with open("ppo_logs/play_run.txt", "a") as f:
+    with open("RL_agents/ppo_logs/play_run.txt", "a") as f:
         f.write("Total Reward: " + str(total_reward) + "\n")
     
     print("In %d steps we got %.3f reward" % (timesteps, total_reward))

@@ -85,7 +85,7 @@ def skill_probas(activityName, tutorID_to_kc_dict, kc_list, p_know):
     
     return proba
 
-def clear_files(algo, clear):
+def clear_files(algo, clear, path=''):
     """
         Empties all txt files under algo + "_logs" folder if clear is set to True
         
@@ -93,7 +93,8 @@ def clear_files(algo, clear):
     """
     if clear == False:
         return
-    log_folder_name = algo + "_logs"
+    log_folder_name = path + algo + "_logs"
+
     files = os.listdir(log_folder_name)
     text_files = []
     

@@ -266,7 +266,7 @@ def get_tutorID_to_kc_dict(kc_to_tutorID_dict):
 
     return tutorID_to_kc_dict
 
-def get_village_specific_bkt_params(kc_list_spaceless, uniq_student_ids, student_id_to_village_map, villages):
+def get_village_specific_bkt_params(kc_list_spaceless, uniq_student_ids, student_id_to_village_map, villages, path=''):
     
     num_skills = len(kc_list_spaceless)
     num_students = len(uniq_student_ids)
@@ -280,7 +280,7 @@ def get_village_specific_bkt_params(kc_list_spaceless, uniq_student_ids, student
 
     for village in villages:
         village_to_bkt_params[village] = np.zeros((num_skills, 4))
-        params_file_name = "Data/village_" + village + "/params.txt"
+        params_file_name = path + "Data/village_" + village + "/params.txt"
         params_file = open(params_file_name, "r")
         contents = params_file.read().split('\n')[1:]
 
@@ -312,22 +312,25 @@ def get_village_specific_bkt_params(kc_list_spaceless, uniq_student_ids, student
     
     return init_know, init_learn, init_slip, init_guess, init_forget
 
-def get_student_specific_bkt_params(kc_list_spaceless, uniq_student_ids, student_id_to_village_map):
+def get_student_specific_bkt_params(kc_list_spaceless, uniq_student_ids, student_id_to_village_map, path=''):
     
     num_skills = len(kc_list_spaceless)
     num_students = len(uniq_student_ids)
     
     # get params for the village here 
-
     init_know = np.ones((num_students, num_skills)) * 0.2
-    init_learn = np.ones((num_students, num_skills)) * 0.6
+    init_learn = np.ones((num_students, num_skills)) * 0.4
     init_slip = np.ones((num_students, num_skills)) * 0.1
     init_guess = np.ones((num_students, num_skills)) * 0.3
     init_forget = np.zeros((num_students, num_skills))
 
     for student_id in uniq_student_ids:
         student_num = uniq_student_ids.index(student_id)
-        path_to_student_specific_params_file = "bkt_params/" + student_id + "_params.txt"
+        
+        if student_id == 'new_student':
+            continue
+
+        path_to_student_specific_params_file = path + "bkt_params/" + student_id + "_params.txt"
         # order: knew learn slip guess
         file = open(path_to_student_specific_params_file, "r")
         lines = file.read().split('\n')[1:]
@@ -352,7 +355,7 @@ def get_student_specific_bkt_params(kc_list_spaceless, uniq_student_ids, student
 
     return init_know, init_learn, init_slip, init_guess, init_forget
 
-def get_bkt_params(kc_list_spaceless, uniq_student_ids, student_id_to_village_map, villages, subscript="student_specific"):
+def get_bkt_params(kc_list_spaceless, uniq_student_ids, student_id_to_village_map, villages, subscript="student_specific", path=''):
 
     num_skills = len(kc_list_spaceless)
     num_students = len(uniq_student_ids)
@@ -364,9 +367,9 @@ def get_bkt_params(kc_list_spaceless, uniq_student_ids, student_id_to_village_ma
     forget = np.zeros((num_students, num_skills))
 
     if subscript == "student_specific":
-        know, learn, slip, guess, forget = get_student_specific_bkt_params(kc_list_spaceless, uniq_student_ids, student_id_to_village_map)
+        know, learn, slip, guess, forget = get_student_specific_bkt_params(kc_list_spaceless, uniq_student_ids, student_id_to_village_map, path)
     elif subscript == "village_specific":
-        know, learn, slip, guess, forget = get_village_specific_bkt_params(kc_list_spaceless, uniq_student_ids, student_id_to_village_map, villages)
+        know, learn, slip, guess, forget = get_village_specific_bkt_params(kc_list_spaceless, uniq_student_ids, student_id_to_village_map, villages, path)
     else:
         print("Bad value for variable 'subscript' at helper.get_bkt_params()")
     

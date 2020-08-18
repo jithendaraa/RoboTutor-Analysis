@@ -1,9 +1,10 @@
 import sys
-sys.path.append('lib')
+import os
+sys.path.append(os.getcwd()+'/lib')
+sys.path.append(os.getcwd()+'/../')
 
 import argparse
 import math
-import os
 import random
 import numpy as np
 from pathlib import Path
@@ -16,7 +17,7 @@ from tensorboardX import SummaryWriter
 from common import mkdir
 from multiprocessing_env import SubprocVecEnv
 
-from RL_agents.actor_critic_agent import ActorCritic
+from actor_critic_agent import ActorCritic
 from environment import StudentEnv
 from student_simulator import StudentSimulator
 
@@ -53,27 +54,27 @@ CONSTANTS = {
     }
 
 def set_constants(args):
-    CONSTANTS['ENV_ID']             = args.name
     CONSTANTS['NUM_OBS']            = args.observations
     CONSTANTS['VILLAGE']            = args.village_num
     CONSTANTS['STUDENT_ID']         = args.student_id
     CONSTANTS['STUDENT_MODEL_NAME'] = args.student_model_name
+    CONSTANTS['ENV_ID']             = args.student_model_name
 
-def get_data_dict(uniq_student_ids, kc_list):
+def get_data_dict(uniq_student_ids, kc_list, path=''):
     if CONSTANTS['STUDENT_MODEL_NAME'] == 'ActivityBKT':
-        data_dict = extract_activity_table(CONSTANTS['PATH_TO_ACTIVITY_TABLE'], uniq_student_ids, kc_list, CONSTANTS["NUM_OBS"], CONSTANTS['STUDENT_ID'])
+        data_dict = extract_activity_table(path + CONSTANTS['PATH_TO_ACTIVITY_TABLE'], uniq_student_ids, kc_list, CONSTANTS["NUM_OBS"], CONSTANTS['STUDENT_ID'])
     
     elif CONSTANTS['STUDENT_MODEL_NAME'] == 'hotDINA_skill' or CONSTANTS['STUDENT_MODEL_NAME'] == 'hotDINA_full':
-        path_to_data_file = os.getcwd() + '/../hotDINA/pickles/data/data'+ CONSTANTS['VILLAGE'] + '_' + CONSTANTS['NUM_OBS'] +'.pickle'
+        path_to_data_file = os.getcwd() + '/' + path +'../hotDINA/pickles/data/data'+ CONSTANTS['VILLAGE'] + '_' + CONSTANTS['NUM_OBS'] +'.pickle'
         data_file = Path(path_to_data_file)
         if data_file.is_file() == False:
             # if data_file does not exist, get it
-            os.chdir('../hotDINA')
+            os.chdir(path + '../hotDINA')
             get_data_file_command = 'python get_data_for_village_n.py -v ' + CONSTANTS['VILLAGE'] + ' -o ' + CONSTANTS['NUM_OBS'] 
             os.system(get_data_file_command)
             os.chdir('../RoboTutor-Analysis')
 
-        os.chdir('../hotDINA')
+        os.chdir(path + '../hotDINA')
         with open(path_to_data_file, 'rb') as handle:
             data_dict = pickle.load(handle)
         os.chdir('../RoboTutor-Analysis')
@@ -91,11 +92,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
     set_constants(args)
 
-    kc_list, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map  = read_data()
+    path = '../'
+    kc_list, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map  = read_data(path)
 
     student_simulator = StudentSimulator(village=CONSTANTS["VILLAGE"], 
                                         observations=CONSTANTS["NUM_OBS"], 
-                                        student_model_name=CONSTANTS["STUDENT_MODEL_NAME"])
+                                        student_model_name=CONSTANTS["STUDENT_MODEL_NAME"],
+                                        path=path)
     
     uniq_student_ids = student_simulator.uniq_student_ids
     kc_list = student_simulator.kc_list
@@ -107,12 +110,12 @@ if __name__ == "__main__":
     student_num = uniq_student_ids.index(CONSTANTS["STUDENT_ID"])
     CONSTANTS['STATE_SIZE'] = len(kc_list)
     
-    data_dict = get_data_dict(uniq_student_ids, kc_list)
+    data_dict = get_data_dict(uniq_student_ids, kc_list, path)
     train_students = []
     for s_id in uniq_student_ids:
         if s_id != args.student_id:
             train_students.append(uniq_student_ids.index(s_id))
-    student_simulator.update_on_log_data(data_dict, plot=True, bayesian_update=False, train_students=train_students)
+    student_simulator.update_on_log_data(data_dict, plot=False, bayesian_update=False, train_students=train_students)
     
     env = StudentEnv(student_simulator=student_simulator,
                     skill_groups=uniq_skill_groups,
@@ -129,7 +132,7 @@ if __name__ == "__main__":
     CONSTANTS["TARGET_REWARD"]    = 1000 * (target_avg_p_know - init_avg_p_know)
 
     # clear log files: ppo_logs
-    clear_files("ppo", True)
+    clear_files("ppo", True, path='RL_agents/')
     mkdir('.', 'checkpoints')
     writer = SummaryWriter(comment="ppo_" + args.name)
 
@@ -182,8 +185,6 @@ if __name__ == "__main__":
             action_probs = torch.distributions.Categorical(policy)
             action = action_probs.sample()
             activity_names = []
-
-
             
             for item in action.tolist():
                 activity_name = np.random.choice(skill_group_to_activity_map[str(item)])
@@ -237,7 +238,7 @@ if __name__ == "__main__":
             if best_reward is None or best_reward < test_reward:
                 if best_reward is not None:
                     print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
-                    name = CONSTANTS['STUDENT_MODEL_NAME'] + ("%s_best_%+.3f_%d.dat" % (args.name, test_reward, frame_idx))
+                    name = CONSTANTS['STUDENT_MODEL_NAME'] + ("best_%+.3f_%d.dat" % (test_reward, frame_idx))
                     fname = os.path.join('.', 'checkpoints', name)
                     torch.save(model.state_dict(), fname)
                 best_reward = test_reward

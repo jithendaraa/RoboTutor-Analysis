@@ -1,9 +1,10 @@
 # Imports
 import sys
-sys.path.append("lib")
+import os
+sys.path.append(os.getcwd()+'/lib')
+sys.path.append(os.getcwd()+'/../')
 import argparse
 import math
-import os
 import random
 import numpy as np
 from pathlib import Path
@@ -12,16 +13,13 @@ import pickle
 import torch 
 import torch.nn.functional as F
 
-from RL_agents.actor_critic_agent import ActorCritic
+from actor_critic_agent import ActorCritic
 from environment import StudentEnv
 from student_simulator import StudentSimulator
 
 from helper import *
 from reader import *
 from ppo_helper import play_env
-
-# empty contents of all txt files in "ppo_logs" (which has been gitignored due to large file size) folder, set to False if you don't want to empty contents
-clear_files("ppo", True)
 
 CONSTANTS = {
                 "STUDENT_ID"            : 'new_student',
@@ -36,7 +34,8 @@ CONSTANTS = {
                 'STUDENT_MODEL_NAME'    : 'hotDINA_full',
                 'VILLAGE'               : '130',
                 'NUM_OBS'               : '100',
-                'PATH_TO_ACTIIVTY_TABLE': 'Data/Activity_table_v4.1_22Apr2020.pkl'
+                'PATH_TO_ACTIIVTY_TABLE': 'Data/Activity_table_v4.1_22Apr2020.pkl',
+                'DETERMINISTIC'         : True
             }
 
 def set_constants(args):
@@ -45,21 +44,21 @@ def set_constants(args):
     CONSTANTS['STUDENT_ID']         = args.student_id
     CONSTANTS['STUDENT_MODEL_NAME'] = args.student_model_name
 
-def get_data_dict(uniq_student_ids, kc_list):
+def get_data_dict(uniq_student_ids, kc_list, path=''):
     if CONSTANTS['STUDENT_MODEL_NAME'] == 'ActivityBKT':
-        data_dict = extract_activity_table(CONSTANTS['PATH_TO_ACTIIVTY_TABLE'], uniq_student_ids, kc_list, CONSTANTS["NUM_OBS"], CONSTANTS['STUDENT_ID'])
+        data_dict = extract_activity_table(path + CONSTANTS['PATH_TO_ACTIVITY_TABLE'], uniq_student_ids, kc_list, CONSTANTS["NUM_OBS"], CONSTANTS['STUDENT_ID'])
     
     elif CONSTANTS['STUDENT_MODEL_NAME'] == 'hotDINA_skill' or CONSTANTS['STUDENT_MODEL_NAME'] == 'hotDINA_full':
-        path_to_data_file = os.getcwd() + '/../hotDINA/pickles/data/data'+ CONSTANTS['VILLAGE'] + '_' + CONSTANTS['NUM_OBS'] +'.pickle'
+        path_to_data_file = os.getcwd() + '/' + path +'../hotDINA/pickles/data/data'+ CONSTANTS['VILLAGE'] + '_' + CONSTANTS['NUM_OBS'] +'.pickle'
         data_file = Path(path_to_data_file)
         if data_file.is_file() == False:
             # if data_file does not exist, get it
-            os.chdir('../hotDINA')
+            os.chdir(path + '../hotDINA')
             get_data_file_command = 'python get_data_for_village_n.py -v ' + CONSTANTS['VILLAGE'] + ' -o ' + CONSTANTS['NUM_OBS'] 
             os.system(get_data_file_command)
             os.chdir('../RoboTutor-Analysis')
 
-        os.chdir('../hotDINA')
+        os.chdir(path + '../hotDINA')
         with open(path_to_data_file, 'rb') as handle:
             data_dict = pickle.load(handle)
         os.chdir('../RoboTutor-Analysis')
@@ -76,16 +75,18 @@ if __name__ == '__main__':
     parser.add_argument('-sid', '--student_id', default=CONSTANTS['STUDENT_ID'], help="Student id")
     parser.add_argument("-smn", "--student_model_name", help="Student model that the Student Simulator uses", default=CONSTANTS['STUDENT_MODEL_NAME'])
     parser.add_argument("-e", "--env", default=CONSTANTS["ENV_ID"], help="Environment name to use, default=" + CONSTANTS["ENV_ID"])
-    parser.add_argument("-d", "--deterministic", default=True, action="store_true", help="enable deterministic actions")
+    parser.add_argument("-d", "--deterministic", default=CONSTANTS['DETERMINISTIC'], action="store_true", help="enable deterministic actions")
     parser.add_argument("-r", "--record", help="If specified, sets the recording dir", default='Disabled')
     args = parser.parse_args()
     set_constants(args)
 
-    kc_list, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map  = read_data()
-    
+    path = '../'
+    kc_list, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map  = read_data(path)
+
     student_simulator = StudentSimulator(village=CONSTANTS["VILLAGE"], 
                                         observations=CONSTANTS["NUM_OBS"], 
-                                        student_model_name=CONSTANTS["STUDENT_MODEL_NAME"])
+                                        student_model_name=CONSTANTS["STUDENT_MODEL_NAME"],
+                                        path=path)
 
     uniq_student_ids = student_simulator.uniq_student_ids
     
@@ -101,8 +102,8 @@ if __name__ == '__main__':
     for compare_student_id in CONSTANTS["COMPARE_STUDENT_IDS"]:
         compare_student_nums.append(student_simulator.uniq_student_ids.index(compare_student_id))
 
-    data_dict = get_data_dict(uniq_student_ids, student_simulator.kc_list)
-    # student_simulator.update_on_log_data(data_dict, train_students=compare_student_nums, plot=False, bayesian_update=True)
+    data_dict = get_data_dict(uniq_student_ids, student_simulator.kc_list, path)
+    student_simulator.update_on_log_data(data_dict, train_students=compare_student_nums, plot=False, bayesian_update=True)
     
     # Autodetect CUDA
     use_cuda = torch.cuda.is_available()
@@ -115,6 +116,8 @@ if __name__ == '__main__':
                     action_size=CONSTANTS["ACTION_SIZE"],
                     student_id=CONSTANTS["STUDENT_ID"])
     env.checkpoint()
+    # empty contents of all txt files in "ppo_logs" (which has been gitignored due to large file size) folder, set to False if you don't want to empty contents
+    clear_files("ppo", True, path='RL_agents/')
 
     # # Load model
     num_inputs  = CONSTANTS["STATE_SIZE"]
@@ -123,7 +126,7 @@ if __name__ == '__main__':
     model.load_state_dict(torch.load("checkpoints/" + args.model))
     print("Loaded model at checkpoints/" + str(args.model))
 
-    total_reward, posterior, learning_progress = play_env(env, model, device, CONSTANTS, deterministic=True)
+    total_reward, posterior, learning_progress = play_env(env, model, device, CONSTANTS, deterministic=CONSTANTS['DETERMINISTIC'])
     
     # Push the avg P(Know) of CONSTANTS["STUDENT_ID"] into new_student_avg after each opportunity 
     new_student_avg = []

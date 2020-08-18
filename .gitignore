@@ -6,10 +6,8 @@
 /saved_model_parameters
 Untitled.ipynb
 /runs
-/student_models/__pycache__
-/__pycache__
-/lib/__pycache__
-/bkt_params
+*__pycache__
+# RL_agents/lib/__pycache__
 *.txt
 *.xlsx
 .vscode
