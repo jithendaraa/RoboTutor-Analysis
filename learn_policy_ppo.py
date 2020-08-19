@@ -8,9 +8,14 @@ import math
 import torch 
 import torch.nn.functional as F
 
+from lib.common import mkdir
+from lib.multiprocessing_env import SubprocVecEnv
+
 from RL_agents.actor_critic_agent import ActorCritic
-from student_simulator import StudentSimulator
 from environment import StudentEnv
+from student_simulator import StudentSimulator
+
+from RL_agents.ppo_helper import *
 
 from reader import *
 
@@ -19,14 +24,20 @@ CONSTANTS = {
     'VILLAGE'                   :   '130',
     'STUDENT_ID'                :   'new_student',
     'STUDENT_MODEL_NAME'        :   'hotDINA_skill',
+    'AREA_ROTATION'             :   'L-N-L-S',
+    'START_POS'                 :   '0,0',
+    'NUM_ENVS'                  :   2,
     'AGENT_TYPE'                :   1,
     'AREA_ROTATION_CONSTRAINT'  :   True,
     'TRANSITION_CONSTRAINT'     :   True,
-    'AREA_ROTATION'             :   'L-N-L-S',
-    'START_POS'                 :   '0,0',
     "TARGET_P_KNOW"             :   0.5,
     "LEARNING_RATE"             :   1e-4,
     "FC1_DIMS"                  :   256,
+    'PPO_STEPS'                 :   10,
+    'PPO_EPOCHS'                :   5,
+    'GAE_LAMBDA'                :   0.95,
+    "MINI_BATCH_SIZE"           :   32,
+    "MAX_TIMESTEPS"             :   50,
 }
 
 # Current RoboTutor thresholds
@@ -43,10 +54,14 @@ def set_constants(args):
     CONSTANTS['AGENT_TYPE'] = args.type
     CONSTANTS['STUDENT_ID'] = args.student_id
     CONSTANTS['STUDENT_MODEL_NAME'] = args.student_model_name
+    CONSTANTS['PPO_STEPS'] = args.ppo_steps
+    CONSTANTS['AREA_ROTATION_CONSTRAINT'] = args.area_rotation_constraint
+    CONSTANTS['TRANSITION_CONSTRAINT'] = args.transition_constraint
 
     if args.type == 1:
         CONSTANTS['STATE_SIZE'] = 22
         CONSTANTS['ACTION_SIZE'] = 3
+    
 
 if __name__ == '__main__':
     
@@ -56,10 +71,12 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--type', help="RL Agent type (1-5)", type=int)
     parser.add_argument('-sid', '--student_id', default=CONSTANTS['STUDENT_ID'], help="Student id")
     parser.add_argument('-smn', '--student_model_name', help="Student model name")
+    parser.add_argument('--ppo_steps', help="PPO Steps", default=CONSTANTS['PPO_STEPS'])
+    parser.add_argument('-arc', '--area_rotation_constraint', help="Should questions be constrained like lit-num-lit-stories? True/False", default=CONSTANTS['AREA_ROTATION_CONSTRAINT'])
+    parser.add_argument('-tc', '--transition_constraint', help="Should transition be constrained to prev,same,next, next-next? True/False", default=CONSTANTS['TRANSITION_CONSTRAINT'])
     args = parser.parse_args()
     set_constants(args)
 
-    
     literacy_matrix, math_matrix, stories_matrix, literacy_counts, math_counts, stories_counts = read_activity_matrix()
     
     kc_list, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map  = read_data()
@@ -74,7 +91,7 @@ if __name__ == '__main__':
                     type=args.type)
     env.checkpoint()
 
-    init_t1, init_t2, init_t3 = LOW_PERFORMANCE_THRESHOLD ,MID_PERFORMANCE_THRESHOLD, HIGH_PERFORMANCE_THRESHOLD
+    t1, t2, t3 = LOW_PERFORMANCE_THRESHOLD ,MID_PERFORMANCE_THRESHOLD, HIGH_PERFORMANCE_THRESHOLD
 
     xpos = int(CONSTANTS['START_POS'].split(',')[0])
     ypos = int(CONSTANTS['START_POS'].split(',')[1])
@@ -97,3 +114,13 @@ if __name__ == '__main__':
     num_inputs  = CONSTANTS["STATE_SIZE"]
     n_actions = CONSTANTS["ACTION_SIZE"]
     model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[num_inputs], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=n_actions, type=args.type)
+    
+    # Prepare environments
+    envs = [make_env(i+1, 
+                    student_simulator, 
+                    CONSTANTS["STUDENT_ID"], 
+                    uniq_skill_groups, 
+                    skill_group_to_activity_map, 
+                    CONSTANTS["ACTION_SIZE"]) for i in range(CONSTANTS["NUM_ENVS"])]
+    envs = SubprocVecEnv(envs)
+    envs.checkpoint()
