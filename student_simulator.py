@@ -17,7 +17,7 @@ from student_models.hotDINA_skill import hotDINA_skill
 from student_models.hotDINA_full import hotDINA_full
 
 class StudentSimulator():
-    def __init__(self, village="114", observations="10000", student_model_name="ItemBKT", subscript="student_specific", path=''):
+    def __init__(self, village="114", observations="10000", student_model_name="ItemBKT", subscript="student_specific", path='', new_student_params=None):
         self.CONSTANTS = {
             "PATH_TO_CTA"                           : "Data/CTA.xlsx",
             "PATH_TO_ACTIVITY_TABLE"                : "Data/Activity_table_v4.1_22Apr2020.pkl",
@@ -34,6 +34,7 @@ class StudentSimulator():
                                                     },
         }
         path_to_Qmatrix = os.getcwd() + '/' + path + '../hotDINA/qmatrix.txt'
+        self.new_student_params = new_student_params
         self.student_model_name = student_model_name
         self.hotDINA_skill_slurm_files = {}
         self.hotDINA_full_slurm_files = {}
@@ -44,6 +45,7 @@ class StudentSimulator():
         self.set_slurm_files()
         self.set_params_dict()
         self.set_uniq_activities()
+        self.set_new_student_params()
         exec(self.CONSTANTS['STUDENT_MODEL_INITIALISER'][student_model_name])
         print("StudentSimulator initialised (type: " + self.student_model_name + ')')
 
@@ -74,12 +76,6 @@ class StudentSimulator():
         
         self.kc_list_spaceless = remove_spaces(self.kc_list.copy())
     
-    def set_uniq_activities(self):
-        kc_to_tutorID_dict = init_kc_to_tutorID_dict(self.kc_list)
-        self.cta_tutor_ids, kc_to_tutorID_dict = get_cta_tutor_ids(kc_to_tutorID_dict, self.kc_list, self.cta_df)
-        self.underscore_to_colon_tutor_id_dict = get_underscore_to_colon_tutor_id_dict(self.cta_tutor_ids)
-        self.uniq_activities = get_uniq_activities(self.cta_tutor_ids, self.underscore_to_colon_tutor_id_dict)
-        
     def set_slurm_files(self):
         self.set_hotDINA_skill_slurm_files()
         self.set_hotDINA_full_slurm_files()
@@ -107,13 +103,11 @@ class StudentSimulator():
             n = len(self.uniq_student_ids)
             num_activities = self.num_activities
             u = len(self.kc_list)
-
             def_knew_skill      = 0.1 * np.ones((n, u))
             def_guess_skill     = 0.25 * np.ones((n, u))
             def_slip_skill      = 0.1 * np.ones((n, u))
             def_learn_skill     = 0.3 * np.ones((n, u))
             def_forget_skill    = np.zeros((n, u))
-
             def_knew_activity      = 0.1 * np.ones((n, num_activities))
             def_guess_activity     = 0.25 * np.ones((n, num_activities))
             def_slip_activity      = 0.1 * np.ones((n, num_activities))
@@ -132,7 +126,6 @@ class StudentSimulator():
                 'slip'              :   def_slip_skill,
                 'forget'            :   def_forget_skill    
             }
-
             self.activity_learning_progress, self.act_student_id_to_number_map = init_act_student_id_to_number_map(n, u, self.uniq_student_ids, {}, def_knew_skill)
             
         else:
@@ -144,7 +137,24 @@ class StudentSimulator():
             # student proficiency for 'new_student'
             self.params_dict['theta'].append(-np.log(9)/1.7)
         
+    def set_uniq_activities(self):
+        kc_to_tutorID_dict = init_kc_to_tutorID_dict(self.kc_list)
+        self.cta_tutor_ids, kc_to_tutorID_dict = get_cta_tutor_ids(kc_to_tutorID_dict, self.kc_list, self.cta_df)
+        self.underscore_to_colon_tutor_id_dict = get_underscore_to_colon_tutor_id_dict(self.cta_tutor_ids)
+        self.uniq_activities = get_uniq_activities(self.cta_tutor_ids, self.underscore_to_colon_tutor_id_dict)
     
+    def set_new_student_params(self):
+
+        if self.new_student_params == None:
+            return
+        
+        student_model_name = self.student_model_name
+        student_num = self.uniq_student_ids.index(self.new_student_params) 
+
+        if student_model_name == 'hotDINA_skill' or student_model_name == 'hotDINA_full':
+            self.params_dict['theta'][-1] = self.params_dict['theta'][student_num]
+
+
     def reset(self):
         student_model = self.student_model
         if self.student_model_name == 'ActivityBKT':
