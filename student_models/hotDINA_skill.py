@@ -7,6 +7,9 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import tqdm
+from pathlib import Path
+import pickle
 
 
 class hotDINA_skill():
@@ -77,6 +80,7 @@ class hotDINA_skill():
                     know = self.update_skill(user, k, i, correct, know)
             self.alpha[user].append(know)
             self.avg_knows[user].append(np.mean(know))
+        
         if plot:
             for i in range(self.I):
                 y = self.avg_knows[i]
@@ -114,7 +118,6 @@ class hotDINA_skill():
     def predict_responses(self, items, users, bayesian_update=True, plot=False, observations=None):
 
         predicted_responses = []
-
         for i in range(len(users)):
             user = users[i]
             item = items[i]
@@ -123,12 +126,11 @@ class hotDINA_skill():
             predicted_responses.append(predicted_response)
 
         if observations != None:
-            accuracy = int(np.sum(np.abs(np.array(
-                observations) - np.array(predicted_responses)))) * 100 / len(observations)
+            accuracy = int(np.sum(np.abs(np.array(observations) - np.array(predicted_responses)))) * 100 / len(observations)
             print("Accuracy: ", accuracy, "%")
         return predicted_responses
 
-    def get_rmse(self, users, items, observations, train_ratio=0.5):
+    def get_rmse(self, users, items, observations, train_ratio=0.5, bayesian_update=True):
         predicted_responses = []
         idxs = []
         corrects = []
@@ -167,11 +169,13 @@ class hotDINA_skill():
             for j in range(len(_users)):
                 user = _users[j]
                 item = _items[j]
-                correct_response, min_correct_response = self.predict_response(item, user, update=True)
+                correct_response, min_correct_response = self.predict_response(item, user, update=True, bayesian_update=bayesian_update)
                 if self.responsibilty == 'independent':
-                    predicted_responses.append(correct_response)
-                elif self.responsibilty == 'blame_weakest':
-                    predicted_responses.append(min_correct_response)
+                    response = np.random.binomial(n=1, p=correct_response)
+                    predicted_responses.append(response)
+                elif self.responsibilty == 'hardest_skill':
+                    response = np.random.binomial(n=1, p=min_correct_response)
+                    predicted_responses.append(response)
 
         if len(idxs) > 0:
             items_ = items[idxs[-1]:]
@@ -199,15 +203,18 @@ class hotDINA_skill():
         for j in range(len(_users)):
             user = _users[j]
             item = _items[j]
-            correct_response, min_correct_response = self.predict_response(item, user, update=True)
+            correct_response, min_correct_response = self.predict_response(item, user, update=True, bayesian_update=bayesian_update)
             if self.responsibilty == 'independent':
-                predicted_responses.append(correct_response)
-            elif self.responsibilty == 'blame_weakest':
-                predicted_responses.append(min_correct_response)
+                response = np.random.binomial(n=1, p=correct_response)
+                predicted_responses.append(response)
+            elif self.responsibilty == 'hardest_skill':
+                response = np.random.binomial(n=1, p=min_correct_response)
+                predicted_responses.append(response)
 
         majority_response = [1.0] * len(corrects)
         majority_class_rmse = rmse(majority_response, corrects)
         rmse_val = rmse(predicted_responses, corrects)
+        # print(predicted_responses)
         return rmse_val, majority_class_rmse
 
     def plot_avg_knows(self):
@@ -219,12 +226,9 @@ class hotDINA_skill():
 
 if __name__ == '__main__':
 
-    from pathlib import Path
-    import pickle
-
     path = os.getcwd() + '/../slurm_outputs'
     village = '130'
-    observations = '1000'
+    observations = '100'
     params_dict = slurm_output_params(path, village)
 
     path_to_Qmatrix = os.getcwd() + '/../../hotDINA/qmatrix.txt'
@@ -252,9 +256,32 @@ if __name__ == '__main__':
     items = data_dict['items']
     users = data_dict['users']
 
-    model = hotDINA_skill(params_dict, path_to_Qmatrix)
-    model.update(observations, items, users, bayesian_update=True, plot=True)
+    avg_rmse_vals = []
+    avg_majority_class_rmses = []
+    xs = []
+    
+    for _ in range(2):
+        rmse_vals = []
+        majority_class_rmses = []
+        xs = []
+        for i in np.linspace(0,0.9,10):
+            model = hotDINA_skill(params_dict, path_to_Qmatrix)
+            rmse_val, majority_class_rmse = model.get_rmse(users, items, observations, train_ratio=i)
+            rmse_vals.append(rmse_val)
+            majority_class_rmses.append(majority_class_rmse)
+            xs.append(i*len(observations))
 
-    model2 = hotDINA_skill(params_dict, path_to_Qmatrix)
-    model2.update(observations, items, users, bayesian_update=False, plot=True)
+        avg_rmse_vals.append(rmse_vals)
+        avg_majority_class_rmses.append(majority_class_rmses)
+
+    avg_majority_class_rmses = np.mean(avg_majority_class_rmses, axis=0)
+    avg_rmse_vals = np.mean(avg_rmse_vals, axis=0)
+
+    plt.plot(xs, avg_rmse_vals, 'r', label='RMSE')
+    plt.plot(xs, avg_majority_class_rmses, 'black', label='Majority class RMSE')
+    plt.ylabel('RMSE')
+    plt.xlabel('Number of attemps')
+    plt.legend()
     plt.show()
+
+        
