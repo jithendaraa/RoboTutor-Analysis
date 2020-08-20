@@ -1,11 +1,12 @@
+import sys
+sys.path.append('..')
+
 from helper import *
 import os
 import math
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import sys
-sys.path.append('..')
 
 
 class hotDINA_skill():
