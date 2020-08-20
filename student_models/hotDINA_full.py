@@ -1,13 +1,13 @@
 import sys
-sys.path.append('../')
+sys.path.append('..')
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import math
 import pandas as pd
 from pathlib import Path
 import pickle
-import os
 
 from helper import *
 from reader import *
@@ -198,10 +198,8 @@ if __name__ == '__main__':
 
     path_to_Qmatrix = '../../hotDINA/qmatrix.txt'
 
-    model = hotDINA_full(dummy_params_dict, path_to_Qmatrix)
-
     village = '130'
-    obs = '1000'
+    obs = '10000'
 
     path_to_data_file = os.getcwd() + '/../../hotDINA/pickles/data/data'+ village + '_' + obs +'.pickle'
     data_file = Path(path_to_data_file)
@@ -220,6 +218,37 @@ if __name__ == '__main__':
     observations    = data_dict['y']
     items           = data_dict['items']
     users           = data_dict['users']
-    model.update(observations, items, users)
+    
+    xs = []
+    avg_majority_class_rmses, avg_predicted_responses_rmses, avg_predicted_p_corrects_rmses = [], [], []
+    majority_class_rmses, predicted_responses_rmses, predicted_p_corrects_rmses = [], [], []
+    
+    for _ in range(1):
+        rmse_vals = []
+        majority_class_rmses = []
+        xs = []
+        for i in np.linspace(0,0.9,10):
+            model = hotDINA_full(dummy_params_dict, path_to_Qmatrix)
+            majority_class_rmse, predicted_responses_rmse, predicted_p_corrects_rmse = model.get_rmse(users, items, observations, train_ratio=i)
+            
+            majority_class_rmses.append(majority_class_rmse)
+            predicted_responses_rmses.append(predicted_responses_rmse)
+            predicted_p_corrects_rmses.append(predicted_p_corrects_rmse)
+            xs.append(i*len(observations))
 
+        avg_majority_class_rmses.append(majority_class_rmses)
+        avg_predicted_responses_rmses.append(predicted_responses_rmses)
+        avg_predicted_p_corrects_rmses.append(predicted_p_corrects_rmses)
+
+    avg_majority_class_rmses = np.mean(avg_majority_class_rmses, axis=0)
+    avg_predicted_responses_rmses = np.mean(avg_predicted_responses_rmses, axis=0)
+    avg_predicted_p_corrects_rmses = np.mean(avg_predicted_p_corrects_rmses, axis=0)
+
+    plt.plot(xs, avg_predicted_p_corrects_rmses, 'g', label='p_response RMSE')
+    plt.plot(xs, avg_predicted_responses_rmses, 'r', label='response RMSE')
+    plt.plot(xs, avg_majority_class_rmses, 'black', label='Majority class RMSE')
+    plt.ylabel('RMSE')
+    plt.xlabel('Number of attempts')
+    plt.legend()
+    plt.show()
 
