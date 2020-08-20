@@ -93,16 +93,14 @@ class hotDINA_skill():
             plt.show()
 
     def get_p_know_activity(self, user, item):
-        alpha = self.alpha[user]
+        alpha = self.alpha[user][-1].copy()
         skills = self.Q[item]
         know = 1.0
-
         for k in range(len(skills)):
             skill = skills[k]
             if skill == 1:
                 know = know * alpha[k]
         return know
-
 
     def predict_response(self, item, user, update=False, bayesian_update=True, plot=False):
         current_know = self.alpha[user][-1]
