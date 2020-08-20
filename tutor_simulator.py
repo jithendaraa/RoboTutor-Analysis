@@ -128,8 +128,8 @@ class TutorSimulator:
                 return x+1, 0, self.stories_matrix[x+1][0]
 
     def next_next(self, matrix_type):
-        next(matrix_type)
-        x, y, activity_name = next(matrix_type)   
+        self.next(matrix_type)
+        x, y, activity_name = self.next(matrix_type)   
         return x, y, activity_name 
     
     def get_next_activity(self, p_know_activity=None):
