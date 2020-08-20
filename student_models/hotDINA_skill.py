@@ -92,6 +92,18 @@ class hotDINA_skill():
             plt.legend()
             plt.show()
 
+    def get_p_know_activity(self, user, item):
+        alpha = self.alpha[user]
+        skills = self.Q[item]
+        know = 1.0
+
+        for k in range(len(skills)):
+            skill = skills[k]
+            if skill == 1:
+                know = know * alpha[k]
+        return know
+
+
     def predict_response(self, item, user, update=False, bayesian_update=True, plot=False):
         current_know = self.alpha[user][-1]
         skills = self.Q[item]
@@ -113,7 +125,10 @@ class hotDINA_skill():
             elif self.responsibilty == 'hardest_skill':
                 self.update([min_correct_response], [item], [user], bayesian_update, plot)
 
-        return correct_response, min_correct_response
+        if self.responsibilty == 'independent':
+            return correct_response
+        elif self.responsibilty == 'hardest_skill':
+            return min_correct_response
 
     def predict_responses(self, items, users, bayesian_update=True, plot=False, observations=None):
 
@@ -228,7 +243,7 @@ if __name__ == '__main__':
 
     path = os.getcwd() + '/../slurm_outputs'
     village = '130'
-    observations = '100'
+    observations = 'all'
     params_dict = slurm_output_params(path, village)
 
     path_to_Qmatrix = os.getcwd() + '/../../hotDINA/qmatrix.txt'
@@ -250,17 +265,14 @@ if __name__ == '__main__':
         data_dict = pickle.load(handle)
     os.chdir('../RoboTutor-Analysis/student_models')
 
-    # update(self, observations, items, users, bayesian_update=True, plot=True)
-
     observations = data_dict['y']
     items = data_dict['items']
     users = data_dict['users']
-
     avg_rmse_vals = []
     avg_majority_class_rmses = []
     xs = []
     
-    for _ in range(2):
+    for _ in range(1):
         rmse_vals = []
         majority_class_rmses = []
         xs = []
