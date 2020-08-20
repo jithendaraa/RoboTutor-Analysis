@@ -1,11 +1,22 @@
 from reader import *
 
 class TutorSimulator:
-    def __init__(self):
+    def __init__(self, t1, t2, t3, type=None):
         self.literacy_matrix, self.math_matrix, self.stories_matrix, self.literacy_counts, self.math_counts, self.stories_counts = read_activity_matrix()
         self.literacy_pos = [0,0]
         self.math_pos = [0,0]
         self.stories_pos = [0,0]
+        self.type = type
+        
+        # Performance thresholds if this TutorSimulator type uses thresholds
+        self.set_thresholds(t1, t2, t3)
+    
+    def set_thresholds(self, t1, t2, t3):
+        
+        if self.type == 1:
+            self.t1 = t1
+            self.t2 = t2
+            self.t3 = t3
 
     def prev(self, matrix_type):
         # x,y are the current position indices in matrix 'matrix_type'
@@ -105,11 +116,9 @@ class TutorSimulator:
     def next_next(self, matrix_type):
         next(self, matrix_type)
         next(self, matrix_type)    
-
-        
+    
 
 
 
 if __name__ == '__main__':
     tutor_simulator = TutorSimulator()
-    ans = tutor_simulator.prev('literacy')
