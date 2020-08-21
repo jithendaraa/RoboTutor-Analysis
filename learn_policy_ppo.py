@@ -67,16 +67,19 @@ def set_constants(args):
     CONSTANTS['AREA_ROTATION_CONSTRAINT'] = args.area_rotation_constraint
     CONSTANTS['TRANSITION_CONSTRAINT'] = args.transition_constraint
     CONSTANTS['AREA_ROTATION'] = args.area_rotation
+    CONSTANTS['MAX_TIMESTEPS'] = args.max_timesteps
 
     if args.type == 1:
         CONSTANTS['STATE_SIZE'] = 22
         CONSTANTS['ACTION_SIZE'] = 3
+        CONSTANTS['USES_THRESHOLDS'] = True
 
 def arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("-o", "--observations", default=CONSTANTS["NUM_OBS"], help="Number of observations to train on")
     parser.add_argument("-v", "--village_num", default=CONSTANTS["VILLAGE"], help="Village to train on (not applicable for Activity BKT)")
     parser.add_argument('-t', '--type', help="RL Agent type (1-5)", type=int)
+    parser.add_argument('-mt', '--max_timesteps', help="Total questions that will be given to the student/RL agent", type=int, default=CONSTANTS['MAX_TIMESTEPS'])
     parser.add_argument('-sid', '--student_id', default=CONSTANTS['STUDENT_ID'], help="Student id")
     parser.add_argument('-smn', '--student_model_name', help="Student model name")
     parser.add_argument('--ppo_steps', help="PPO Steps", default=CONSTANTS['PPO_STEPS'])
@@ -88,6 +91,11 @@ def arg_parser():
     
     args = parser.parse_args()
     set_constants(args)
+    # Autodetect CUDA
+    use_cuda = torch.cuda.is_available()
+    device = torch.device("cuda:0" if use_cuda else "cpu:0")
+    print('Device:', device)
+
     return args
 
 
@@ -95,22 +103,17 @@ def arg_parser():
 if __name__ == '__main__':
     
     args = arg_parser()
+    area_rotation = CONSTANTS['AREA_ROTATION']
     student_id = CONSTANTS['STUDENT_ID']
     state_size  = CONSTANTS["STATE_SIZE"]
     action_size = CONSTANTS["ACTION_SIZE"]
-    
-    student_simulator = StudentSimulator(village=args.village_num, 
-                                        observations=args.observations, 
-                                        student_model_name=args.model, 
-                                        new_student_params=args.new_student_params)
-    
+    student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params)
     uniq_activities = student_simulator.uniq_activities
     uniq_student_ids = student_simulator.uniq_student_ids
     student_num = uniq_student_ids.index(student_id)
-
+    
     env = StudentEnv(student_simulator, action_size, student_id, 1, args.type)
     env.checkpoint()
-    
     init_p_know = env.reset()
     init_avg_p_know = np.mean(np.array(init_p_know))
     target_avg_p_know = CONSTANTS["TARGET_P_KNOW"]
@@ -118,55 +121,87 @@ if __name__ == '__main__':
     final_avg_p_know = init_avg_p_know
     CONSTANTS["TARGET_REWARD"] = 1000 * (target_avg_p_know - init_avg_p_know)
 
-    # Autodetect CUDA
-    use_cuda = torch.cuda.is_available()
-    device = torch.device("cuda:0" if use_cuda else "cpu:0")
-    print('Device:', device)
-    
     # Prepare environments
     envs = [make_env(i+1, student_simulator, student_id, action_size,type=args.type) for i in range(CONSTANTS["NUM_ENVS"])]
     envs = SubprocVecEnv(envs)
     envs.checkpoint()
-
     model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[state_size], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=action_size, type=args.type)
-    
+    if args.model != None:
+        model.load_state_dict(torch.load("checkpoints/"+args.model))
+
     tutor_simulator = TutorSimulator(LOW_PERFORMANCE_THRESHOLD, 
                                     MID_PERFORMANCE_THRESHOLD, 
                                     HIGH_PERFORMANCE_THRESHOLD, 
-                                    area_rotation=CONSTANTS['AREA_ROTATION'], 
-                                    type=args.type)
+                                    area_rotation=args.area_rotation, 
+                                    type=args.type, thresholds=CONSTANTS['USES_THRESHOLDS'])
     
-    if args.model != None:
-        model.load_state_dict(torch.load("checkpoints/"+args.model))
     
-    frame_idx = 0
-    train_epoch = 0
-    best_reward = None
-    state       = envs.reset()
-    early_stop  = False
+    if args.student_model_name == 'hotDINA_skill' or args.student_model_name == 'hotDINA_full':
+        prior_know = np.array(student_simulator.student_model.alpha[student_num][-1])
+        prior_avg_know = np.mean(prior_know)
+        
+    print()
+    activity_num = None
+    response = ""
+    ys = []
+    ys.append(prior_avg_know)
 
-    while not early_stop:
-        # lists to store training data
-        log_probs       = []
-        critic_values   = []
-        states          = []
-        actions         = []
-        rewards         = []
-        dones           = []
-        timesteps       = 0
+    for _ in range(CONSTANTS['MAX_TIMESTEPS']):
+        if activity_num != None:
+            p_know_activity = student_simulator.student_model.get_p_know_activity(student_num, activity_num)
+        else:
+            p_know_activity = None
+        x, y, area, activity_name = tutor_simulator.get_next_activity(p_know_activity, activity_num, str(response))
 
-        for _ in range(CONSTANTS["PPO_STEPS"]):
-            timesteps += 1
+        activity_num = uniq_activities.index(activity_name)
+        response = student_simulator.student_model.predict_response(activity_num, student_num, update=True)
+        print('ASK QUESTION:', activity_num, uniq_activities[activity_num])
+        print('CURRENT MATRIX POSN (' + str(area) + '): ' + "[" + str(x) + ", " + str(y) + "]")
+        print('CURRENT AREA: ' + area)
+        print()
+
+        if args.student_model_name == 'hotDINA_skill' or args.student_model_name == 'hotDINA_full':
+            posterior_know = np.array(student_simulator.student_model.alpha[student_num][-1])
+            posterior_avg_know = np.mean(posterior_know)
+        ys.append(posterior_avg_know)
+    
+    plt.title("Current RT policy after " + str(CONSTANTS['MAX_TIMESTEPS']) + " attempts using normal thresholds for " + args.student_model_name)
+    plt.plot(np.arange(len(ys)).tolist(), ys)
+    plt.xlabel('#Opportunities')
+    plt.ylabel('Avg P(Know) across skills')
+    plt.show()
+
+
+    
+    
+    # frame_idx = 0
+    # train_epoch = 0
+    # best_reward = None
+    # state       = envs.reset()
+    # early_stop  = False
+
+    # while not early_stop:
+    #     # lists to store training data
+    #     log_probs       = []
+    #     critic_values   = []
+    #     states          = []
+    #     actions         = []
+    #     rewards         = []
+    #     dones           = []
+    #     timesteps       = 0
+
+    #     for _ in range(CONSTANTS["PPO_STEPS"]):
+    #         timesteps += 1
             
-            if isinstance(state, np.ndarray) == False and state.get_device() != 'cpu:0':
-                state = state.to('cpu:0')
-            state = torch.FloatTensor(state)
-            if state.get_device() != 'cuda:0':
-                state = state.to(device)
+    #         if isinstance(state, np.ndarray) == False and state.get_device() != 'cpu:0':
+    #             state = state.to('cpu:0')
+    #         state = torch.FloatTensor(state)
+    #         if state.get_device() != 'cuda:0':
+    #             state = state.to(device)
             
-            policy, critic_value = model.forward(state)
-            print(policy)
+    #         policy, critic_value = model.forward(state)
+    #         print(policy)
 
-            break
-        break
+    #         break
+    #     break
     
