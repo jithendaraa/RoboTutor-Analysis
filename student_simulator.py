@@ -17,7 +17,7 @@ from student_models.hotDINA_skill import hotDINA_skill
 from student_models.hotDINA_full import hotDINA_full
 
 class StudentSimulator():
-    def __init__(self, village="114", observations="10000", student_model_name="ItemBKT", subscript="student_specific", path='', new_student_params=None):
+    def __init__(self, village="114", observations="10000", student_model_name="ItemBKT", subscript="student_specific", path='', new_student_params=None, prints=True):
         self.CONSTANTS = {
             "PATH_TO_CTA"                           : "Data/CTA.xlsx",
             "PATH_TO_ACTIVITY_TABLE"                : "Data/Activity_table_v4.1_22Apr2020.pkl",
@@ -47,7 +47,7 @@ class StudentSimulator():
         self.set_uniq_activities()
         self.set_new_student_params()
         exec(self.CONSTANTS['STUDENT_MODEL_INITIALISER'][student_model_name])
-        print("StudentSimulator initialised (type: " + self.student_model_name + ')')
+        if prints: print("StudentSimulator initialised (type: " + self.student_model_name + ')')
 
     def set_village_paths(self):
         village = self.CONSTANTS["VILLAGE"]
@@ -153,7 +153,6 @@ class StudentSimulator():
 
         if student_model_name == 'hotDINA_skill' or student_model_name == 'hotDINA_full':
             self.params_dict['theta'][-1] = self.params_dict['theta'][student_num]
-
 
     def reset(self):
         student_model = self.student_model
