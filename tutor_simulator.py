@@ -35,7 +35,6 @@ class TutorSimulator:
             'S': True
         }
 
-
     def set_thresholds(self, t1, t2, t3):
         
         if self.type == 1:
