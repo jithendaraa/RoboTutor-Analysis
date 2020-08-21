@@ -13,23 +13,27 @@ class Discrete():
         self.shape = (size, )
 
 class StudentEnv():
-    def __init__(self, student_simulator, skill_groups, skill_group_to_activity_map, action_size, student_id='new_student', env_num=1, type=None):
+    def __init__(self, student_simulator, action_size, student_id='new_student', env_num=1, type=None, prints=True):
         
         self.student_simulator = student_simulator
         self.student_id = student_id
         self.student_num = self.student_simulator.uniq_student_ids.index(self.student_id)
-        self.skill_groups                   = skill_groups
-        self.skill_group_to_activity_map    = skill_group_to_activity_map
+        self.action_size = action_size
         self.set_initial_state()
-        self.action_size                    = action_size
-        self.state_size                     = self.state.shape[0]
-        self.observation_space              = AbsSpace(self.state_size)
-        self.action_space                   = Discrete(self.action_size)
+        self.state_size = self.state.shape[0]
+        self.observation_space = AbsSpace(self.state_size)
+        self.action_space = Discrete(self.action_size)
+        self.type = type
+        
+        if self.type == None:
+            kc_list, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map  = read_data()
+            self.skill_groups                   = skill_groups
+            self.skill_group_to_activity_map    = skill_group_to_activity_map
 
         if env_num is not None:
-            if type != None:
+            if type != None and prints:
                 print("Initialised RoboTutor environment number", env_num, "(Type " + str(type) + ") with", self.state_size, "states and", self.action_size, "actions")
-            else:
+            elif prints:
                 print("Initialised RoboTutor environment number", env_num, "with", self.state_size, "states and", self.action_size, "actions")
     
     def set_initial_state(self):
@@ -63,10 +67,12 @@ class StudentEnv():
         done = False
         student_ids = [self.student_id]
         student_nums = [self.student_num]
-        skill_group = self.skill_groups[action]
-        skills = [skill_group]
-        activity = self.student_simulator.underscore_to_colon_tutor_id_dict[activityName]
-        activity_num = self.student_simulator.uniq_activities.index(activity)
+        print(activityName)
+        if self.type == None:
+            skill_group = self.skill_groups[action]
+            skills = [skill_group]
+            activity = self.student_simulator.underscore_to_colon_tutor_id_dict[activityName]
+            activity_num = self.student_simulator.uniq_activities.index(activity)
         activity_nums = [activity_num]
 
         # 1. Get student prior knowledge (before attempting the question)
