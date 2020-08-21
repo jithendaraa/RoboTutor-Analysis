@@ -22,40 +22,42 @@ from reader import *
 from helper import *
 
 CONSTANTS = {
-    'NUM_OBS'                   :   '100',
-    'VILLAGE'                   :   '130',
-    'STUDENT_ID'                :   'new_student',
-    'STUDENT_MODEL_NAME'        :   'hotDINA_skill',
-    'AREA_ROTATION'             :   'L-N-L-S',
-    'START_POS'                 :   '0,0',
-    'NUM_ENVS'                  :   2,
-    'AGENT_TYPE'                :   1,
-    'AREA_ROTATION_CONSTRAINT'  :   True,
-    'TRANSITION_CONSTRAINT'     :   True,
-    "TARGET_P_KNOW"             :   0.5,
-    "LEARNING_RATE"             :   1e-4,
-    "FC1_DIMS"                  :   256,
-    'PPO_STEPS'                 :   10,
-    'PPO_EPOCHS'                :   10,
-    'TEST_EPOCHS'               :   10,
-    'NUM_TESTS'                 :   10,
-    'GAE_LAMBDA'                :   0.95,
-    "MINI_BATCH_SIZE"           :   32,
-    "MAX_TIMESTEPS"             :   50,
-    'GAMMA'                     :   0.99,
-    'GAE_LAMBDA'                :   0.95,
-    'PPO_EPSILON'               :   0.2,
-    "CRITIC_DISCOUNT"           :   0.5, 
-    "ENTROPY_BETA"              :   0.001,
+    'NUM_OBS'                           :   '100',
+    'VILLAGE'                           :   '130',
+    'STUDENT_ID'                        :   'new_student',
+    'STUDENT_MODEL_NAME'                :   'hotDINA_skill',
+    'AREA_ROTATION'                     :   'L-N-L-S',
+    'START_POS'                         :   '0,0',
+    'NUM_ENVS'                          :   2,
+    'AGENT_TYPE'                        :   1,
+    'AREA_ROTATION_CONSTRAINT'          :   True,
+    'TRANSITION_CONSTRAINT'             :   True,
+    "TARGET_P_KNOW"                     :   0.5,
+    "LEARNING_RATE"                     :   1e-4,
+    "FC1_DIMS"                          :   256,
+    'PPO_STEPS'                         :   10,
+    'PPO_EPOCHS'                        :   10,
+    'TEST_EPOCHS'                       :   10,
+    'NUM_TESTS'                         :   10,
+    'GAE_LAMBDA'                        :   0.95,
+    "MINI_BATCH_SIZE"                   :   32,
+    "MAX_TIMESTEPS"                     :   50,
+    'GAMMA'                             :   0.99,
+    'GAE_LAMBDA'                        :   0.95,
+    'PPO_EPSILON'                       :   0.2,
+    "CRITIC_DISCOUNT"                   :   0.5, 
+    "ENTROPY_BETA"                      :   0.001,
+    # Current RoboTutor Thresholds
+    'LOW_PERFORMANCE_THRESHOLD'         :   0.5,
+    'MID_PERFORMANCE_THRESHOLD'         :   0.83,
+    'HIGH_PERFORMANCE_THRESHOLD'        :   0.9,
+    'LOW_LENIENT_PERFORMANCE_THRESHOLD' :   0.4,
+    'MID_LENIENT_PERFORMANCE_THRESHOLD' :   0.55,
+    'HIGH_LENIENT_PERFORMANCE_THRESHOLD':   0.7,
 }
 
 # Current RoboTutor thresholds
-LOW_PERFORMANCE_THRESHOLD = 0.5
-MID_PERFORMANCE_THRESHOLD = 0.83
-HIGH_PERFORMANCE_THRESHOLD = 0.9
-LOW_LENIENT_PERFORMANCE_THRESHOLD = 0.4
-MID_LENIENT_PERFORMANCE_THRESHOLD = 0.55
-HIGH_LENIENT_PERFORMANCE_THRESHOLD = 0.7
+
 
 def set_constants(args):
     CONSTANTS['NUM_OBS'] = args.observations
@@ -68,6 +70,7 @@ def set_constants(args):
     CONSTANTS['TRANSITION_CONSTRAINT'] = args.transition_constraint
     CONSTANTS['AREA_ROTATION'] = args.area_rotation
     CONSTANTS['MAX_TIMESTEPS'] = args.max_timesteps
+    CONSTANTS['NEW_STUDENT_PARAMS'] = args.new_student_params
 
     if args.type == 1:
         CONSTANTS['STATE_SIZE'] = 22
@@ -99,6 +102,45 @@ def arg_parser():
     return args
 
 
+def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=10):
+
+    LOW_PERFORMANCE_THRESHOLD = CONSTANTS['LOW_PERFORMANCE_THRESHOLD']
+    MID_PERFORMANCE_THRESHOLD = CONSTANTS['MID_PERFORMANCE_THRESHOLD']
+    HIGH_PERFORMANCE_THRESHOLD = CONSTANTS['HIGH_PERFORMANCE_THRESHOLD']
+
+    LOW_LENIENT_PERFORMANCE_THRESHOLD = CONSTANTS['LOW_LENIENT_PERFORMANCE_THRESHOLD']
+    MID_LENIENT_PERFORMANCE_THRESHOLD = CONSTANTS['MID_LENIENT_PERFORMANCE_THRESHOLD']
+    HIGH_LENIENT_PERFORMANCE_THRESHOLD = CONSTANTS['HIGH_LENIENT_PERFORMANCE_THRESHOLD']
+    
+    avg_performance_ys = []
+    avg_lenient_performance_ys = []
+    label1 = "Current RT Thresholds(" + str(LOW_PERFORMANCE_THRESHOLD) + ", " + str(MID_PERFORMANCE_THRESHOLD) + ", " + str(HIGH_PERFORMANCE_THRESHOLD) + ")"
+    label2 = "Current Lenient RT Thresholds(" + str(LOW_LENIENT_PERFORMANCE_THRESHOLD) + ", " + str(MID_LENIENT_PERFORMANCE_THRESHOLD) + ", " + str(HIGH_LENIENT_PERFORMANCE_THRESHOLD) + ")"
+    for _ in range(avg_over_runs):
+        
+        student_simulator = StudentSimulator(village=CONSTANTS['VILLAGE'], observations=CONSTANTS['NUM_OBS'], student_model_name=CONSTANTS['STUDENT_MODEL_NAME'], new_student_params=CONSTANTS['NEW_STUDENT_PARAMS'], prints=False)
+        tutor_simulator = TutorSimulator(CONSTANTS['LOW_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_PERFORMANCE_THRESHOLD'], area_rotation=CONSTANTS['AREA_ROTATION'], type=CONSTANTS['AGENT_TYPE'], thresholds=CONSTANTS['USES_THRESHOLDS'])
+        performance_ys = evaluate_performance_thresholds(student_simulator, tutor_simulator, prints=prints, CONSTANTS=CONSTANTS)
+        
+        student_simulator = StudentSimulator(village=CONSTANTS['VILLAGE'], observations=CONSTANTS['NUM_OBS'], student_model_name=CONSTANTS['STUDENT_MODEL_NAME'], new_student_params=CONSTANTS['NEW_STUDENT_PARAMS'], prints=False)
+        tutor_simulator = TutorSimulator(CONSTANTS['LOW_LENIENT_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_LENIENT_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_LENIENT_PERFORMANCE_THRESHOLD'], area_rotation=CONSTANTS['AREA_ROTATION'], type=CONSTANTS['AGENT_TYPE'], thresholds=CONSTANTS['USES_THRESHOLDS'])
+        lenient_performance_ys = evaluate_performance_thresholds(student_simulator, tutor_simulator, prints=prints, CONSTANTS=CONSTANTS)
+        
+        avg_performance_ys.append(performance_ys)
+        avg_lenient_performance_ys.append(lenient_performance_ys)
+    
+    avg_performance_ys = np.mean(avg_performance_ys, axis=0)
+    avg_lenient_performance_ys = np.mean(avg_lenient_performance_ys, axis=0)
+    xs = np.arange(len(avg_performance_ys)).tolist()
+    if plots:
+        plt.title("Current RT policy after " + str(CONSTANTS['MAX_TIMESTEPS']) + " attempts using normal thresholds for " + CONSTANTS['STUDENT_MODEL_NAME'])
+        plt.plot(xs, performance_ys, color='r', label=label1)
+        plt.plot(xs, lenient_performance_ys, color='b', label=label2)
+        plt.xlabel('#Opportunities')
+        plt.ylabel('Avg P(Know) across skills')
+        plt.legend()
+        plt.show()
+
 
 if __name__ == '__main__':
     
@@ -107,12 +149,12 @@ if __name__ == '__main__':
     student_id = CONSTANTS['STUDENT_ID']
     state_size  = CONSTANTS["STATE_SIZE"]
     action_size = CONSTANTS["ACTION_SIZE"]
-    student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params)
+    student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
     uniq_activities = student_simulator.uniq_activities
     uniq_student_ids = student_simulator.uniq_student_ids
     student_num = uniq_student_ids.index(student_id)
     
-    env = StudentEnv(student_simulator, action_size, student_id, 1, args.type)
+    env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False)
     env.checkpoint()
     init_p_know = env.reset()
     init_avg_p_know = np.mean(np.array(init_p_know))
@@ -129,48 +171,7 @@ if __name__ == '__main__':
     if args.model != None:
         model.load_state_dict(torch.load("checkpoints/"+args.model))
 
-    tutor_simulator = TutorSimulator(LOW_PERFORMANCE_THRESHOLD, 
-                                    MID_PERFORMANCE_THRESHOLD, 
-                                    HIGH_PERFORMANCE_THRESHOLD, 
-                                    area_rotation=args.area_rotation, 
-                                    type=args.type, thresholds=CONSTANTS['USES_THRESHOLDS'])
-    
-    
-    if args.student_model_name == 'hotDINA_skill' or args.student_model_name == 'hotDINA_full':
-        prior_know = np.array(student_simulator.student_model.alpha[student_num][-1])
-        prior_avg_know = np.mean(prior_know)
-        
-    print()
-    activity_num = None
-    response = ""
-    ys = []
-    ys.append(prior_avg_know)
-
-    for _ in range(CONSTANTS['MAX_TIMESTEPS']):
-        if activity_num != None:
-            p_know_activity = student_simulator.student_model.get_p_know_activity(student_num, activity_num)
-        else:
-            p_know_activity = None
-        x, y, area, activity_name = tutor_simulator.get_next_activity(p_know_activity, activity_num, str(response))
-
-        activity_num = uniq_activities.index(activity_name)
-        response = student_simulator.student_model.predict_response(activity_num, student_num, update=True)
-        print('ASK QUESTION:', activity_num, uniq_activities[activity_num])
-        print('CURRENT MATRIX POSN (' + str(area) + '): ' + "[" + str(x) + ", " + str(y) + "]")
-        print('CURRENT AREA: ' + area)
-        print()
-
-        if args.student_model_name == 'hotDINA_skill' or args.student_model_name == 'hotDINA_full':
-            posterior_know = np.array(student_simulator.student_model.alpha[student_num][-1])
-            posterior_avg_know = np.mean(posterior_know)
-        ys.append(posterior_avg_know)
-    
-    plt.title("Current RT policy after " + str(CONSTANTS['MAX_TIMESTEPS']) + " attempts using normal thresholds for " + args.student_model_name)
-    plt.plot(np.arange(len(ys)).tolist(), ys)
-    plt.xlabel('#Opportunities')
-    plt.ylabel('Avg P(Know) across skills')
-    plt.show()
-
+    evaluate_current_RT_thresholds(plots=True, prints=False, avg_over_runs=10)
 
     
     
