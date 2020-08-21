@@ -27,6 +27,15 @@ class TutorSimulator:
         # Performance thresholds if this TutorSimulator type uses thresholds
         self.set_thresholds(t1, t2, t3)
     
+    def reset(self):
+        self.attempt = 0
+        self.first_question = {
+            'L': True,
+            'N': True,
+            'S': True
+        }
+
+
     def set_thresholds(self, t1, t2, t3):
         
         if self.type == 1:
@@ -144,7 +153,7 @@ class TutorSimulator:
         x, y, activity_name = self.next(matrix_type)   
         return x, y, activity_name 
     
-    def get_next_activity(self, p_know_prev_activity=None, prev_activity_num=None, response=""):
+    def get_next_activity(self, p_know_prev_activity=None, prev_activity_num=None, response="", prints=True):
 
         self.attempt = self.attempt % len(self.area_rotation)
         area = self.area_rotation[self.attempt]
@@ -157,7 +166,6 @@ class TutorSimulator:
         elif area == 'S':
             matrix_type = 'stories'
 
-        # print(self.attempt, matrix_type, p_know_prev_activity)
         if prev_activity_num != None and self.thresholds:
             prev_matrix_type = 'literacy'
             init_x = self.literacy_pos[0]
@@ -173,19 +181,19 @@ class TutorSimulator:
 
             if p_know_prev_activity >= self.t3:
                 if random.random() > 0.5:
-                    print("NEXT")
+                    if prints: print("NEXT")
                     x, y, activity_name = self.next(prev_matrix_type)
                 else:
-                    print("NEXT_NEXT")
+                    if prints: print("NEXT_NEXT")
                     x, y, activity_name = self.next_next(prev_matrix_type)
             elif p_know_prev_activity >= self.t2:
-                print("NEXT")
+                if prints: print("NEXT")
                 x, y, activity_name = self.next(prev_matrix_type)
             elif p_know_prev_activity >= self.t1:
                 x, y, activity_name = self.same(prev_matrix_type)
             else:
                 x, y, activity_name = self.prev(prev_matrix_type)
-            print('PREV MATRIX POSN (' + str(prev_matrix_type) + "): move from [" + str(init_x) + "," + str(init_y) + "] -> [" + str(x) + "," + str(y) + "], P(Know prev activity): " + str(p_know_prev_activity) + " Response: " + response)
+            if prints: print('PREV MATRIX POSN (' + str(prev_matrix_type) + "): move from [" + str(init_x) + "," + str(init_y) + "] -> [" + str(x) + "," + str(y) + "], P(Know prev activity): " + str(p_know_prev_activity) + " Response: " + response)
 
         if area == 'L':
             x = self.literacy_pos[0]
