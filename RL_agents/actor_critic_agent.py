@@ -121,7 +121,7 @@ class ActorCriticAgent(object):
         
 # used only in ppo_agent.py for PPO algo, Actor Critic Algo uses the class `ActorCriticNetwork`
 class ActorCritic(nn.Module):
-    def __init__(self, lr, input_dims, fc1_dims, n_actions, type=None):
+    def __init__(self, lr, input_dims, fc1_dims, n_actions, type=None, std=0.0):
         super(ActorCritic, self).__init__()
         self.input_dims = input_dims
         self.fc1_dims = fc1_dims
@@ -135,9 +135,10 @@ class ActorCritic(nn.Module):
             self.v = nn.Linear(self.fc1_dims, 1)
         elif type == 1:
             self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
-            #  Policy and critic value v
+            #  Actor Policy pi and critic value v
             self.pi = nn.Linear(self.fc1_dims, n_actions)
             self.v = nn.Linear(self.fc1_dims, 1)
+            self.log_std = nn.Parameter(torch.ones(1, n_actions) * std)
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu:0")
         self.optimizer = optim.Adam(self.parameters(), lr = lr)
@@ -151,10 +152,13 @@ class ActorCritic(nn.Module):
             pi = self.pi(x)
             v = self.v(x)
             return pi, v
+
         elif self.type == 1:
             x = self.fc1(state)
             x = F.relu(x)
-            pi = self.pi(x)
-            v = self.v(x)
-            return pi, v
+            value = self.v(x)
+            mu = torch.sigmoid(self.pi(x))
+            std = self.log_std.exp().expand_as(mu)
+            dist = torch.distributions.Normal(mu, std)
+            return dist, value
 
