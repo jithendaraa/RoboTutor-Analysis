@@ -34,8 +34,10 @@ class StudentSimulator():
                                                     },
         }
         path_to_Qmatrix = os.getcwd() + '/' + path + '../hotDINA/qmatrix.txt'
-        self.new_student_params = new_student_params
+        self.village = village
+        self.observations = observations
         self.student_model_name = student_model_name
+        self.new_student_params = new_student_params
         self.hotDINA_skill_slurm_files = {}
         self.hotDINA_full_slurm_files = {}
         self.params_dict = {}
