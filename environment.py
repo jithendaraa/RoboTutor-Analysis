@@ -78,7 +78,7 @@ class StudentEnv():
             skills = [skill_group]
             activity = self.student_simulator.underscore_to_colon_tutor_id_dict[activityName]
             activity_num = self.student_simulator.uniq_activities.index(activity)
-            activity_nums = [activity_num]
+            activity_nums = [activity_num] 
 
         # 1. Get student prior knowledge (before attempting the question)
         # 2. Simulate student with current model params and get student response (predictions) according to full responsibility
