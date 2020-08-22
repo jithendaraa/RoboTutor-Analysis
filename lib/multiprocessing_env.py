@@ -45,7 +45,6 @@ class VecEnv(object):
         self.action_space = action_space
 
     def reset(self):
-        print("RES")
         """
         Reset all the environments and return an array of
         observations, or a tuple of observation arrays.
@@ -85,7 +84,7 @@ class VecEnv(object):
         pass
 
     def step(self, actions, max_timesteps, timesteps=None, activityNames=None, bayesian_updates=True, plots=False, printss=False):
-        self.step_async(actions, max_timesteps, timesteps=None, activityNames=None, bayesian_updates=True, plots=False, printss=False)
+        self.step_async(actions, max_timesteps, timesteps=timesteps, activityNames=activityNames, bayesian_updates=bayesian_updates, plots=plots, printss=printss)
         return self.step_wait()
 
     
