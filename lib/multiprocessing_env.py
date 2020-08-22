@@ -8,10 +8,13 @@ def worker(remote, parent_remote, env_fn_wrapper):
         cmd, data = remote.recv()
         if cmd == 'step':
             action = data[0]
-            timestep = data[1]
-            max_timestep = data[2]
+            max_timestep = data[1]
+            timestep = data[2]
             activityName = data[3]
-            next_state, reward, student_response, done, posterior = env.step(action, timestep, max_timestep, activityName)
+            bayesian_update = data[4]
+            plot = data[5]
+            prints = data[6]
+            next_state, reward, student_response, done, posterior = env.step(action, max_timestep, timesteps=timestep, activityName=activityName, bayesian_update=bayesian_update, plot=plot, prints=prints)
             if done:
                 next_state = env.reset()
             remote.send((next_state, reward, student_response, done, posterior))
@@ -52,7 +55,7 @@ class VecEnv(object):
         """
         pass
 
-    def step_async(self, actions, timesteps, max_timesteps, activityNames):
+    def step_async(self, actions, max_timesteps, timesteps=None, activityNames=None, bayesian_updates=True, plots=False, printss=False):
         """
         Tell all the environments to start taking a step
         with the given actions.
@@ -81,8 +84,8 @@ class VecEnv(object):
         """
         pass
 
-    def step(self, actions, timesteps, max_timesteps, activityNames):
-        self.step_async(actions, timesteps, max_timesteps, activityNames)
+    def step(self, actions, max_timesteps, timesteps=None, activityNames=None, bayesian_updates=True, plots=False, printss=False):
+        self.step_async(actions, max_timesteps, timesteps=None, activityNames=None, bayesian_updates=True, plots=False, printss=False)
         return self.step_wait()
 
     
@@ -122,9 +125,15 @@ class SubprocVecEnv(VecEnv):
         observation_space, action_space = self.remotes[0].recv()
         VecEnv.__init__(self, nenvs, observation_space, action_space)
 
-    def step_async(self, actions, timesteps, max_timesteps, activityNames):
-        for remote, action, timestep, max_timestep, activityName in zip(self.remotes, actions, timesteps, max_timesteps, activityNames):
-            data = [action, timestep, max_timestep, activityName]
+    def step_async(self, actions, max_timesteps, timesteps=None, activityNames=None, bayesian_updates=True, plots=False, printss=False):
+        
+        if timesteps == None:
+            timesteps = [None] * len(actions)
+        if activityNames == None:
+            activityNames = [None] * len(actions)
+        
+        for remote, action, max_timestep, timestep, activityName in zip(self.remotes, actions, max_timesteps, timesteps, activityNames):
+            data = [action, max_timestep, timestep, activityName, bayesian_updates, plots, printss]
             remote.send(('step', data))
         self.waiting = True
 
