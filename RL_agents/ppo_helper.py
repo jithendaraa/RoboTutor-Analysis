@@ -12,15 +12,16 @@ from reader import *
 
 STUDENT_ID = ["CQCKBY_105"]
 
-def make_env(i, student_simulator, student_id, uniq_skill_groups, skill_group_to_activity_map, ACTION_SIZE):
+def make_env(i, student_simulator, student_id, ACTION_SIZE, type=None, area_rotation=None, CONSTANTS=None):
     # returns a functions which creates a single environment
     def _thunk():
         env = StudentEnv(student_simulator=student_simulator,
-                            skill_groups=uniq_skill_groups,
-                            skill_group_to_activity_map = skill_group_to_activity_map,
                             action_size=ACTION_SIZE,
                             student_id=student_id,
-                            env_num=i)
+                            env_num=i,
+                            type=type,
+                            area_rotation=area_rotation,
+                            CONSTANTS=CONSTANTS)
         return env
     return _thunk
 
