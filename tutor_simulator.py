@@ -214,5 +214,8 @@ class TutorSimulator:
 
         if activity_name[:23] == 'story.hear::Garden_Song':
             activity_name = activity_name[:23]
+        
+        elif activity_name[:23] == 'story.hear::Safari_Song':
+            activity_name = activity_name[:23]
 
         return x, y, matrix_type, activity_name
