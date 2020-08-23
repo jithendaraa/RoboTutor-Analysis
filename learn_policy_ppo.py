@@ -17,18 +17,18 @@ from tutor_simulator import TutorSimulator
 from environment import StudentEnv
 
 from RL_agents.ppo_helper import *
-
 from reader import *
 from helper import *
 
 CONSTANTS = {
+    'NUM_ENVS'                          :   2,
     'NUM_OBS'                           :   '100',
     'VILLAGE'                           :   '130',
     'STUDENT_ID'                        :   'new_student',
     'STUDENT_MODEL_NAME'                :   'hotDINA_skill',
     'AREA_ROTATION'                     :   'L-N-L-S',
     'START_POS'                         :   '0,0',
-    'NUM_ENVS'                          :   2,
+    'AVG_OVER_RUNS'                     :   20,
     'AGENT_TYPE'                        :   1,
     'AREA_ROTATION_CONSTRAINT'          :   True,
     'TRANSITION_CONSTRAINT'             :   True,
@@ -37,7 +37,7 @@ CONSTANTS = {
     "FC1_DIMS"                          :   256,
     'PPO_STEPS'                         :   10,
     'PPO_EPOCHS'                        :   10,
-    'TEST_EPOCHS'                       :   10,
+    'TEST_EPOCHS'                       :   5,
     'NUM_TESTS'                         :   10,
     'GAE_LAMBDA'                        :   0.95,
     "MINI_BATCH_SIZE"                   :   32,
@@ -47,6 +47,7 @@ CONSTANTS = {
     'PPO_EPSILON'                       :   0.2,
     "CRITIC_DISCOUNT"                   :   0.5, 
     "ENTROPY_BETA"                      :   0.001,
+    "RUN_NUM"                           :   0,
     # Current RoboTutor Thresholds
     'LOW_PERFORMANCE_THRESHOLD'         :   0.5,
     'MID_PERFORMANCE_THRESHOLD'         :   0.83,
@@ -55,8 +56,6 @@ CONSTANTS = {
     'MID_LENIENT_PERFORMANCE_THRESHOLD' :   0.55,
     'HIGH_LENIENT_PERFORMANCE_THRESHOLD':   0.7,
 }
-
-# Current RoboTutor thresholds
 
 
 def set_constants(args):
@@ -91,13 +90,11 @@ def arg_parser():
     parser.add_argument('-tc', '--transition_constraint', help="Should transition be constrained to prev,same,next, next-next? True/False", default=True)
     parser.add_argument('-m', '--model', help="Model file to load from checkpoints directory, if any")
     parser.add_argument('-nsp', '--new_student_params', help="The model params new_student has to start with; enter student_id")
-    
     args = parser.parse_args()
     set_constants(args)
-    # Autodetect CUDA
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if use_cuda else "cpu:0")
-    print('Device:', device)
+    print('Device:', device)        # Autodetect CUDA
 
     return args
 
@@ -144,7 +141,12 @@ def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=10):
 
 if __name__ == '__main__':
     
+    clear_files("ppo", True, path='RL_agents/')
+    mkdir('.', 'checkpoints')
+    
     args = arg_parser()
+    use_cuda = torch.cuda.is_available()
+    device = torch.device("cuda:0" if use_cuda else "cpu:0")
     area_rotation = CONSTANTS['AREA_ROTATION']
     student_id = CONSTANTS['STUDENT_ID']
     state_size  = CONSTANTS["STATE_SIZE"]
@@ -154,7 +156,7 @@ if __name__ == '__main__':
     uniq_student_ids = student_simulator.uniq_student_ids
     student_num = uniq_student_ids.index(student_id)
     
-    env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False)
+    env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
     env.checkpoint()
     init_p_know = env.reset()
     init_avg_p_know = np.mean(np.array(init_p_know))
@@ -164,45 +166,111 @@ if __name__ == '__main__':
     CONSTANTS["TARGET_REWARD"] = 1000 * (target_avg_p_know - init_avg_p_know)
 
     # Prepare environments
-    envs = [make_env(i+1, student_simulator, student_id, action_size,type=args.type) for i in range(CONSTANTS["NUM_ENVS"])]
+    envs = [make_env(i+1, student_simulator, student_id, action_size, type=args.type, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS) for i in range(CONSTANTS["NUM_ENVS"])]
     envs = SubprocVecEnv(envs)
     envs.checkpoint()
     model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[state_size], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=action_size, type=args.type)
-    if args.model != None:
-        model.load_state_dict(torch.load("checkpoints/"+args.model))
+    if args.model != None:  model.load_state_dict(torch.load("checkpoints/"+args.model))
+    evaluate_current_RT_thresholds(plots=False, prints=False, avg_over_runs=10)
 
-    evaluate_current_RT_thresholds(plots=True, prints=False, avg_over_runs=10)
+    frame_idx = 0
+    train_epoch = 0
+    best_reward = None
+    state = np.array(envs.reset())
+    early_stop = False
 
-    
-    
-    # frame_idx = 0
-    # train_epoch = 0
-    # best_reward = None
-    # state       = envs.reset()
-    # early_stop  = False
+    student_simulator = StudentSimulator(village=CONSTANTS['VILLAGE'], observations=CONSTANTS['NUM_OBS'], student_model_name=CONSTANTS['STUDENT_MODEL_NAME'], new_student_params=CONSTANTS['NEW_STUDENT_PARAMS'], prints=False)
+    tutor_simulator = TutorSimulator(CONSTANTS['LOW_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_PERFORMANCE_THRESHOLD'], area_rotation=CONSTANTS['AREA_ROTATION'], type=CONSTANTS['AGENT_TYPE'], thresholds=CONSTANTS['USES_THRESHOLDS'])
+    loop = 0
+    while not early_stop:
+        loop += 1
+        # lists to store training data
+        log_probs = []
+        critic_values = []
+        states = []
+        actions = []
+        rewards = []
+        dones = []
+        timesteps = 0
 
-    # while not early_stop:
-    #     # lists to store training data
-    #     log_probs       = []
-    #     critic_values   = []
-    #     states          = []
-    #     actions         = []
-    #     rewards         = []
-    #     dones           = []
-    #     timesteps       = 0
-
-    #     for _ in range(CONSTANTS["PPO_STEPS"]):
-    #         timesteps += 1
+        for _ in range(CONSTANTS["PPO_STEPS"]):
+            timesteps += 1
             
-    #         if isinstance(state, np.ndarray) == False and state.get_device() != 'cpu:0':
-    #             state = state.to('cpu:0')
-    #         state = torch.FloatTensor(state)
-    #         if state.get_device() != 'cuda:0':
-    #             state = state.to(device)
+            if isinstance(state, np.ndarray) == False and state.get_device() != 'cpu:0':
+                state = state.to('cpu:0')
+            state = torch.FloatTensor(state)
+            if state.get_device() != 'cuda:0':
+                state = state.to(device)
             
-    #         policy, critic_value = model.forward(state)
-    #         print(policy)
+            policy, critic_value = model(state)
+            action = policy.sample()
 
-    #         break
-    #     break
-    
+            next_state, reward, student_response, done, posterior_know = envs.step(action.cpu().numpy(), [CONSTANTS['MAX_TIMESTEPS']] * CONSTANTS['NUM_ENVS'])
+            
+            for i in range(len(action.cpu().numpy())):
+                policy_thresholds = action.cpu().numpy()[i]
+                print(policy_thresholds, '-->',reward[i])
+            
+            log_prob = policy.log_prob(action)
+            log_probs.append(log_prob)
+            critic_values.append(critic_value)
+            rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
+            dones.append(torch.Tensor(1 - done).unsqueeze(1).to(device))
+            states.append(state)
+            actions.append(action)
+            state = next_state.copy()
+            frame_idx += 1
+
+        _, critic_value_ = model(torch.Tensor(next_state).to(device))
+        returns         = compute_gae(critic_value_, rewards, dones, critic_values, CONSTANTS["GAMMA"], CONSTANTS["GAE_LAMBDA"])
+        returns         = torch.cat(returns).detach()
+        log_probs       = torch.cat(log_probs).detach()
+        critic_values   = torch.cat(critic_values).detach()
+        states          = torch.cat(states)
+        actions         = torch.cat(actions)
+        advantage       = returns - critic_values
+        advantage       = normalize(advantage)
+
+        # According to PPO paper: (states, actions, log_probs, returns, advantage) is together referred to as a "trajectory"
+        ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS)
+        train_epoch += 1
+        
+        if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
+            student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
+            env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
+            env.checkpoint()
+            # writer.add_scalar("test_rewards", test_reward, frame_idx)
+            print('Frame %s. reward: %s' % (frame_idx, test_reward))
+            if env.type == None:
+                test_reward = np.mean([test_env(env, model, device, CONSTANTS, deterministic=False) for _ in range(CONSTANTS["NUM_TESTS"])])
+                final_p_know = env.state
+            
+            elif env.type == 1:
+                total_reward = []
+                final_p_know = []
+                for _ in range(CONSTANTS['NUM_TESTS']):
+                    tr, fpk = test_env(env, model, device, CONSTANTS, deterministic=False)
+                    total_reward.append(tr)
+                    final_p_know.append(fpk)
+                total_reward = np.mean(total_reward)
+                final_p_know = mp.mean(final_p_know, axis=0) 
+                
+            final_avg_p_know = np.mean(final_p_know)
+            # Save a checkpoint every time we achieve a best reward
+            if best_reward is None or best_reward < test_reward:
+                if best_reward is not None:
+                    print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
+                    name = CONSTANTS['STUDENT_MODEL_NAME'] + "_type" + str(args.type) + ("_best_%+.3f_%d.dat" % (test_reward, frame_idx))
+                    fname = os.path.join('.', 'checkpoints', name)
+                    torch.save(model.state_dict(), fname)
+                best_reward = test_reward
+            if test_reward > CONSTANTS["TARGET_REWARD"]: 
+                early_stop = True
+
+
+    print("INIT P(Know): \n", init_p_know)
+    print("FINAL P(Know): \n", final_p_know)
+    print("IMPROVEMENT PER SKILL: \n", np.array(final_p_know) - np.array(init_p_know))
+    print("INIT AVG P(KNOW): ", init_avg_p_know)
+    print("FINAL AVG P(KNOW): ", final_avg_p_know)
+    print("TOTAL RUNS: ", CONSTANTS["RUN_NUM"])
