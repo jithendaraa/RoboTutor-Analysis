@@ -117,7 +117,7 @@ class StudentEnv():
                     next_state = self.state.copy()
                     student_response = None
                     done = True
-                    posterior_know = [0.0] * len(self.student_simulator.student_model.alpha[self.student_num][-1])
+                    posterior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
                     return next_state, reward, student_response, done, posterior_know
                 
                 village = self.student_simulator.village
