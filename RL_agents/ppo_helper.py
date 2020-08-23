@@ -47,22 +47,24 @@ def ppo_iter(states, actions, log_probs, returns, advantages, PPO_STEPS, NUM_ENV
         yield states[rand_ids, :], actions.view(PPO_STEPS * NUM_ENVS, -1)[rand_ids, :], log_probs.view(PPO_STEPS * NUM_ENVS, -1)[rand_ids, :], returns[rand_ids, :], advantages[rand_ids, :]
 
 def log_know_gains(type, CONSTANTS, init_state, posterior_avg_know, total_reward):
-    if type == None:
-        with open("RL_agents/ppo_logs/rewards.txt", "a") as f:
-            if CONSTANTS["RUN_NUM"] == 0:
-                f.write("0,"+ str(np.mean(np.array(init_state))) + "\n")
-            text = str(CONSTANTS["RUN_NUM"]) + "," + str(posterior_avg_know) + "\n"
+    
+    with open("RL_agents/ppo_logs/rewards.txt", "a") as f:
+        if CONSTANTS["RUN_NUM"] == 0:
+            f.write("0,"+ str(np.mean(np.array(init_state))) + "\n")
+        text = str(CONSTANTS["RUN_NUM"]) + "," + str(total_reward) + "\n"
+        f.write(text)
+    
+    if CONSTANTS["RUN_NUM"] % CONSTANTS["AVG_OVER_RUNS"] == 0:
+        with open("RL_agents/ppo_logs/avg_scores.txt", "a") as f:
+            text = str(CONSTANTS["RUN_NUM"]/CONSTANTS["AVG_OVER_RUNS"]) + "," + str(posterior_avg_know) + "\n"
             f.write(text)
-        
-        if CONSTANTS["RUN_NUM"] % CONSTANTS["AVG_OVER_RUNS"] == 0:
-            with open("RL_agents/ppo_logs/avg_scores.txt", "a") as f:
-                text = str(CONSTANTS["RUN_NUM"]/CONSTANTS["AVG_OVER_RUNS"]) + "," + str(posterior_avg_know) + "\n"
-                f.write(text)
+    with open("RL_agents/ppo_logs/test_run.txt", "a") as f:
+        f.write("Total Reward: " + str(total_reward) + "\n\n")
 
-        with open("RL_agents/ppo_logs/test_run.txt", "a") as f:
-            f.write("Total Reward: " + str(total_reward) + "\n")
+
 
 def log_runs(type, CONSTANTS, prior, posterior, action, timesteps, reward, prior_avg_know, posterior_avg_know, gain, activity_name, skill_group=None):
+    
     if type == None:
         prior_know = []
         posterior_know = []
@@ -72,6 +74,13 @@ def log_runs(type, CONSTANTS, prior, posterior, action, timesteps, reward, prior
         run_text = "Run Number: " + str(CONSTANTS["RUN_NUM"]) + "\Action: " + str(action) + " Skill group: " + str(skill_group) + "\nPrior Know: " + str(prior_know) + "\nPost. Know: " + str(posterior_know) + "\nTimestep: " + str(timesteps) + " Reward: " + str(reward) + " ActivityName: " + activity_name + "\nPrior: " + str(prior_avg_know) + " Posterior: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
         with open("RL_agents/ppo_logs/test_run.txt", "a") as f:
             f.write(run_text)
+    
+    elif type == 1:
+        run_text = "Run Number: " + str(CONSTANTS["RUN_NUM"]) + "\Action: " + str(action) + "\nPrior Know: " + str(prior.cpu().numpy()) + "\nPost. Know: " + str(posterior) + "\Max Timesteps: " + str(CONSTANTS['MAX_TIMESTEPS']) + " Reward: " + str(reward) + "\nAvg Prior Know: " + str(prior_avg_know) + " Avg Posterior Know: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
+        print(run_text)
+        with open("RL_agents/ppo_logs/test_run.txt", "a") as f:
+            f.write(run_text)
+
 
 def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, uniq_skill_groups=None, deterministic=True, bayesian_update=True):
     
@@ -95,7 +104,7 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, un
             skill_group = uniq_skill_groups[action]
         
         elif env.type == 1:
-            action = policy.loc.cpu().detach().numpy()[0]
+            action = policy.probs.cpu().detach().numpy()[0]
             if deterministic == False:
                 action = policy.sample().cpu().numpy()[0]
 
