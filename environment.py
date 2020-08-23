@@ -104,7 +104,22 @@ class StudentEnv():
                 t1 = action[0]
                 t2 = action[1]
                 t3 = action[2]
+                reward = 0.0
 
+                if t1 < 0 or t1 > 1:
+                    reward -= 500
+                if t2 < 0 or t2 > 1:
+                    reward -= 500
+                if t3 < 0 or t3 > 1:
+                    reward -= 500
+
+                if t1 < 0 or t2 < 0 or t3 < 0 or t1 > 1 or t2 > 1 or t3 > 1:
+                    next_state = self.state.copy()
+                    student_response = None
+                    done = True
+                    posterior_know = [0.0] * len(self.student_simulator.student_model.alpha[self.student_num][-1])
+                    return next_state, reward, student_response, done, posterior_know
+                
                 village = self.student_simulator.village
                 observations = self.student_simulator.observations
                 student_model_name = self.student_simulator.student_model_name
@@ -130,7 +145,7 @@ class StudentEnv():
                 posterior_know = np.mean(posterior_know, axis=0)
                 avg_posterior_know = np.mean(posterior_know)
                 self.reset()
-                next_state = self.state
+                next_state = self.state.copy()
                 student_response = None
                 done = True
         
