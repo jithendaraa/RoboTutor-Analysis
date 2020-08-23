@@ -46,9 +46,37 @@ def ppo_iter(states, actions, log_probs, returns, advantages, PPO_STEPS, NUM_ENV
         rand_ids = np.random.randint(0, batch_size, MINI_BATCH_SIZE)
         yield states[rand_ids, :], actions.view(PPO_STEPS * NUM_ENVS, -1)[rand_ids, :], log_probs.view(PPO_STEPS * NUM_ENVS, -1)[rand_ids, :], returns[rand_ids, :], advantages[rand_ids, :]
 
-def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map, uniq_skill_groups, deterministic=False):
+def log_know_gains(type, CONSTANTS, init_state, posterior_avg_know, total_reward):
+    if type == None:
+        with open("RL_agents/ppo_logs/rewards.txt", "a") as f:
+            if CONSTANTS["RUN_NUM"] == 0:
+                f.write("0,"+ str(np.mean(np.array(init_state))) + "\n")
+            text = str(CONSTANTS["RUN_NUM"]) + "," + str(posterior_avg_know) + "\n"
+            f.write(text)
+        
+        if CONSTANTS["RUN_NUM"] % CONSTANTS["AVG_OVER_RUNS"] == 0:
+            with open("RL_agents/ppo_logs/avg_scores.txt", "a") as f:
+                text = str(CONSTANTS["RUN_NUM"]/CONSTANTS["AVG_OVER_RUNS"]) + "," + str(posterior_avg_know) + "\n"
+                f.write(text)
+
+        with open("RL_agents/ppo_logs/test_run.txt", "a") as f:
+            f.write("Total Reward: " + str(total_reward) + "\n")
+
+def log_runs(type, CONSTANTS, prior, posterior, action, timesteps, reward, prior_avg_know, posterior_avg_know, gain, activity_name, skill_group=None):
+    if type == None:
+        prior_know = []
+        posterior_know = []
+        for skill_idx in skill_group:
+            prior_know.append(prior[skill_idx].item())
+            posterior_know.append(posterior[skill_idx].item())
+        run_text = "Run Number: " + str(CONSTANTS["RUN_NUM"]) + "\Action: " + str(action) + " Skill group: " + str(skill_group) + "\nPrior Know: " + str(prior_know) + "\nPost. Know: " + str(posterior_know) + "\nTimestep: " + str(timesteps) + " Reward: " + str(reward) + " ActivityName: " + activity_name + "\nPrior: " + str(prior_avg_know) + " Posterior: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
+        with open("RL_agents/ppo_logs/test_run.txt", "a") as f:
+            f.write(run_text)
+
+def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, uniq_skill_groups=None, deterministic=True, bayesian_update=True):
     
     state = env.reset()
+    activity_name = None
     init_state = state.copy()
     done = False
     total_reward = 0
@@ -57,54 +85,32 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map, uniq_sk
         timesteps += 1
         state = torch.Tensor(state).unsqueeze(0).to(device)
         policy, _ = model(state)
-        policy = F.softmax(policy, dim=1)
-        action_probs = torch.distributions.Categorical(policy)
-        action = torch.max(policy.view(-1), 0)[1].item()
+        if env.type == None:
+            policy = F.softmax(policy, dim=1)
+            action_probs = torch.distributions.Categorical(policy)
+            action = torch.max(policy.view(-1), 0)[1].item()
+            if deterministic is False:
+                action = action_probs.sample().item()
+            activity_name = np.random.choice(skill_group_to_activity_map[str(action)])
+            skill_group = uniq_skill_groups[action]
         
-        if deterministic is False:
-            action = action_probs.sample().item()
-        
-        activity_name = np.random.choice(skill_group_to_activity_map[str(action)])
+        elif env.type == 1:
+            action = policy.loc.cpu().detach().numpy()[0]
+            if deterministic == False:
+                action = policy.sample().cpu().numpy()[0]
 
-        next_state, reward, student_response, done, posterior = env.step(action, timesteps, CONSTANTS["MAX_TIMESTEPS"], activity_name)
+        next_state, reward, _, done, posterior = env.step(action, CONSTANTS["MAX_TIMESTEPS"], timesteps=timesteps, activityName=activity_name,bayesian_update=bayesian_update)
 
-        skill_group = uniq_skill_groups[action]
         prior = state[0]
-        posterior = torch.Tensor(next_state).unsqueeze(0).to(device)[0]
-        posterior_avg_know  =  torch.mean(posterior).item()
-        prior_avg_know      =  torch.mean(state).item()
-        gain = (posterior_avg_know - prior_avg_know)
-
-        prior_know = []
-        posterior_know = []
-
-        for skill_idx in skill_group:
-            prior_know.append(prior[skill_idx].item())
-            posterior_know.append(posterior[skill_idx].item())
-
-        run_text = "Run Number: " + str(CONSTANTS["RUN_NUM"]) + "\Action: " + str(action) + " Skill group: " + str(skill_group) + "\nPrior Know: " + str(prior_know) + "\nPost. Know: " + str(posterior_know) + "\nTimestep: " + str(timesteps) + " Reward: " + str(reward) + " ActivityName: " + activity_name + "\nPrior: " + str(prior_avg_know) + " Posterior: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
-
-        state = next_state
+        state = next_state.copy()
         total_reward += reward
-        with open("RL_agents/ppo_logs/test_run.txt", "a") as f:
-            f.write(run_text)
+        prior_avg_know      =  torch.mean(prior).item()
+        posterior_avg_know  =  np.mean(posterior)
+        gain = (posterior_avg_know - prior_avg_know)
+        log_runs(env.type, CONSTANTS, prior, posterior, action, timesteps, reward, prior_avg_know, posterior_avg_know, gain, activity_name, skill_group=None)
 
-    with open("RL_agents/ppo_logs/rewards.txt", "a") as f:
-        if CONSTANTS["RUN_NUM"] == 0:
-            f.write("0,"+ str(np.mean(np.array(init_state))) + "\n")
-
-        text = str(CONSTANTS["RUN_NUM"]) + "," + str(posterior_avg_know) + "\n"
-        f.write(text)
-    
-    if CONSTANTS["RUN_NUM"] % CONSTANTS["AVG_OVER_RUNS"] == 0:
-        with open("RL_agents/ppo_logs/avg_scores.txt", "a") as f:
-            text = str(CONSTANTS["RUN_NUM"]/CONSTANTS["AVG_OVER_RUNS"]) + "," + str(posterior_avg_know) + "\n"
-            f.write(text)
-
+    log_know_gains(env.type, CONSTANTS, init_state, posterior_avg_know, total_reward)
     CONSTANTS["RUN_NUM"] += 1
-
-    with open("RL_agents/ppo_logs/test_run.txt", "a") as f:
-        f.write("Total Reward: " + str(total_reward) + "\n")
 
     return total_reward
 
@@ -117,7 +123,6 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
     sum_entropy = 0.0
     sum_loss_total = 0.0
     clip_param = CONSTANTS["PPO_EPSILON"]
-
 
     # PPO EPOCHS is the number of times we will go through ALL the training data to make updates
     for _ in range(CONSTANTS["PPO_EPOCHS"]):
