@@ -105,20 +105,6 @@ class StudentEnv():
                 t2 = action[1]
                 t3 = action[2]
                 reward = 0.0
-
-                if t1 < 0 or t1 > 1:
-                    reward -= 500
-                if t2 < 0 or t2 > 1:
-                    reward -= 500
-                if t3 < 0 or t3 > 1:
-                    reward -= 500
-
-                if t1 < 0 or t2 < 0 or t3 < 0 or t1 > 1 or t2 > 1 or t3 > 1:
-                    next_state = self.state.copy()
-                    student_response = None
-                    done = True
-                    posterior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
-                    return next_state, reward, student_response, done, posterior_know
                 
                 village = self.student_simulator.village
                 observations = self.student_simulator.observations
