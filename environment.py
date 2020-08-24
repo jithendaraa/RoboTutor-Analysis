@@ -148,10 +148,14 @@ class StudentEnv():
 
         return next_state, prior_know, student_response, posterior_know
 
-    def hotDINA_skill_step(self):
+    def hotDINA_skill_step(self, t1, t2, t3, prints):
 
         done = False
         p_know_activity = None
+        village = self.student_simulator.village
+        observations = self.student_simulator.observations
+        student_model_name = self.student_simulator.student_model_name
+        new_student_params = self.student_simulator.new_student_params
 
         if self.type == None:
             prior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
@@ -192,7 +196,7 @@ class StudentEnv():
             next_matrix_type = self.tutor_simulator.get_matrix_area()
             p_know_activity = self.student_simulator.student_model.get_p_know_activity(self.student_num, self.activity_num)
             next_matrix_posn = self.tutor_simulator.get_matrix_posn(p_know_act=p_know_activity)
-            next_state = posterior_know.tolist() + [next_matrix_type] +[next_matrix_posn]
+            next_state = np.array(posterior_know.tolist() + [next_matrix_type] +[next_matrix_posn])
         
         elif self.type == 3:
             pass
@@ -236,11 +240,7 @@ class StudentEnv():
         done = False
         student_ids = [self.student_id]
         student_nums = [self.student_num]
-        
-        village = self.student_simulator.village
-        observations = self.student_simulator.observations
         student_model_name = self.student_simulator.student_model_name
-        new_student_params = self.student_simulator.new_student_params
 
         if self.type == 1 or self.type == 2:
             t1, t2, t3 = action[0], action[1], action[2]
@@ -248,8 +248,6 @@ class StudentEnv():
                 self.tutor_simulator = TutorSimulator(t1, t2, t3, area_rotation=self.area_rotation, type=self.type, thresholds=True)
             else:
                 self.tutor_simulator.set_thresholds(t1, t2, t3)
-
-        
 
         if self.type == None:
             skill_group = self.skill_groups[action]
@@ -265,7 +263,7 @@ class StudentEnv():
             next_state, prior_know, student_response, posterior_know = self.activity_bkt_step(activity=activity)
         
         elif student_model_name == 'hotDINA_skill':
-            next_state, student_response, done, prior_know, posterior_know = self.hotDINA_skill_step(activity_num)
+            next_state, student_response, done, prior_know, posterior_know = self.hotDINA_skill_step(t1, t2, t3, prints)
             
         elif self.student_simulator.student_model_name == 'hotDINA_full':
             self.hotDINA_full_step(activity_num)
