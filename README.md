@@ -29,9 +29,9 @@
 - [ ] Type 1 (**Action**: Finding optimal performance thresholds t1, t2, t3 per student)
     - [ ] ItemBKT
     - [ ] ActivityBKT
-    - [ ] hotDINA_skill
+    - [x] hotDINA_skill
     - [ ] hotDINA_full
-- [ ] Type 2 (**Action**: Finding optimal performance thresholds t1, t2, t3 per activity)
+- [ ] Type 2 (**Action**: Finding optimal performance thresholds t1, t2, t3 after each attempt)
     - [ ] ItemBKT
     - [ ] ActivityBKT
     - [ ] hotDINA_skill
