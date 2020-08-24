@@ -1,5 +1,6 @@
 from reader import *
 import random
+import numpy as np
 
 class TutorSimulator:
     def __init__(self, t1, t2, t3, area_rotation='L-N-L-S', area_rot_start=0, type=None, area_rotation_constraint=True, transition_constraint=True, thresholds=True):
@@ -36,13 +37,12 @@ class TutorSimulator:
         }
 
     def set_thresholds(self, t1, t2, t3):
-        
-        if self.type == 1:
+        if self.type == 1 or self.type == 2:
             self.t1 = t1
             self.t2 = t2
             self.t3 = t3
 
-    def prev(self, matrix_type):
+    def prev(self, matrix_type, update_pos=True):
         # x,y are the current position indices in matrix 'matrix_type'
         if matrix_type == 'literacy':
             x = self.literacy_pos[0]
@@ -51,12 +51,13 @@ class TutorSimulator:
             if x == 0 and y == 0:
                 return 0, 0, self.literacy_matrix[0][0] 
             elif y > 0:
-                self.literacy_pos[1] -= 1
+                if update_pos: self.literacy_pos[1] -= 1
                 return x, y-1, self.literacy_matrix[x][y-1] 
             elif y == 0:
-                self.literacy_pos[0] -= 1
-                self.literacy_pos[1] = self.literacy_counts[x-1] - 1
-                y = self.literacy_pos[1]
+                if update_pos:
+                    self.literacy_pos[0] -= 1
+                    self.literacy_pos[1] = self.literacy_counts[x-1] - 1
+                y = self.literacy_counts[x-1] - 1
                 return x-1, y, self.literacy_matrix[x-1][y]
 
         elif matrix_type == 'math':
@@ -65,12 +66,13 @@ class TutorSimulator:
             if x == 0 and y == 0:
                 return 0, 0, self.math_matrix[0][0] 
             elif y > 0:
-                self.math_pos[1] -= 1
+                if update_pos:  self.math_pos[1] -= 1
                 return x, y-1, self.math_matrix[x][y-1] 
             elif y == 0:
-                self.math_pos[0] -= 1
-                self.math_pos[1] = self.math_counts[x-1] - 1
-                y = self.math_pos[1]
+                if update_pos:
+                    self.math_pos[0] -= 1
+                    self.math_pos[1] = self.math_counts[x-1] - 1
+                y = self.math_counts[x-1] - 1
                 return x-1, y, self.math_matrix[x-1][y]
         
         elif matrix_type == 'stories':
@@ -79,15 +81,16 @@ class TutorSimulator:
             if x == 0 and y == 0:
                 return 0, 0, self.stories_matrix[0][0] 
             elif y > 0:
-                self.stories_pos[1] -= 1
+                if update_pos:  self.stories_pos[1] -= 1
                 return x, y-1, self.stories_matrix[x][y-1] 
             elif y == 0:
-                self.stories_pos[0] -= 1
-                self.stories_pos[1] = self.stories_counts[x-1] - 1
-                y = self.stories_pos[1]
+                if update_pos:
+                    self.stories_pos[0] -= 1
+                    self.stories_pos[1] = self.stories_counts[x-1] - 1
+                y = self.stories_counts[x-1] - 1
                 return x-1, y, self.stories_matrix[x-1][y]
     
-    def same(self, matrix_type):
+    def same(self, matrix_type, update_pos=True):
         if matrix_type == 'literacy':
             x = self.literacy_pos[0]
             y = self.literacy_pos[1]
@@ -105,7 +108,7 @@ class TutorSimulator:
         
         return x, y, activity_num
 
-    def next(self, matrix_type):
+    def next(self, matrix_type, update_pos=True):
         # x,y are the current position indices in matrix 'matrix_type'
         if matrix_type == 'literacy':
             x = self.literacy_pos[0]
@@ -114,11 +117,12 @@ class TutorSimulator:
             if x == len(self.literacy_counts) - 1 and y == self.literacy_counts[-1] - 1:
                 return x, y, self.literacy_matrix[x][y] 
             elif y < self.literacy_counts[x] - 1:
-                self.literacy_pos[1] += 1
+                if update_pos:  self.literacy_pos[1] += 1
                 return x, y+1, self.literacy_matrix[x][y+1] 
             else:
-                self.literacy_pos[1] = 0
-                self.literacy_pos[0] += 1
+                if update_pos:
+                    self.literacy_pos[1] = 0
+                    self.literacy_pos[0] += 1
                 return x+1, 0, self.literacy_matrix[x+1][0]
 
         elif matrix_type == 'math':
@@ -127,11 +131,12 @@ class TutorSimulator:
             if x == len(self.math_counts) - 1 and y == self.math_counts[-1] - 1:
                 return x, y, self.math_matrix[x][y] 
             elif y < self.math_counts[x] - 1:
-                self.math_pos[1] += 1
+                if update_pos:  self.math_pos[1] += 1
                 return x, y+1, self.math_matrix[x][y+1] 
             else:
-                self.math_pos[1] = 0
-                self.math_pos[0] += 1
+                if update_pos:
+                    self.math_pos[1] = 0
+                    self.math_pos[0] += 1
                 return x+1, 0, self.math_matrix[x+1][0]
         
         elif matrix_type == 'stories':
@@ -140,22 +145,65 @@ class TutorSimulator:
             if x == len(self.stories_counts) - 1 and y == self.stories_counts[-1] - 1:
                 return x, y, self.stories_matrix[x][y] 
             elif y < self.stories_counts[x] - 1:
-                self.stories_pos[1] += 1
+                if update_pos:  self.stories_pos[1] += 1
                 return x, y+1, self.stories_matrix[x][y+1] 
             else:
-                self.stories_pos[1] = 0
-                self.stories_pos[0] += 1
+                if update_pos:
+                    self.stories_pos[1] = 0
+                    self.stories_pos[0] += 1
                 return x+1, 0, self.stories_matrix[x+1][0]
 
-    def next_next(self, matrix_type):
-        self.next(matrix_type)
-        x, y, activity_name = self.next(matrix_type)   
+    def next_next(self, matrix_type, update_pos=True):
+        self.next(matrix_type, update_pos=update_pos)
+        x, y, activity_name = self.next(matrix_type, update_pos=update_pos)   
         return x, y, activity_name 
+    
+    def get_matrix_area(self):
+        self.attempt = self.attempt % len(self.area_rotation)
+        area = self.area_rotation[self.attempt]
+        if area == 'L': return 1
+        elif area == 'N':   return 2
+        elif area == 'S':   return 3
+    
+    def get_matrix_posn(self, p_know_act=None):
+        self.attempt = self.attempt % len(self.area_rotation)
+        prev_area = self.area_rotation[self.attempt - 1]
+        area = self.area_rotation[self.attempt]
+        
+        if prev_area == area:
+            if p_know_act >= self.t3:
+                x, y, activity_name = self.next(area, False) if random.random() > 0.5 else self.next_next(area, False)
+            elif p_know_act >= self.t2:
+                x, y, activity_name = self.next(area, False)
+            elif p_know_act >= self.t1:
+                x, y, activity_name = self.same(area, False)
+            else:
+                x, y, activity_name = self.prev(area, False)
+        
+        else:
+            if area == 'L':
+                x, y = self.literacy_pos[0], self.literacy_pos[1]
+                matrix_posn = np.sum(self.literacy_counts[:x]) + y + 1
+            elif area == 'N':
+                x, y = self.math_pos[0], self.math_pos[1]
+                matrix_posn = np.sum(self.math_counts[:x]) + y + 1
+            elif area == 'N':
+                x, y = self.stories_pos[0], self.stories_pos[1]
+                matrix_posn = np.sum(self.stories_counts[:x]) + y + 1
+
+        if area == 'L':
+            matrix_posn = np.sum(self.literacy_counts[:x]) + y + 1
+        elif area == 'N':
+            matrix_posn = np.sum(self.math_counts[:x]) + y + 1
+        elif area == 'N':
+            matrix_posn = np.sum(self.stories_counts[:x]) + y + 1
+
+        return matrix_posn            
     
     def get_next_activity(self, p_know_prev_activity=None, prev_activity_num=None, response="", prints=True):
 
         self.attempt = self.attempt % len(self.area_rotation)
-        area = self.area_rotation[self.attempt]
+        area = self.area_rotation[self.attempt] # area is the question that is going to be asked
         prev_area = self.area_rotation[self.attempt - 1]
 
         if area == 'L':
