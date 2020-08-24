@@ -119,7 +119,7 @@ class ActorCriticAgent(object):
         self.actor_critic.optimizer.step()
 
         
-# used only in ppo_agent.py for PPO algo, Actor Critic Algo uses the class `ActorCriticNetwork`
+# used only ]for PPO algo, Actor Critic Algo uses the class `ActorCriticNetwork`
 class ActorCritic(nn.Module):
     def __init__(self, lr, input_dims, fc1_dims, n_actions, type=None):
         super(ActorCritic, self).__init__()
@@ -130,14 +130,13 @@ class ActorCritic(nn.Module):
 
         if type == None:       
             self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
-            #  Policy and critic value v
-            self.pi = nn.Linear(self.fc1_dims, n_actions)
-            self.v = nn.Linear(self.fc1_dims, 1)
-        elif type == 1:
+            self.pi = nn.Linear(self.fc1_dims, n_actions)   #   Actor proposes policy 
+            self.v = nn.Linear(self.fc1_dims, 1)            #   Critic gives a value to criticise the proposed action/policy
+
+        elif type == 1 or type == 2:
             self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
-            #  Actor Policy pi and critic value v
-            self.pi = nn.Linear(self.fc1_dims, n_actions)
-            self.v = nn.Linear(self.fc1_dims, 1)
+            self.pi = nn.Linear(self.fc1_dims, n_actions)   #   Actor proposes policy 
+            self.v = nn.Linear(self.fc1_dims, 1)            #   Critic gives a value to criticise the proposed action/policy
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu:0")
         self.optimizer = optim.Adam(self.parameters(), lr = lr)
@@ -152,7 +151,7 @@ class ActorCritic(nn.Module):
             v = self.v(x)
             return pi, v
 
-        elif self.type == 1:
+        elif self.type == 1 or self.type == 2:
             x = self.fc1(state)
             x = F.relu(x)
             value = self.v(x)
