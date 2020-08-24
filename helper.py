@@ -204,7 +204,6 @@ def evaluate_performance_thresholds(student_simulator, tutor_simulator, CONSTANT
     activity_num = None
     response = ""
     ys = []
-    ys.append(prior_avg_know)
     for _ in range(CONSTANTS['MAX_TIMESTEPS']):
         if activity_num != None:
             p_know_activity = student_simulator.student_model.get_p_know_activity(student_num, activity_num)
