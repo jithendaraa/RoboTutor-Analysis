@@ -41,6 +41,8 @@ def compute_gae(critic_value_, rewards, dones, critic_values, gamma, lam):
 
 def ppo_iter(states, actions, log_probs, returns, advantages, PPO_STEPS, NUM_ENVS, MINI_BATCH_SIZE):
     batch_size = states.size(0)
+    if batch_size < MINI_BATCH_SIZE:
+        print("Warning @ppo_iter.py: batch_size should be greater than MINI_BATCH_SIZE")
     # generates random mini-batches until we have covered the full batch
     for _ in range(batch_size // MINI_BATCH_SIZE):
         rand_ids = np.random.randint(0, batch_size, MINI_BATCH_SIZE)
@@ -51,7 +53,7 @@ def log_know_gains(type, CONSTANTS, init_state, posterior_avg_know, total_reward
     with open("RL_agents/ppo_logs/rewards.txt", "a") as f:
         if CONSTANTS["RUN_NUM"] == 0:
             f.write("0,"+ str(np.mean(np.array(init_state))) + "\n")
-        text = str(CONSTANTS["RUN_NUM"]) + "," + str(total_reward) + "\n"
+        text = str(CONSTANTS["RUN_NUM"]) + "," + str(posterior_avg_know) + "\n"
         f.write(text)
     
     if CONSTANTS["RUN_NUM"] % CONSTANTS["AVG_OVER_RUNS"] == 0:
@@ -61,8 +63,6 @@ def log_know_gains(type, CONSTANTS, init_state, posterior_avg_know, total_reward
     with open("RL_agents/ppo_logs/test_run.txt", "a") as f:
         f.write("Total Reward: " + str(total_reward) + "\n\n")
 
-
-
 def log_runs(type, CONSTANTS, prior, posterior, action, timesteps, reward, prior_avg_know, posterior_avg_know, gain, activity_name, skill_group=None):
     
     if type == None:
@@ -71,16 +71,15 @@ def log_runs(type, CONSTANTS, prior, posterior, action, timesteps, reward, prior
         for skill_idx in skill_group:
             prior_know.append(prior[skill_idx].item())
             posterior_know.append(posterior[skill_idx].item())
-        run_text = "Run Number: " + str(CONSTANTS["RUN_NUM"]) + "\Action: " + str(action) + " Skill group: " + str(skill_group) + "\nPrior Know: " + str(prior_know) + "\nPost. Know: " + str(posterior_know) + "\nTimestep: " + str(timesteps) + " Reward: " + str(reward) + " ActivityName: " + activity_name + "\nPrior: " + str(prior_avg_know) + " Posterior: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
+        run_text = "Run Number: " + str(CONSTANTS["RUN_NUM"]) + "Action: " + str(action) + " Skill group: " + str(skill_group) + "\nPrior Know: " + str(prior_know) + "\nPost. Know: " + str(posterior_know) + "\nTimestep: " + str(timesteps) + " Reward: " + str(reward) + " ActivityName: " + activity_name + "\nPrior: " + str(prior_avg_know) + " Posterior: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
         with open("RL_agents/ppo_logs/test_run.txt", "a") as f:
             f.write(run_text)
     
     elif type == 1:
-        run_text = "Run Number: " + str(CONSTANTS["RUN_NUM"]) + "\Action: " + str(action) + "\nPrior Know: " + str(prior.cpu().numpy()) + "\nPost. Know: " + str(posterior) + "\Max Timesteps: " + str(CONSTANTS['MAX_TIMESTEPS']) + " Reward: " + str(reward) + "\nAvg Prior Know: " + str(prior_avg_know) + " Avg Posterior Know: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
+        run_text = "Run Number: " + str(CONSTANTS["RUN_NUM"]) + "Action: " + str(action) + "\nPrior Know: " + str(prior.cpu().numpy()) + "\nPost. Know: " + str(posterior) + "\Max Timesteps: " + str(CONSTANTS['MAX_TIMESTEPS']) + " Reward: " + str(reward) + "\nAvg Prior Know: " + str(prior_avg_know) + " Avg Posterior Know: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
         print(run_text)
         with open("RL_agents/ppo_logs/test_run.txt", "a") as f:
             f.write(run_text)
-
 
 def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, uniq_skill_groups=None, deterministic=True, bayesian_update=True):
     
@@ -120,10 +119,14 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, un
 
     log_know_gains(env.type, CONSTANTS, init_state, posterior_avg_know, total_reward)
     CONSTANTS["RUN_NUM"] += 1
+    
+    if env.type == None:
+        return total_reward
+    elif env.type == 1:
+        return total_reward, posterior
+    
 
-    return total_reward
-
-def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages, CONSTANTS):
+def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages, CONSTANTS, type_=None, writer=None):
     count_steps = 0
     sum_returns = 0.0
     sum_advantage = 0.0
@@ -138,10 +141,14 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
         # grabs random mini-batches several times until we have covered all data
         for state, action, old_log_probs, return_, advantage in ppo_iter(states, actions, log_probs, returns, advantages, CONSTANTS["PPO_STEPS"], CONSTANTS["NUM_ENVS"], CONSTANTS["MINI_BATCH_SIZE"]):
             policy, critic_value = model(state)
-            policy = F.softmax(policy, dim=1)
-            action_probs = torch.distributions.Categorical(policy)
-            entropy = action_probs.entropy().mean()
-            new_log_probs = action_probs.log_prob(action)
+            if type_ == None:
+                policy = F.softmax(policy, dim=1)
+                action_probs = torch.distributions.Categorical(policy)
+                entropy = action_probs.entropy().mean()
+                new_log_probs = action_probs.log_prob(action)
+            elif type_ == 1:
+                entropy = policy.entropy().mean()
+                new_log_probs = policy.log_prob(action)
 
             ratio = (new_log_probs - old_log_probs).exp()
             surr1 = ratio * advantage
