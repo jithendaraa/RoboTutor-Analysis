@@ -50,8 +50,19 @@ class StudentEnv():
     def set_skill_groups(self):
         if self.type == None:
             kc_list, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map  = read_data()
-            self.skill_groups                   = skill_groups
+            self.skill_groups                   = uniq_skill_groups
             self.skill_group_to_activity_map    = skill_group_to_activity_map
+        
+    def set_tutor_simulator(self, t1=None, t2=None, t3=None):
+        if self.type == 1 or self.type == 2:
+            if self.tutor_simulator == None:
+                self.tutor_simulator = TutorSimulator(t1=t1, t2=t2, t3=t3, area_rotation=self.area_rotation, type=self.type, thresholds=True)
+            else:
+                self.tutor_simulator.set_thresholds(t1, t2, t3)
+        elif self.type == 3:
+            if self.tutor_simulator == None:
+                self.tutor_simulator = TutorSimulator(area_rotation=self.area_rotation, type=self.type, thresholds=False)
+        
 
     def set_initial_state(self, matrix_posn=None, matrix_area=None):
         
@@ -148,7 +159,7 @@ class StudentEnv():
 
         return next_state, prior_know, student_response, posterior_know
 
-    def hotDINA_skill_step(self, t1, t2, t3, prints):
+    def hotDINA_skill_step(self, action, prints, activity_num=None):
 
         done = False
         p_know_activity = None
@@ -156,6 +167,12 @@ class StudentEnv():
         observations = self.student_simulator.observations
         student_model_name = self.student_simulator.student_model_name
         new_student_params = self.student_simulator.new_student_params
+        
+        if self.type == 1 or self.type == 2:
+            t1, t2, t3 = action[0], action[1], action[2]
+            self.set_tutor_simulator(t1=t1, t2=t2, t3=t3)
+        else:
+            self.set_tutor_simulator()
 
         if self.type == None:
             prior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
@@ -172,7 +189,7 @@ class StudentEnv():
             prior_know = None
             for _ in range(5):
                 student_simulator = StudentSimulator(village, observations, student_model_name, new_student_params, prints=False)
-                tutor_simulator = TutorSimulator(t1, t2, t3, area_rotation=self.area_rotation, type=self.type, thresholds=True)
+                tutor_simulator = TutorSimulator(t1=t1, t2=t2, t3=t3, area_rotation=self.area_rotation, type=self.type, thresholds=True)
                 prior_know = np.mean(student_simulator.student_model.alpha[self.student_num][-1].copy())
                 performance_given_thresholds = evaluate_performance_thresholds(student_simulator, tutor_simulator, prints=prints, CONSTANTS=self.CONSTANTS)
                 posterior_know.append(student_simulator.student_model.alpha[self.student_num][-1].copy())
@@ -188,7 +205,7 @@ class StudentEnv():
         elif self.type == 2:
             self.tutor_simulator.set_thresholds(t1, t2, t3)
             if self.activity_num != None:   p_know_activity = self.student_simulator.student_model.get_p_know_activity(self.student_num, self.activity_num)
-            x, y, area, activity_name = self.tutor_simulator.get_next_activity(p_know_activity, self.activity_num, str(self.response), prints=False)
+            x, y, area, activity_name = self.tutor_simulator.get_next_activity(p_know_activity=p_know_activity, prev_activity_num=self.activity_num, response=str(self.response), prints=False)
             self.activity_num = self.student_simulator.uniq_activities.index(activity_name)
             prior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
             student_response = self.student_simulator.student_model.predict_response(self.activity_num, self.student_num, update=True)
@@ -200,12 +217,27 @@ class StudentEnv():
             next_state = np.array(posterior_know.tolist() + [next_matrix_type] +[next_matrix_posn])
         
         elif self.type == 3:
-            pass
+            if action == 0: decision = "prev"
+            elif action == 1: decision = "same"
+            elif action == 2: decision = 'next'
+            elif action == 3: decision = 'next_next'
+
+            x, y, area, activity_name = self.tutor_simulator.get_next_activity(decision=decision, prev_activity_num=self.activity_num, prints=False)
+            self.activity_num = self.student_simulator.uniq_activities.index(activity_name)
+            prior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
+            student_response = self.student_simulator.student_model.predict_response(self.activity_num, self.student_num, update=True)
+            posterior_know = np.array(self.student_simulator.student_model.alpha[self.student_num][-1])
+            posterior_avg_know = np.mean(posterior_know)
+            next_matrix_type = self.tutor_simulator.get_matrix_area()
+            p_know_activity = self.student_simulator.student_model.get_p_know_activity(self.student_num, self.activity_num)
+            next_matrix_posn = self.tutor_simulator.get_matrix_posn(p_know_act=p_know_activity)
+            next_state = np.array(posterior_know.tolist() + [next_matrix_type] +[next_matrix_posn])
+
         elif self.type == 4:
             pass
         elif self.type == 5:
             pass
-        
+            
         return next_state, student_response, done, prior_know, posterior_know
     
     def hotDINA_full_step(self, activity_num):
@@ -233,22 +265,13 @@ class StudentEnv():
         
         return next_state, student_response, done, prior_know, posterior_know
         
-       
     def step(self, action, max_timesteps, timesteps=None, activityName=None, bayesian_update=True, plot=False, prints=False):
-        """
-            action: int, activities[action] refers to the activity that the RL policy suggests/outputs.
-        """
+
         done = False
         student_ids = [self.student_id]
         student_nums = [self.student_num]
         student_model_name = self.student_simulator.student_model_name
-
-        if self.type == 1 or self.type == 2:
-            t1, t2, t3 = action[0], action[1], action[2]
-            if self.tutor_simulator == None:
-                self.tutor_simulator = TutorSimulator(t1, t2, t3, area_rotation=self.area_rotation, type=self.type, thresholds=True)
-            else:
-                self.tutor_simulator.set_thresholds(t1, t2, t3)
+        activity_num = None
 
         if self.type == None:
             skill_group = self.skill_groups[action]
@@ -264,7 +287,7 @@ class StudentEnv():
             next_state, prior_know, student_response, posterior_know = self.activity_bkt_step(activity=activity)
         
         elif student_model_name == 'hotDINA_skill':
-            next_state, student_response, done, prior_know, posterior_know = self.hotDINA_skill_step(t1, t2, t3, prints)
+            next_state, student_response, done, prior_know, posterior_know = self.hotDINA_skill_step(action, prints, activity_num=activity_num)
             
         elif self.student_simulator.student_model_name == 'hotDINA_full':
             self.hotDINA_full_step(activity_num)
