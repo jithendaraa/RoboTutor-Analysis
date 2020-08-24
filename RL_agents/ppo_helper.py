@@ -51,7 +51,7 @@ def ppo_iter(states, actions, log_probs, returns, advantages, PPO_STEPS, NUM_ENV
 def log_know_gains(type, CONSTANTS, init_state, posterior_avg_know, total_reward):
     
     with open("RL_agents/ppo_logs/rewards.txt", "a") as f:
-        if CONSTANTS["RUN_NUM"] == 0:
+        if CONSTANTS["RUN_NUM"] == 0 and type != 1:
             f.write("0,"+ str(np.mean(np.array(init_state))) + "\n")
         text = str(CONSTANTS["RUN_NUM"]) + "," + str(posterior_avg_know) + "\n"
         f.write(text)
@@ -102,7 +102,7 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, un
             activity_name = np.random.choice(skill_group_to_activity_map[str(action)])
             skill_group = uniq_skill_groups[action]
         
-        elif env.type == 1:
+        elif env.type == 1 or env.type == 2:
             action = policy.probs.cpu().detach().numpy()[0]
             if deterministic == False:
                 action = policy.sample().cpu().numpy()[0]
@@ -146,7 +146,7 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
                 action_probs = torch.distributions.Categorical(policy)
                 entropy = action_probs.entropy().mean()
                 new_log_probs = action_probs.log_prob(action)
-            elif type_ == 1:
+            elif type_ == 1 or type_ == 2:
                 entropy = policy.entropy().mean()
                 new_log_probs = policy.log_prob(action)
 
@@ -158,7 +158,6 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
             critic_loss = (return_ - critic_value).pow(2).mean()
 
             loss = CONSTANTS["CRITIC_DISCOUNT"] * critic_loss + actor_loss - CONSTANTS["ENTROPY_BETA"] * entropy
-
             model.optimizer.zero_grad()
             loss.backward()
             model.optimizer.step()
@@ -170,7 +169,6 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
             sum_loss_critic += critic_loss
             sum_loss_total += loss
             sum_entropy += entropy
-            
             count_steps += 1
 
         # writer.add_scalar("returns", sum_returns / count_steps, frame_idx)
