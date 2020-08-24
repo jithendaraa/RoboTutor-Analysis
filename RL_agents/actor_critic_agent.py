@@ -128,7 +128,7 @@ class ActorCritic(nn.Module):
         self.n_actions = n_actions
         self.type = type
 
-        if type == None:       
+        if type == None or type == 3:       
             self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
             self.pi = nn.Linear(self.fc1_dims, n_actions)   #   Actor proposes policy 
             self.v = nn.Linear(self.fc1_dims, 1)            #   Critic gives a value to criticise the proposed action/policy
@@ -144,7 +144,7 @@ class ActorCritic(nn.Module):
 
     def forward(self, state):
         # state should be a torch.Tensor
-        if self.type == None:
+        if self.type == None or self.type == 3:
             x = self.fc1(state)
             x = F.relu(x)
             pi = self.pi(x)
@@ -158,4 +158,13 @@ class ActorCritic(nn.Module):
             probs = torch.sigmoid(self.pi(x))
             dist = torch.distributions.continuous_bernoulli.ContinuousBernoulli(probs=probs)
             return dist, value
+        
+        elif self.type == 3:
+            pass
+
+        elif self.type == 4:
+            pass
+            
+        elif self.type == 5:
+            pass
 
