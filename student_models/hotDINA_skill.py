@@ -43,6 +43,14 @@ class hotDINA_skill():
             self.alpha[i].append(self.knews[i].tolist())
             self.avg_knows[i].append(np.mean(self.knews[i]))
 
+    def checkpoint(self):
+        self.checkpoint_alpha = self.alpha.copy()
+        self.checkpoint_avg_knows = self.avg_knows.copy()
+    
+    def reset(self):
+        self.alpha = self.checkpoint_alpha.copy()
+        self.avg_knows = self.checkpoint_avg_knows.copy()
+
     def update_skill(self, i, k, t, y, know):
         prior_know = know[k]
         posterior_know = None
