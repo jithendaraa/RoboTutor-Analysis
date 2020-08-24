@@ -68,7 +68,7 @@ class StudentEnv():
             elif student_model_name == 'hotDINA_skill' or student_model_name == 'hotDINA_full':
                 self.state = np.array(student_model.alpha[self.student_num][-1]).copy()
         
-        elif self.type == 2:
+        elif self.type == 2 or self.type == 3:
 
             if student_model_name == 'ItemBKT':
                 pass
@@ -186,6 +186,7 @@ class StudentEnv():
             done = True
         
         elif self.type == 2:
+            self.tutor_simulator.set_thresholds(t1, t2, t3)
             if self.activity_num != None:   p_know_activity = self.student_simulator.student_model.get_p_know_activity(self.student_num, self.activity_num)
             x, y, area, activity_name = self.tutor_simulator.get_next_activity(p_know_activity, self.activity_num, str(self.response), prints=False)
             self.activity_num = self.student_simulator.uniq_activities.index(activity_name)
