@@ -157,6 +157,7 @@ class StudentSimulator():
             self.params_dict['theta'][-1] = self.params_dict['theta'][student_num]
 
     def reset(self):
+        self.student_model.reset()
         student_model = self.student_model
         if self.student_model_name == 'ActivityBKT':
             student_model.know              = self.checkpoint_know.copy()
@@ -168,6 +169,7 @@ class StudentSimulator():
             student_model.avg_knows = self.checkpoint_avg_knows.copy()
         
     def checkpoint(self):
+        self.student_model.checkpoint()
         student_model = self.student_model
         
         if self.student_model_name == 'ActivityBKT':
