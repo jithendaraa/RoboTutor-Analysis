@@ -70,11 +70,13 @@ def set_constants(args):
     CONSTANTS['AREA_ROTATION'] = args.area_rotation
     CONSTANTS['MAX_TIMESTEPS'] = args.max_timesteps
     CONSTANTS['NEW_STUDENT_PARAMS'] = args.new_student_params
+    CONSTANTS['NUM_ENVS'] = args.num_envs
 
     if args.type == 1:
         CONSTANTS['STATE_SIZE'] = 22
         CONSTANTS['ACTION_SIZE'] = 3
         CONSTANTS['USES_THRESHOLDS'] = True
+        CONSTANTS['PPO_STEPS'] = 32
 
 def arg_parser():
     parser = argparse.ArgumentParser()
@@ -90,6 +92,7 @@ def arg_parser():
     parser.add_argument('-tc', '--transition_constraint', help="Should transition be constrained to prev,same,next, next-next? True/False", default=True)
     parser.add_argument('-m', '--model', help="Model file to load from checkpoints directory, if any")
     parser.add_argument('-nsp', '--new_student_params', help="The model params new_student has to start with; enter student_id")
+    parser.add_argument("-e", "--num_envs", default=CONSTANTS["NUM_ENVS"], help="Number of observations to train on", type=int)
     args = parser.parse_args()
     set_constants(args)
     use_cuda = torch.cuda.is_available()
@@ -207,9 +210,9 @@ if __name__ == '__main__':
 
             next_state, reward, student_response, done, posterior_know = envs.step(action.cpu().numpy(), [CONSTANTS['MAX_TIMESTEPS']] * CONSTANTS['NUM_ENVS'])
             
-            for i in range(len(action.cpu().numpy())):
-                policy_thresholds = action.cpu().numpy()[i]
-                print(policy_thresholds, '-->',reward[i])
+            # for i in range(len(action.cpu().numpy())):
+            #     policy_thresholds = action.cpu().numpy()[i]
+            #     print(policy_thresholds, '-->',reward[i])
             
             log_prob = policy.log_prob(action)
             log_probs.append(log_prob)
@@ -232,29 +235,29 @@ if __name__ == '__main__':
         advantage       = normalize(advantage)
 
         # According to PPO paper: (states, actions, log_probs, returns, advantage) is together referred to as a "trajectory"
-        ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS)
+        ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS, type_=args.type)
         train_epoch += 1
-        
+
         if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
             student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
             env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
             env.checkpoint()
             # writer.add_scalar("test_rewards", test_reward, frame_idx)
-            print('Frame %s. reward: %s' % (frame_idx, test_reward))
             if env.type == None:
                 test_reward = np.mean([test_env(env, model, device, CONSTANTS, deterministic=False) for _ in range(CONSTANTS["NUM_TESTS"])])
                 final_p_know = env.state
             
             elif env.type == 1:
-                total_reward = []
+                test_reward = []
                 final_p_know = []
                 for _ in range(CONSTANTS['NUM_TESTS']):
                     tr, fpk = test_env(env, model, device, CONSTANTS, deterministic=False)
-                    total_reward.append(tr)
+                    test_reward.append(tr)
                     final_p_know.append(fpk)
-                total_reward = np.mean(total_reward)
+                test_reward = np.mean(test_reward)
                 final_p_know = mp.mean(final_p_know, axis=0) 
                 
+            print('Frame %s. reward: %s' % (frame_idx, test_reward))
             final_avg_p_know = np.mean(final_p_know)
             # Save a checkpoint every time we achieve a best reward
             if best_reward is None or best_reward < test_reward:
