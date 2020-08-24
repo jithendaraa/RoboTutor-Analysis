@@ -187,15 +187,16 @@ class TutorSimulator:
             elif area == 'N':
                 x, y = self.math_pos[0], self.math_pos[1]
                 matrix_posn = np.sum(self.math_counts[:x]) + y + 1
-            elif area == 'N':
+            elif area == 'S':
                 x, y = self.stories_pos[0], self.stories_pos[1]
                 matrix_posn = np.sum(self.stories_counts[:x]) + y + 1
+
 
         if area == 'L':
             matrix_posn = np.sum(self.literacy_counts[:x]) + y + 1
         elif area == 'N':
             matrix_posn = np.sum(self.math_counts[:x]) + y + 1
-        elif area == 'N':
+        elif area == 'S':
             matrix_posn = np.sum(self.stories_counts[:x]) + y + 1
 
         return matrix_posn            
