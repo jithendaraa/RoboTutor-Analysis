@@ -122,7 +122,7 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, un
     
     if env.type == None:
         return total_reward
-    elif env.type == 1:
+    elif env.type == 1 or env.type == 2:
         return total_reward, posterior
     
 
