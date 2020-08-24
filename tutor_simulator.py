@@ -197,7 +197,9 @@ class TutorSimulator:
 
         return matrix_posn            
     
-    def make_transition(self, prev_matrix_type, init_x, init_y, decision=None, response="?", p_know_prev_activity=None, prints=False):
+    def make_transition(self, decision=None, response="?", p_know_prev_activity=None, prints=False):
+        
+        print("HAAAAAA")
         if self.thresholds:
             if p_know_prev_activity >= self.t3:
                 if random.random() > 0.5:
@@ -216,6 +218,7 @@ class TutorSimulator:
             if prints: print('PREV MATRIX POSN (' + str(prev_matrix_type) + "): move from [" + str(init_x) + "," + str(init_y) + "] -> [" + str(x) + "," + str(y) + "], P(Know prev activity): " + str(p_know_prev_activity) + " Response: " + response)
         
         elif self.thresholds is not True:
+            print("HM")
             if decision == 'next_next':
                 x, y, activity_name = self.next_next(prev_matrix_type)
             elif decision == 'next':
@@ -232,9 +235,11 @@ class TutorSimulator:
 
     def get_next_activity(self, decision=None, p_know_prev_activity=None, prev_activity_num=None, response="", prints=True):
 
+        print("YASSSSS")
         self.attempt = self.attempt % len(self.area_rotation)
         area = self.area_rotation[self.attempt] # area is the question that is going to be asked
         prev_area = self.area_rotation[self.attempt - 1]
+        print(area)
 
         if area == 'L':
             matrix_type = 'literacy'
@@ -244,6 +249,7 @@ class TutorSimulator:
             matrix_type = 'stories'
 
         if prev_activity_num != None:
+            print("lol")
             prev_matrix_type = 'literacy'
             init_x = self.literacy_pos[0]
             init_y = self.literacy_pos[1]
@@ -256,10 +262,11 @@ class TutorSimulator:
                 init_x = self.stories_pos[0]
                 init_y = self.stories_pos[1]
             
+            print(init_x, init_y, decision, prev_matrix_type, p_know_prev_activity)
+            x, y, activity_name = self.make_transition()
             if self.first_question[area]:
                 self.first_question[area] = False
 
-            x, y, activity_num = self.make_transition(prev_matrix_type, init_x, init_y, decision=decision, p_know_prev_activity=p_know_prev_activity, prints=prints)
 
         if area == 'L':
             x = self.literacy_pos[0]
@@ -273,7 +280,7 @@ class TutorSimulator:
             x = self.stories_pos[0]
             y = self.stories_pos[1]
             activity_name = self.stories_matrix[x][y]
-        
+        print(x, y)
         self.attempt += 1
 
         if activity_name[:23] == 'story.hear::Garden_Song':
@@ -283,34 +290,3 @@ class TutorSimulator:
             activity_name = activity_name[:23]
 
         return x, y, matrix_type, activity_name
-
-    def make_transition(self, decision, prev_activity_num):
-
-        
-        if area == 'L':
-            x = self.literacy_pos[0]
-            y = self.literacy_pos[1]
-            activity_name = self.literacy_matrix[x][y]
-        elif area == 'N':
-            x = self.math_pos[0]
-            y = self.math_pos[1]
-            activity_name = self.math_matrix[x][y]
-        elif area == 'S':
-            x = self.stories_pos[0]
-            y = self.stories_pos[1]
-            activity_name = self.stories_matrix[x][y]
-
-        if self.first_question[area]:
-            self.first_question[area] = False
-        
-        self.attempt += 1
-
-        if activity_name[:23] == 'story.hear::Garden_Song':
-            activity_name = activity_name[:23]
-        
-        elif activity_name[:23] == 'story.hear::Safari_Song':
-            activity_name = activity_name[:23]
-
-        return x, y, matrix_type, activity_name
-
-
