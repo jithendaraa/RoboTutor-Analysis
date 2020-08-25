@@ -38,7 +38,7 @@ CONSTANTS = {
     "TARGET_P_KNOW"                     :   0.8,
     "LEARNING_RATE"                     :   1e-4,
     "FC1_DIMS"                          :   256,
-    'PPO_STEPS'                         :   10,
+    'PPO_STEPS'                         :   30,
     'PPO_EPOCHS'                        :   10,
     'TEST_EPOCHS'                       :   10,
     'NUM_TESTS'                         :   10,
@@ -222,7 +222,7 @@ if __name__ == '__main__':
             action = policy.sample()    # sample action from the policy distribution
             # print(action)
             next_state, reward, student_response, done, posterior_know = envs.step(action.cpu().numpy(), [CONSTANTS['MAX_TIMESTEPS']] * CONSTANTS['NUM_ENVS'])
-            print(next_state, reward, student_response, done, posterior_know)
+            # print(reward, student_response)
 
             # for i in range(len(action.cpu().numpy())):
             #     policy_thresholds = action.cpu().numpy()[i]
@@ -252,39 +252,38 @@ if __name__ == '__main__':
         ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS, type_=args.type)
         train_epoch += 1
         print("UPDATING.... Epoch Num:", train_epoch)
-        break
 
-    #     if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
-    #         student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
-    #         env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
-    #         env.checkpoint()
-    #         # writer.add_scalar("test_rewards", test_reward, frame_idx)
-    #         if env.type == None:
-    #             test_reward = np.mean([test_env(env, model, device, CONSTANTS, deterministic=False) for _ in range(CONSTANTS["NUM_TESTS"])])
-    #             final_p_know = env.state
+        if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
+            student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
+            env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
+            env.checkpoint()
+            # writer.add_scalar("test_rewards", test_reward, frame_idx)
+            if env.type == None:
+                test_reward = np.mean([test_env(env, model, device, CONSTANTS, deterministic=False) for _ in range(CONSTANTS["NUM_TESTS"])])
+                final_p_know = env.state
             
-    #         elif env.type == 1 or env.type == 2:
-    #             test_reward = []
-    #             final_p_know = []
-    #             for _ in range(CONSTANTS['NUM_TESTS']):
-    #                 tr, fpk = test_env(env, model, device, CONSTANTS, deterministic=False)
-    #                 test_reward.append(tr)
-    #                 final_p_know.append(fpk)
-    #             test_reward = np.mean(test_reward)
-    #             final_p_know = np.mean(final_p_know, axis=0) 
+            elif env.type == 1 or env.type == 2 or env.type == 3:
+                test_reward = []
+                final_p_know = []
+                for _ in range(CONSTANTS['NUM_TESTS']):
+                    tr, fpk = test_env(env, model, device, CONSTANTS, deterministic=False)
+                    test_reward.append(tr)
+                    final_p_know.append(fpk)
+                test_reward = np.mean(test_reward)
+                final_p_know = np.mean(final_p_know, axis=0) 
                 
-    #         print('Frame %s. reward: %s' % (frame_idx, test_reward))
-    #         final_avg_p_know = np.mean(final_p_know)
-    #         # Save a checkpoint every time we achieve a best reward
-    #         if best_reward is None or best_reward < test_reward:
-    #             if best_reward is not None:
-    #                 print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
-    #                 name = CONSTANTS['STUDENT_MODEL_NAME'] + "_type" + str(args.type) + ("_best_%+.3f_%d.dat" % (test_reward, frame_idx))
-    #                 fname = os.path.join('.', 'checkpoints', name)
-    #                 torch.save(model.state_dict(), fname)
-    #             best_reward = test_reward
-    #         if test_reward > CONSTANTS["TARGET_REWARD"]: 
-    #             early_stop = True
+            print('Frame %s. reward: %s' % (frame_idx, test_reward))
+            final_avg_p_know = np.mean(final_p_know)
+            # Save a checkpoint every time we achieve a best reward
+            if best_reward is None or best_reward < test_reward:
+                if best_reward is not None:
+                    print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
+                    name = CONSTANTS['STUDENT_MODEL_NAME'] + "_type" + str(args.type) + ("_best_%+.3f_%d.dat" % (test_reward, frame_idx))
+                    fname = os.path.join('.', 'checkpoints', name)
+                    torch.save(model.state_dict(), fname)
+                best_reward = test_reward
+            if test_reward > CONSTANTS["TARGET_REWARD"]: 
+                early_stop = True
 
 
     # print("INIT P(Know): \n", init_p_know)
