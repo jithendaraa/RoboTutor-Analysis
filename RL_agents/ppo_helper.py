@@ -141,14 +141,8 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
         # grabs random mini-batches several times until we have covered all data
         for state, action, old_log_probs, return_, advantage in ppo_iter(states, actions, log_probs, returns, advantages, CONSTANTS["PPO_STEPS"], CONSTANTS["NUM_ENVS"], CONSTANTS["MINI_BATCH_SIZE"]):
             policy, critic_value = model(state)
-            if type_ == None:
-                policy = F.softmax(policy, dim=1)
-                action_probs = torch.distributions.Categorical(policy)
-                entropy = action_probs.entropy().mean()
-                new_log_probs = action_probs.log_prob(action)
-            elif type_ == 1 or type_ == 2:
-                entropy = policy.entropy().mean()
-                new_log_probs = policy.log_prob(action)
+            entropy = policy.entropy().mean()
+            new_log_probs = policy.log_prob(action)
 
             ratio = (new_log_probs - old_log_probs).exp()
             surr1 = ratio * advantage
