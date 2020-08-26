@@ -34,12 +34,12 @@
 - [ ] Type 2 (**Action**: Finding optimal performance thresholds t1, t2, t3 after each attempt)
     - [ ] ItemBKT
     - [ ] ActivityBKT
-    - [ ] hotDINA_skill
+    - [x] hotDINA_skill
     - [ ] hotDINA_full
 - [ ] Type 3 (**Action**: Decide promotion/demotion; choose one out of prev, same, next, next-next)
     - [ ] ItemBKT
     - [ ] ActivityBKT
-    - [ ] hotDINA_skill
+    - [x] hotDINA_skill
     - [ ] hotDINA_full
 - [ ] Type 4 (**Action**: Same as type 3 but transition constraint is no longer 4 (prev, same, next, next-next))
     - [ ] ItemBKT
