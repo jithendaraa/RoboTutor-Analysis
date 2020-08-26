@@ -119,7 +119,7 @@ class ActorCriticAgent(object):
         self.actor_critic.optimizer.step()
 
         
-# used only ]for PPO algo, Actor Critic Algo uses the class `ActorCriticNetwork`
+# used only for PPO algo, Actor Critic Algo uses the class `ActorCriticNetwork`
 class ActorCritic(nn.Module):
     def __init__(self, lr, input_dims, fc1_dims, n_actions, type=None):
         super(ActorCritic, self).__init__()
@@ -137,18 +137,34 @@ class ActorCritic(nn.Module):
             self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
             self.pi = nn.Linear(self.fc1_dims, n_actions)   #   Actor proposes policy 
             self.v = nn.Linear(self.fc1_dims, 1)            #   Critic gives a value to criticise the proposed action/policy
+        
+        elif type == 4:
+            num_literacy_acts, num_math_acts, num_story_acts = n_actions[0], n_actions[1], n_actions[2]
+            self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
+            self.fc2 = nn.Linear(self.fc1_dims, self.fc1_dims)
+            
+            self.literacy_pi = nn.Linear(self.fc1_dims, num_literacy_acts)
+            self.literacy_value = nn.Linear(self.fc1_dims, num_literacy_acts)
+
+            self.math_pi = nn.Linear(self.fc1_dims, num_math_acts)
+            self.math_value = nn.Linear(self.fc1_dims, num_math_acts)
+
+            self.story_pi = nn.Linear(self.fc1_dims, num_story_acts)
+            self.story_value = nn.Linear(self.fc1_dims, num_story_acts)
+
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu:0")
         self.optimizer = optim.Adam(self.parameters(), lr = lr)
         self.to(self.device)
 
-    def forward(self, state):
+    def forward(self, state, matrix_type=None):
         # state should be a torch.Tensor
         if self.type == None or self.type == 3:
             x = self.fc1(state)
             x = F.relu(x)
-            pi = self.pi(x)
+            pi = F.softmax(self.pi(x), dim=1)
             v = self.v(x)
+            pi = torch.distributions.Categorical(pi)    # discrete actions
             return pi, v
 
         elif self.type == 1 or self.type == 2:
@@ -156,15 +172,31 @@ class ActorCritic(nn.Module):
             x = F.relu(x)
             value = self.v(x)
             probs = torch.sigmoid(self.pi(x))
-            dist = torch.distributions.continuous_bernoulli.ContinuousBernoulli(probs=probs)
+            dist = torch.distributions.continuous_bernoulli.ContinuousBernoulli(probs=probs)    # continuous actions in [0, 1]
             return dist, value
         
-        elif self.type == 3:
-            pass
-
         elif self.type == 4:
-            pass
-            
-        elif self.type == 5:
-            pass
+            x = self.fc1(state)
+            x = F.relu(x)
+            x = self.fc2(x)
+            x = F.relu(x)
+
+            literacy_pi = F.softmax(self.literacy_pi(x), dim=1)
+            literacy_value = self.literacy_value(x)
+
+            math_pi = F.softmax(self.math_pi(x), dim=1)
+            math_value = self.math_value(x)
+
+            story_pi = F.softmax(self.story_pi(x), dim=1)
+            story_value = self.story_value(x)
+
+            literacy_pi = torch.distributions.Categorical(literacy_pi)
+            math_pi = torch.distributions.Categorical(math_pi)
+            story_pi = torch.distributions.Categorical(story_pi)
+
+            if matrix_type == 'literacy':   return literacy_pi, literacy_value
+            elif matrix_type == 'math' or matrix_type == 'numeracy': return math_pi, math_value
+            elif matrix_type == 'stories': return story_pi, story_value
+
+            return literacy_pi, literacy_value, math_pi, math_value, story_pi, story_value
 
