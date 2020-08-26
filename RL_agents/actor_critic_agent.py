@@ -204,7 +204,7 @@ class ActorCritic(nn.Module):
                     pis.append(math_pi)
                     values.append(math_value)
 
-                elif matrix_nums[i] == 2:
+                elif matrix_nums[i] == 3:
                     story_pi = F.softmax(self.story_pi(x), dim=1)
                     story_value = self.story_value(x)
                     story_pi = torch.distributions.Categorical(story_pi)
