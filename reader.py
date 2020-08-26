@@ -519,6 +519,8 @@ def get_uniq_activities(cta_tutor_ids, underscore_to_colon_tutor_id_dict):
     for tutor_id in cta_tutor_ids:
         if underscore_to_colon_tutor_id_dict[tutor_id] not in uniq_activities:
             uniq_activities.append(underscore_to_colon_tutor_id_dict[tutor_id])
+    if 'story.hear::Garden_Song.1' in uniq_activities: uniq_activities.remove('story.hear::Garden_Song.1')
+    if 'story.hear::Safari_Song.1' in uniq_activities: uniq_activities.remove('story.hear::Safari_Song.1')
     return uniq_activities
     
 
