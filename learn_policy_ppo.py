@@ -245,20 +245,20 @@ if __name__ == '__main__':
             if args.type == 4:
                 policies, literacy_values, math_values, story_values, matrix_nums = model(state)
                 activity_actions = []
-                raw_actions = []
+                action = []
                 for policy in policies:
-                    raw_actions.append(policy.sample().cpu().numpy()[0])
-                raw_actions = torch.tensor(raw_actions).to(device)
+                    action.append(policy.sample().cpu().numpy()[0])
+                action = torch.tensor(action).to(device)
 
                 for i in range(len(state)):
                     row = state[i]
                     matrix_num = int(row[-1].item())
                     if matrix_num == 1: # literacy
-                        act = tutor_simulator.literacy_activities[raw_actions.cpu().numpy()[i]]
+                        act = tutor_simulator.literacy_activities[action.cpu().numpy()[i]]
                     elif matrix_num == 2:   # math
-                        act = tutor_simulator.math_activities[raw_actions.cpu().numpy()[i]]
+                        act = tutor_simulator.math_activities[action.cpu().numpy()[i]]
                     elif matrix_num == 3:   # story
-                        act = tutor_simulator.story_activities[raw_actions.cpu().numpy()[i]]
+                        act = tutor_simulator.story_activities[action.cpu().numpy()[i]]
                     
                     act_idx = uniq_activities.index(act)
                     activity_actions.append(act_idx)
@@ -277,14 +277,20 @@ if __name__ == '__main__':
 
                 for i in range(len(policies)):
                     policy = policies[i]
-                    lp = policy.log_prob(raw_actions[i:i+1])
+                    lp = policy.log_prob(action[i:i+1])
                     if len(log_prob) == 0:  log_prob = lp
                     else:   log_prob = torch.cat((log_prob, lp), 0)
 
+                    if matrix_nums[i] == 1:
+                        critic_values.append(literacy_values)
+                    elif matrix_nums[i] == 2:
+                        critic_values.append(math_values)
+                    elif matrix_nums[i] == 3:
+                        critic_values.append(story_values)
+                
             else:
                 log_prob = policy.log_prob(action)
                 critic_values.append(critic_value)
-                
             
             log_probs.append(log_prob)
             rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
@@ -293,9 +299,7 @@ if __name__ == '__main__':
             actions.append(action)
             state = next_state.copy()
             frame_idx += 1
-            break
             
-        break
 
         # _, critic_value_ = model(torch.Tensor(next_state).to(device))
         # returns         = compute_gae(critic_value_, rewards, dones, critic_values, CONSTANTS["GAMMA"], CONSTANTS["GAE_LAMBDA"])
