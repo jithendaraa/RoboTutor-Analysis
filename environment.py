@@ -30,6 +30,7 @@ class StudentEnv():
         self.activity_num = None
         self.response = ""
         self.tutor_simulator = None
+        self.attempts = 0
 
         self.set_initial_state(matrix_area=matrix_area, matrix_posn=matrix_posn)
         self.set_skill_groups()
@@ -79,7 +80,7 @@ class StudentEnv():
             elif student_model_name == 'hotDINA_skill' or student_model_name == 'hotDINA_full':
                 self.state = np.array(student_model.alpha[self.student_num][-1]).copy()
         
-        elif self.type == 2 or self.type == 3:
+        elif self.type == 2 or self.type == 3 or self.type == 4:
 
             if student_model_name == 'ItemBKT':
                 pass
@@ -102,6 +103,8 @@ class StudentEnv():
                 elif first_area == 'S':
                     matrix_type = [3]
                 self.state = np.array(knows + matrix_type + matrix_posn)
+                if self.type == 4:
+                    self.state = np.array(knows + matrix_type)
             
             elif student_model_name == 'hotDINA_full':
                 pass
@@ -234,7 +237,24 @@ class StudentEnv():
             next_state = np.array(posterior_know.tolist() + [next_matrix_type] +[next_matrix_posn])
 
         elif self.type == 4:
-            pass
+            # Action is the index into uniq_activities
+            activity_num = action
+            prior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
+            student_response = self.student_simulator.student_model.predict_response(activity_num, self.student_num, update=True)
+            posterior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
+            self.attempts += 1
+            area_rotation = self.area_rotation.split('-')
+            matrix_type = area_rotation[self.attempts % self.cycle_len]
+            activity_name = self.student_simulator.uniq_activities[activity_num]
+            if matrix_type == 'L':
+                matrix_num = [1]
+            elif matrix_type == 'N':
+                matrix_num = [2]
+            elif matrix_type == 'S':
+                matrix_num = [3]
+            next_state = np.array(posterior_know + matrix_num)
+            self.state = next_state.copy()
+
         elif self.type == 5:
             pass
             
