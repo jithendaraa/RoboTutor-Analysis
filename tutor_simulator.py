@@ -11,6 +11,16 @@ class TutorSimulator:
         self.type = type
         self.thresholds = thresholds
 
+        self.get_matrix_specific_activities()
+
+        if 'story.hear::Garden_Song.1' in self.story_activities:
+            self.story_activities.remove('story.hear::Garden_Song.1')
+        if 'story.hear::Safari_Song.1' in self.story_activities:
+            self.story_activities.remove('story.hear::Safari_Song.1')
+
+        print(np.sum(self.literacy_counts+self.math_counts+self.stories_counts), np.sum(self.literacy_counts), np.sum(self.math_counts), np.sum(self.stories_counts))
+        print(len(self.literacy_activities), len(self.math_activities), len(self.story_activities), len(self.literacy_activities+self.math_activities+self.story_activities))
+
         self.area_rotation_constraint = area_rotation_constraint
         self.transition_constraint = transition_constraint
         self.area_rotation = area_rotation.split('-')
@@ -27,6 +37,40 @@ class TutorSimulator:
         
         # Performance thresholds if this TutorSimulator type uses thresholds
         self.set_thresholds(t1, t2, t3)
+    
+    def get_matrix_specific_activities(self):
+
+        self.literacy_activities = []
+        for i in range(len(self.literacy_matrix)):
+            row = self.literacy_matrix[i]
+            row_acts = row[:self.literacy_counts[i]]
+            if len(self.literacy_activities) == 0:
+                self.literacy_activities = row_acts
+            else:
+                self.literacy_activities = self.literacy_activities + row_acts
+        
+        self.math_activities = []
+        for i in range(len(self.math_matrix)):
+            row = self.math_matrix[i]
+            row_acts = row[:self.math_counts[i]]
+            if len(self.math_activities) == 0:
+                self.math_activities = row_acts
+            else:
+                self.math_activities = self.math_activities + row_acts
+        
+        self.story_activities = []
+        for i in range(len(self.stories_matrix)):
+            row = self.stories_matrix[i]
+            row_acts = row[:self.stories_counts[i]]
+            if len(self.story_activities) == 0:
+                self.story_activities = row_acts
+            else:
+                self.story_activities = self.story_activities + row_acts
+        
+        self.literacy_activities = pd.unique(np.array(self.literacy_activities)).tolist()
+        self.math_activities = pd.unique(np.array(self.math_activities)).tolist()
+        self.story_activities = pd.unique(np.array(self.story_activities)).tolist()
+
     
     def reset(self):
         self.attempt = 0
