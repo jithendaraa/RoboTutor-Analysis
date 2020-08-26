@@ -144,13 +144,13 @@ class ActorCritic(nn.Module):
             self.fc2 = nn.Linear(self.fc1_dims, self.fc1_dims)
             
             self.literacy_pi = nn.Linear(self.fc1_dims, num_literacy_acts)
-            self.literacy_value = nn.Linear(self.fc1_dims, num_literacy_acts)
+            self.literacy_value = nn.Linear(self.fc1_dims, 1)
 
             self.math_pi = nn.Linear(self.fc1_dims, num_math_acts)
-            self.math_value = nn.Linear(self.fc1_dims, num_math_acts)
+            self.math_value = nn.Linear(self.fc1_dims, 1)
 
             self.story_pi = nn.Linear(self.fc1_dims, num_story_acts)
-            self.story_value = nn.Linear(self.fc1_dims, num_story_acts)
+            self.story_value = nn.Linear(self.fc1_dims, 1)
 
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu:0")
@@ -177,10 +177,12 @@ class ActorCritic(nn.Module):
         
         elif self.type == 4:
             pis = []
-            values = []
+            literacy_values = []
+            math_values = []
+            story_values = []
             matrix_nums = []
 
-            for row in state.tolist():
+            for row in state.cpu().tolist():
                 matrix_nums.append(int(row[-1]))
 
             for i in range(len(state)):
@@ -192,24 +194,28 @@ class ActorCritic(nn.Module):
 
                 if matrix_nums[i] == 1:
                     literacy_pi = F.softmax(self.literacy_pi(x), dim=1)
-                    literacy_value = self.literacy_value(x)
+                    literacy_value = self.literacy_value(x).view(-1)
                     literacy_pi = torch.distributions.Categorical(literacy_pi)
                     pis.append(literacy_pi)
-                    values.append(literacy_value)
+                    literacy_values.append(literacy_value)
 
                 elif matrix_nums[i] == 2:
                     math_pi = F.softmax(self.math_pi(x), dim=1)
-                    math_value = self.math_value(x)
+                    math_value = self.math_value(x).view(-1)
                     math_pi = torch.distributions.Categorical(math_pi)
                     pis.append(math_pi)
-                    values.append(math_value)
+                    math_values.append(math_value)
 
                 elif matrix_nums[i] == 3:
                     story_pi = F.softmax(self.story_pi(x), dim=1)
-                    story_value = self.story_value(x)
+                    story_value = self.story_value(x).view(-1)
                     story_pi = torch.distributions.Categorical(story_pi)
                     pis.append(story_pi)
-                    values.append(story_value)
+                    story_values.append(story_value)
 
-            return pis, values
+            if len(literacy_values) != 0:   literacy_values = torch.stack(literacy_values)
+            if len(math_values) != 0:       math_values = torch.stack(math_values)
+            if len(story_values) != 0:      story_values = torch.stack(story_values)
+
+            return pis, literacy_values, math_values, story_values, matrix_nums
 
