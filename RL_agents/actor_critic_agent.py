@@ -157,7 +157,7 @@ class ActorCritic(nn.Module):
         self.optimizer = optim.Adam(self.parameters(), lr = lr)
         self.to(self.device)
 
-    def forward(self, state, matrix_type=None):
+    def forward(self, state):
         # state should be a torch.Tensor
         if self.type == None or self.type == 3:
             x = self.fc1(state)
@@ -176,27 +176,40 @@ class ActorCritic(nn.Module):
             return dist, value
         
         elif self.type == 4:
-            x = self.fc1(state)
-            x = F.relu(x)
-            x = self.fc2(x)
-            x = F.relu(x)
+            pis = []
+            values = []
+            matrix_nums = []
 
-            literacy_pi = F.softmax(self.literacy_pi(x), dim=1)
-            literacy_value = self.literacy_value(x)
+            for row in state.tolist():
+                matrix_nums.append(int(row[-1]))
 
-            math_pi = F.softmax(self.math_pi(x), dim=1)
-            math_value = self.math_value(x)
+            for i in range(len(state)):
+                row = state[i].view(1, -1)
+                x = self.fc1(row)
+                x = F.relu(x)
+                x = self.fc2(x)
+                x = F.relu(x)
 
-            story_pi = F.softmax(self.story_pi(x), dim=1)
-            story_value = self.story_value(x)
+                if matrix_nums[i] == 1:
+                    literacy_pi = F.softmax(self.literacy_pi(x), dim=1)
+                    literacy_value = self.literacy_value(x)
+                    literacy_pi = torch.distributions.Categorical(literacy_pi)
+                    pis.append(literacy_pi)
+                    values.append(literacy_value)
 
-            literacy_pi = torch.distributions.Categorical(literacy_pi)
-            math_pi = torch.distributions.Categorical(math_pi)
-            story_pi = torch.distributions.Categorical(story_pi)
+                elif matrix_nums[i] == 2:
+                    math_pi = F.softmax(self.math_pi(x), dim=1)
+                    math_value = self.math_value(x)
+                    math_pi = torch.distributions.Categorical(math_pi)
+                    pis.append(math_pi)
+                    values.append(math_value)
 
-            if matrix_type == 'literacy':   return literacy_pi, literacy_value
-            elif matrix_type == 'math' or matrix_type == 'numeracy': return math_pi, math_value
-            elif matrix_type == 'stories': return story_pi, story_value
+                elif matrix_nums[i] == 2:
+                    story_pi = F.softmax(self.story_pi(x), dim=1)
+                    story_value = self.story_value(x)
+                    story_pi = torch.distributions.Categorical(story_pi)
+                    pis.append(story_pi)
+                    values.append(story_value)
 
-            return literacy_pi, literacy_value, math_pi, math_value, story_pi, story_value
+            return pis, values
 

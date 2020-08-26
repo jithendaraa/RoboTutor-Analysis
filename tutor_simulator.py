@@ -10,33 +10,22 @@ class TutorSimulator:
         self.stories_pos = [0,0]
         self.type = type
         self.thresholds = thresholds
-
+        self.area_rotation_constraint = area_rotation_constraint
+        self.transition_constraint = transition_constraint
+        self.area_rotation = area_rotation.split('-')
+        self.attempt = 0
+        self.first_question = {'L': True,'N': True,'S': True}
+        self.set_thresholds(t1, t2, t3) # Performance thresholds if this 'type' uses thresholds
         self.get_matrix_specific_activities()
+        
+        for i in range(area_rot_start):
+            self.area_rotation = self.area_rotation[1:].append(self.area_rotation[0])
 
         if 'story.hear::Garden_Song.1' in self.story_activities:
             self.story_activities.remove('story.hear::Garden_Song.1')
         if 'story.hear::Safari_Song.1' in self.story_activities:
             self.story_activities.remove('story.hear::Safari_Song.1')
 
-        print(np.sum(self.literacy_counts+self.math_counts+self.stories_counts), np.sum(self.literacy_counts), np.sum(self.math_counts), np.sum(self.stories_counts))
-        print(len(self.literacy_activities), len(self.math_activities), len(self.story_activities), len(self.literacy_activities+self.math_activities+self.story_activities))
-
-        self.area_rotation_constraint = area_rotation_constraint
-        self.transition_constraint = transition_constraint
-        self.area_rotation = area_rotation.split('-')
-        self.attempt = 0
-
-        for i in range(area_rot_start):
-            self.area_rotation = self.area_rotation[1:].append(self.area_rotation[0])
-        
-        self.first_question = {
-            'L': True,
-            'N': True,
-            'S': True
-        }
-        
-        # Performance thresholds if this TutorSimulator type uses thresholds
-        self.set_thresholds(t1, t2, t3)
     
     def get_matrix_specific_activities(self):
 
@@ -280,6 +269,10 @@ class TutorSimulator:
         self.attempt = self.attempt % len(self.area_rotation)
         area = self.area_rotation[self.attempt] # area is the question that is going to be asked
         prev_area = self.area_rotation[self.attempt - 1]
+
+        if self.type == 4:
+            pass
+
 
         if area == 'L':
             matrix_type = 'literacy'
