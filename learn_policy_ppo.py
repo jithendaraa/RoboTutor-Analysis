@@ -278,9 +278,7 @@ if __name__ == '__main__':
                 next_state, reward, student_response, done, posterior_know = envs.step(action.cpu().numpy(), [CONSTANTS['MAX_TIMESTEPS']] * CONSTANTS['NUM_ENVS'], timesteps=[timesteps]*CONSTANTS['NUM_ENVS'])
             
             log_prob = []
-            
             if args.type == 4 or args.type == 5:
-
                 for i in range(len(policies)):
                     policy = policies[i]
                     lp = policy.log_prob(action[i:i+1])
@@ -291,6 +289,7 @@ if __name__ == '__main__':
                 
             else:
                 log_prob = policy.log_prob(action)
+                print(policy, action.size(), log_prob.size())
                 critic_values.append(critic_value)
 
             log_probs.append(log_prob)
@@ -311,12 +310,11 @@ if __name__ == '__main__':
         advantage       = returns - critic_values
         advantage       = normalize(advantage)
 
-        break
         # According to PPO paper: (states, actions, log_probs, returns, advantage) is together referred to as a "trajectory"
-        # ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS, type_=args.type)
-        # train_epoch += 1
+        ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS, type_=args.type)
+        train_epoch += 1
         # print("UPDATING.... Epoch Num:", train_epoch)
-        # break
+        break
 
         # if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
         #     student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)

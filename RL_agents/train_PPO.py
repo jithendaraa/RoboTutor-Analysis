@@ -26,9 +26,12 @@ from reader import *
 from ppo_helper import *
 
 CONSTANTS = {
-                "NUM_ENVS"          : 4,
+                'STUDENT_MODEL_NAME': 'hotDINA_full',
+                'VILLAGE'           : '130',
+                'NUM_OBS'           : '100',
                 "STUDENT_ID"        : "new_student",
                 "ENV_ID"            : "RoboTutor",
+                "NUM_ENVS"          : 4,
                 "TARGET_P_KNOW"     : 0.90,
                 "STATE_SIZE"        : 22,
                 "ACTION_SIZE"       : 43,
@@ -47,9 +50,6 @@ CONSTANTS = {
                 "PPO_EPOCHS"        : 5,
                 "TEST_EPOCHS"       : 5,
                 "NUM_TESTS"         : 50,
-                'STUDENT_MODEL_NAME': 'hotDINA_full',
-                'VILLAGE'           : '130',
-                'NUM_OBS'           : '100',
                 'PATH_TO_ACTIIVTY_TABLE': 'Data/Activity_table_v4.1_22Apr2020.pkl'
     }
 
@@ -212,40 +212,41 @@ if __name__ == "__main__":
         # According to PPO paper: (states, actions, log_probs, returns, advantage) is together referred to as a "trajectory"
         ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS)
         train_epoch += 1
+        break
         
-        if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
-            student_simulator = StudentSimulator(village=CONSTANTS["VILLAGE"], 
-                                        observations=CONSTANTS["NUM_OBS"], 
-                                        student_model_name=CONSTANTS["STUDENT_MODEL_NAME"])
-            data_dict = get_data_dict(uniq_student_ids, kc_list)
-            # student_simulator.update_on_log_data(data_dict, plot=False, bayesian_update=True)
-            env = StudentEnv(student_simulator=student_simulator,
-                    skill_groups=uniq_skill_groups,
-                    skill_group_to_activity_map = skill_group_to_activity_map,
-                    action_size=CONSTANTS["ACTION_SIZE"],
-                    student_id=CONSTANTS["STUDENT_ID"])
-            env.checkpoint()
-            test_reward = np.mean([test_env(env, model, device, CONSTANTS, skill_group_to_activity_map, uniq_skill_groups) for _ in range(CONSTANTS["NUM_TESTS"])])
-            writer.add_scalar("test_rewards", test_reward, frame_idx)
-            print('Frame %s. reward: %s' % (frame_idx, test_reward))
-            print("FINAL AVG P(Know) after run ", CONSTANTS["RUN_NUM"], ": ", (test_reward/1000 + init_avg_p_know))
-            print("FINAL P(Know): after run ", CONSTANTS["RUN_NUM"], ": ", env.state)
-            final_p_know = env.state
-            final_avg_p_know = np.mean(np.array(final_p_know))
-            # Save a checkpoint every time we achieve a best reward
-            if best_reward is None or best_reward < test_reward:
-                if best_reward is not None:
-                    print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
-                    name = CONSTANTS['STUDENT_MODEL_NAME'] + ("best_%+.3f_%d.dat" % (test_reward, frame_idx))
-                    fname = os.path.join('.', 'checkpoints', name)
-                    torch.save(model.state_dict(), fname)
-                best_reward = test_reward
-            if test_reward > CONSTANTS["TARGET_REWARD"]: 
-                early_stop = True
+        # if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
+        #     student_simulator = StudentSimulator(village=CONSTANTS["VILLAGE"], 
+        #                                 observations=CONSTANTS["NUM_OBS"], 
+        #                                 student_model_name=CONSTANTS["STUDENT_MODEL_NAME"])
+        #     data_dict = get_data_dict(uniq_student_ids, kc_list)
+        #     # student_simulator.update_on_log_data(data_dict, plot=False, bayesian_update=True)
+        #     env = StudentEnv(student_simulator=student_simulator,
+        #             skill_groups=uniq_skill_groups,
+        #             skill_group_to_activity_map = skill_group_to_activity_map,
+        #             action_size=CONSTANTS["ACTION_SIZE"],
+        #             student_id=CONSTANTS["STUDENT_ID"])
+        #     env.checkpoint()
+        #     test_reward = np.mean([test_env(env, model, device, CONSTANTS, skill_group_to_activity_map, uniq_skill_groups) for _ in range(CONSTANTS["NUM_TESTS"])])
+        #     writer.add_scalar("test_rewards", test_reward, frame_idx)
+        #     print('Frame %s. reward: %s' % (frame_idx, test_reward))
+        #     print("FINAL AVG P(Know) after run ", CONSTANTS["RUN_NUM"], ": ", (test_reward/1000 + init_avg_p_know))
+        #     print("FINAL P(Know): after run ", CONSTANTS["RUN_NUM"], ": ", env.state)
+        #     final_p_know = env.state
+        #     final_avg_p_know = np.mean(np.array(final_p_know))
+        #     # Save a checkpoint every time we achieve a best reward
+        #     if best_reward is None or best_reward < test_reward:
+        #         if best_reward is not None:
+        #             print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
+        #             name = CONSTANTS['STUDENT_MODEL_NAME'] + ("best_%+.3f_%d.dat" % (test_reward, frame_idx))
+        #             fname = os.path.join('.', 'checkpoints', name)
+        #             torch.save(model.state_dict(), fname)
+        #         best_reward = test_reward
+        #     if test_reward > CONSTANTS["TARGET_REWARD"]: 
+        #         early_stop = True
 
-    print("INIT P(Know): \n", init_p_know)
-    print("FINAL P(Know): \n", final_p_know)
-    print("IMPROVEMENT PER SKILL: \n", np.array(final_p_know) - np.array(init_p_know))
-    print("INIT AVG P(KNOW): ", init_avg_p_know)
-    print("FINAL AVG P(KNOW): ", final_avg_p_know)
-    print("TOTAL RUNS: ", CONSTANTS["RUN_NUM"])
+    # print("INIT P(Know): \n", init_p_know)
+    # print("FINAL P(Know): \n", final_p_know)
+    # print("IMPROVEMENT PER SKILL: \n", np.array(final_p_know) - np.array(init_p_know))
+    # print("INIT AVG P(KNOW): ", init_avg_p_know)
+    # print("FINAL AVG P(KNOW): ", final_avg_p_know)
+    # print("TOTAL RUNS: ", CONSTANTS["RUN_NUM"])

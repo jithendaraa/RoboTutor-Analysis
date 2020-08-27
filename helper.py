@@ -209,7 +209,7 @@ def evaluate_performance_thresholds(student_simulator, tutor_simulator, CONSTANT
             p_know_activity = student_simulator.student_model.get_p_know_activity(student_num, activity_num)
         else:
             p_know_activity = None
-        x, y, area, activity_name = tutor_simulator.get_next_activity(p_know_activity, activity_num, str(response), prints)
+        x, y, area, activity_name = tutor_simulator.get_next_activity(p_know_prev_activity=p_know_activity, prev_activity_num=activity_num, response=str(response), prints=prints)
         activity_num = uniq_activities.index(activity_name)
         response = student_simulator.student_model.predict_response(activity_num, student_num, update=True)
         if prints:

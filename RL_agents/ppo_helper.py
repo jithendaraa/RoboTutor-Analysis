@@ -93,9 +93,8 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, un
         timesteps += 1
         state = torch.Tensor(state).unsqueeze(0).to(device)
         policy, _ = model(state)
+        
         if env.type == None:
-            policy = F.softmax(policy, dim=1)
-            action_probs = torch.distributions.Categorical(policy)
             action = torch.max(policy.view(-1), 0)[1].item()
             if deterministic is False:
                 action = action_probs.sample().item()
@@ -106,6 +105,13 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, un
             action = policy.probs.cpu().detach().numpy()[0]
             if deterministic == False:
                 action = policy.sample().cpu().numpy()[0]
+        
+        elif env.type == 3:
+            action = policy.probs.cpu().detach().numpy()[0]
+            if deterministic == False:
+                action = policy.sample().cpu().numpy()[0]
+            else:
+                action = action.tolist().index(max(action))
 
         next_state, reward, _, done, posterior = env.step(action, CONSTANTS["MAX_TIMESTEPS"], timesteps=timesteps, activityName=activity_name,bayesian_update=bayesian_update)
 
@@ -122,7 +128,7 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, un
     
     if env.type == None:
         return total_reward
-    elif env.type == 1 or env.type == 2:
+    elif env.type == 1 or env.type == 2 or env.type == 3:
         return total_reward, posterior
     
 
@@ -140,29 +146,53 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
     for _ in range(CONSTANTS["PPO_EPOCHS"]):
         # grabs random mini-batches several times until we have covered all data
         for state, action, old_log_probs, return_, advantage in ppo_iter(states, actions, log_probs, returns, advantages, CONSTANTS["PPO_STEPS"], CONSTANTS["NUM_ENVS"], CONSTANTS["MINI_BATCH_SIZE"]):
-            policy, critic_value = model(state)
-            entropy = policy.entropy().mean()
-            new_log_probs = policy.log_prob(action)
+            
+            if CONSTANTS['AGENT_TYPE'] == 4:
+                policies, critic_value = model(state)
+                entropies = []
+                log_prob = []
+                print(action)
+                for i in range(len(policies)):
+                    policy = policies[i]
 
-            ratio = (new_log_probs - old_log_probs).exp()
-            surr1 = ratio * advantage
-            surr2 = torch.clamp(ratio, 1.0 - clip_param, 1.0 + clip_param) * advantage
+                    if len(entropies) == 0:
+                        entropies = policy.entropy()
+                    else:
+                        entropies = torch.cat((entropies, policy.entropy()), 0)
 
-            actor_loss  = - torch.min(surr1, surr2).mean()
-            critic_loss = (return_ - critic_value).pow(2).mean()
+                    lp = policy.log_prob(action[i:i+1])
+                    if len(log_prob) == 0:  log_prob = lp
+                    else:   log_prob = torch.cat((log_prob, lp), 0)
+                    # print(lp.size(), "ya")
+                
+                entropy = entropies.mean()
+                # print(log_prob, log_prob.size())
+            else:
+                policy, critic_value = model(state)
+                entropy = policy.entropy().mean()
+                new_log_probs = policy.log_prob(action)
+                # print(action.size(), policy)
+                # print(new_log_probs, new_log_probs.size())
 
-            loss = CONSTANTS["CRITIC_DISCOUNT"] * critic_loss + actor_loss - CONSTANTS["ENTROPY_BETA"] * entropy
-            model.optimizer.zero_grad()
-            loss.backward()
-            model.optimizer.step()
+            # ratio = (new_log_probs - old_log_probs).exp()
+            # surr1 = ratio * advantage
+            # surr2 = torch.clamp(ratio, 1.0 - clip_param, 1.0 + clip_param) * advantage
 
-            # track statistics
-            sum_returns += return_.mean()
-            sum_advantage += advantage.mean()
-            sum_loss_actor += actor_loss
-            sum_loss_critic += critic_loss
-            sum_loss_total += loss
-            sum_entropy += entropy
+            # actor_loss  = - torch.min(surr1, surr2).mean()
+            # critic_loss = (return_ - critic_value).pow(2).mean()
+
+            # loss = CONSTANTS["CRITIC_DISCOUNT"] * critic_loss + actor_loss - CONSTANTS["ENTROPY_BETA"] * entropy
+            # model.optimizer.zero_grad()
+            # loss.backward()
+            # model.optimizer.step()
+
+            # # track statistics
+            # sum_returns += return_.mean()
+            # sum_advantage += advantage.mean()
+            # sum_loss_actor += actor_loss
+            # sum_loss_critic += critic_loss
+            # sum_loss_total += loss
+            # sum_entropy += entropy
             count_steps += 1
 
         # writer.add_scalar("returns", sum_returns / count_steps, frame_idx)

@@ -270,10 +270,6 @@ class TutorSimulator:
         area = self.area_rotation[self.attempt] # area is the question that is going to be asked
         prev_area = self.area_rotation[self.attempt - 1]
 
-        if self.type == 4:
-            pass
-
-
         if area == 'L':
             matrix_type = 'literacy'
         elif area == 'N':
