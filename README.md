@@ -44,7 +44,7 @@
 - [ ] Type 4 (**Action**: Same as type 3 but transition constraint is no longer 4 (prev, same, next, next-next))
     - [ ] ItemBKT
     - [ ] ActivityBKT
-    - [ ] hotDINA_skill
+    - [x] hotDINA_skill
     - [ ] hotDINA_full
 - [ ] Type 5 (**Action**: Same as 3 but with removed transition constraint and area rotation constraint "Lit-Num-Lit-Sto")
     - [ ] ItemBKT
