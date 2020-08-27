@@ -138,13 +138,45 @@ class StudentSimulator():
                 self.params_dict = slurm_output_params(path, village, self.hotDINA_full_slurm_files[village])
             # student proficiency for 'new_student'
             self.params_dict['theta'].append(-np.log(9)/1.7)
+    
+    def remove_discrepant_activities(self):
+
+        discrepant_activities = ["story.parrot::syl.da..du.asc.lc.12",
+                                "story.echo::story_31",
+                                "story.parrot::story_37",
+                                "story.parrot::story_49",
+                                "story.parrot::story_43",
+                                "write.missingLtr:lc.begin.ku.21",
+                                "write.num.trc:WR-1..20.3",
+                                "bpop.gl:num.0..9.GL_SD_OFF1_M.bub3.9",
+                                "bpop.gl:dot.0..9.GL_SD_OFF1_M.bub2.5",
+                                "bpop.gl:dot.0..9.GL_SD_OFFW1_M.bub2.7",
+                                "bpop.gl:num.0..9.GL_SD_OFF1_L.bub3.10",
+                                "bpop.gl:num.0..9.GL_SD_OFFW1_L.bub3.12",
+                                "bpop.gl:num.0..9.GL_SD_OFFW1_M.bub3.11",
+                                "math:0..8.ADD-1-V-S.incr.1",
+                                "math:0..8.ADD-1D-V-S.rand.2",
+                                "math:0..8.ADD-1D-V-S.rand.3",
+                                "math:0..80.ADD-10-V-S.incr.7",
+                                "math:10..80.ADD-2D-V-S.rand.9",
+                                "math:10..80.ADD-2D-V-S.rand.8",
+                                "math:0..8.SUB-1-V-S.decr.4",
+                                "math:0..8.SUB-10D-V-S.rand.5",
+                                "math:0..8.SUB-1D-V-S.rand.6",
+                                "math:10..80.SUB-10-V-S.decr.10",
+                                "math:10..80.SUB-2D-V-S.rand.11"]
         
+        for act in discrepant_activities:
+            if act in self.uniq_activities:
+                self.uniq_activities.remove(act)
+
     def set_uniq_activities(self):
         kc_to_tutorID_dict = init_kc_to_tutorID_dict(self.kc_list)
         self.cta_tutor_ids, kc_to_tutorID_dict = get_cta_tutor_ids(kc_to_tutorID_dict, self.kc_list, self.cta_df)
         self.underscore_to_colon_tutor_id_dict = get_underscore_to_colon_tutor_id_dict(self.cta_tutor_ids)
         self.uniq_activities = get_uniq_activities(self.cta_tutor_ids, self.underscore_to_colon_tutor_id_dict)
-    
+        self.remove_discrepant_activities()
+
     def set_new_student_params(self):
 
         if self.new_student_params == None:

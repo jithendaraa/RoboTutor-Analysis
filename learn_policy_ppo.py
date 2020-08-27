@@ -125,7 +125,6 @@ def arg_parser():
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if use_cuda else "cpu:0")
     print('Device:', device)        # Autodetect CUDA
-
     return args
 
 def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=10):
@@ -179,41 +178,39 @@ if __name__ == '__main__':
     
     clear_files("ppo", True, path='RL_agents/')
     mkdir('.', 'checkpoints')
-    
-    args = arg_parser()
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if use_cuda else "cpu:0")
-    area_rotation = CONSTANTS['AREA_ROTATION']
+    
+    args = arg_parser()
     student_id = CONSTANTS['STUDENT_ID']
-    state_size  = CONSTANTS["STATE_SIZE"]
-    action_size = CONSTANTS["ACTION_SIZE"]
+    area_rotation = CONSTANTS['AREA_ROTATION']
+    
     student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
+    tutor_simulator = TutorSimulator(CONSTANTS['LOW_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_PERFORMANCE_THRESHOLD'], area_rotation=CONSTANTS['AREA_ROTATION'], type=CONSTANTS['AGENT_TYPE'], thresholds=CONSTANTS['USES_THRESHOLDS'])
+    
     uniq_activities = student_simulator.uniq_activities
     uniq_student_ids = student_simulator.uniq_student_ids
     student_num = uniq_student_ids.index(student_id)
+
+    if args.type == 4 or args.type == 5:
+        num_literacy_acts = len(tutor_simulator.literacy_activities)
+        num_math_acts = len(tutor_simulator.math_activities)
+        num_story_acts = len(tutor_simulator.story_activities)
+        CONSTANTS['ACTION_SIZE'] = [num_literacy_acts, num_math_acts, num_story_acts]
+        CONSTANTS['NUM_LITERACY_ACTS'], CONSTANTS['NUM_MATH_ACTS'], CONSTANTS['NUM_STORY_ACTS'] = CONSTANTS['ACTION_SIZE'][0], CONSTANTS['ACTION_SIZE'][1], CONSTANTS['ACTION_SIZE'][2]
+        CONSTANTS['LITERACY_ACTS'], CONSTANTS['MATH_ACTS'], CONSTANTS['STORY_ACTS'] = tutor_simulator.literacy_activities, tutor_simulator.math_activities, tutor_simulator.story_activities
+        if args.type == 5:  
+            CONSTANTS['ACTION_SIZE'] = num_literacy_acts + num_math_acts + num_story_acts
     
-    tutor_simulator = TutorSimulator(CONSTANTS['LOW_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_PERFORMANCE_THRESHOLD'], area_rotation=CONSTANTS['AREA_ROTATION'], type=CONSTANTS['AGENT_TYPE'], thresholds=CONSTANTS['USES_THRESHOLDS'])
+    state_size  = CONSTANTS["STATE_SIZE"]
+    action_size = CONSTANTS["ACTION_SIZE"]
 
     env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
     env.checkpoint()
     init_p_know = set_target_reward(env)
 
-    num_literacy_acts = 0
-    num_math_acts = 0
-    num_stories_acts = 0
-
-    if args.type == 4:
-        num_literacy_acts = len(tutor_simulator.literacy_activities)
-        num_math_acts = len(tutor_simulator.math_activities)
-        num_story_acts = len(tutor_simulator.story_activities)
-        action_size = [num_literacy_acts, num_math_acts, num_story_acts]
-        CONSTANTS['NUM_LITERACY_ACTS'], CONSTANTS['NUM_MATH_ACTS'], CONSTANTS['NUM_STORY_ACTS'] = action_size[0], action_size[1], action_size[2]
-        CONSTANTS['LITERACY_ACTS'], CONSTANTS['MATH_ACTS'], CONSTANTS['STORY_ACTS'] = tutor_simulator.literacy_activities, tutor_simulator.math_activities, tutor_simulator.story_activities
-
     model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[state_size], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=action_size, type=args.type)
-    
     if args.model != None:  model.load_state_dict(torch.load("checkpoints/"+args.model))
-    
     if args.type <= 2: evaluate_current_RT_thresholds(plots=False, prints=False, avg_over_runs=10)
 
     frame_idx = 0
@@ -242,14 +239,9 @@ if __name__ == '__main__':
         for _ in range(CONSTANTS["PPO_STEPS"]):
             timesteps += 1
 
-            if isinstance(state, list): 
-                state = torch.tensor(state)
-            
-            if torch.is_tensor(state) == False or isinstance(state, np.ndarray): 
-                state = torch.FloatTensor(state)
-            
-            if state.get_device() != device:
-                state = state.to(device)
+            if isinstance(state, list): state = torch.tensor(state)
+            if torch.is_tensor(state) == False or isinstance(state, np.ndarray):    state = torch.FloatTensor(state)
+            if state.get_device() != device:    state = state.to(device)
 
             if args.type == 4:
                 policies, values = model(state)
@@ -274,22 +266,20 @@ if __name__ == '__main__':
                 
                 activity_actions = np.array(activity_actions)
                 next_state, reward, student_response, done, posterior_know = envs.step(activity_actions, [CONSTANTS['MAX_TIMESTEPS']] * CONSTANTS['NUM_ENVS'], timesteps=[timesteps]*CONSTANTS['NUM_ENVS'])
-
-            else:
-                policy, critic_value = model(state)
-                action = policy.sample()    # sample action from the policy distribution
-                next_state, reward, student_response, done, posterior_know = envs.step(action.cpu().numpy(), [CONSTANTS['MAX_TIMESTEPS']] * CONSTANTS['NUM_ENVS'], timesteps=[timesteps]*CONSTANTS['NUM_ENVS'])
-            
-            log_prob = []
-            if args.type == 4 or args.type == 5:
+                
+                log_prob = []
                 for i in range(len(policies)):
                     policy = policies[i]
                     lp = policy.log_prob(action[i:i+1])
                     if len(log_prob) == 0:  log_prob = lp
                     else:   log_prob = torch.cat((log_prob, lp), 0)
                 critic_values.append(values)
-                
+
             else:
+                policy, critic_value = model(state)
+                action = policy.sample()    # sample action from the policy distribution
+                next_state, reward, student_response, done, posterior_know = envs.step(action.cpu().numpy(), [CONSTANTS['MAX_TIMESTEPS']] * CONSTANTS['NUM_ENVS'], timesteps=[timesteps]*CONSTANTS['NUM_ENVS'])
+            
                 log_prob = policy.log_prob(action)
                 critic_values.append(critic_value)
 
@@ -312,12 +302,12 @@ if __name__ == '__main__':
         states          = torch.cat(states)
         actions         = torch.cat(actions)
         advantage       = normalize(returns - critic_values)
- 
+
         # According to PPO paper: (states, actions, log_probs, returns, advantage) is together referred to as a "trajectory"
         ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS, type_=args.type)
         train_epoch += 1
         print("UPDATING.... Epoch Num:", train_epoch)
-
+        
         if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
             student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
             env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
@@ -327,7 +317,7 @@ if __name__ == '__main__':
                 test_reward = np.mean([test_env(env, model, device, CONSTANTS, deterministic=False) for _ in range(CONSTANTS["NUM_TESTS"])])
                 final_p_know = env.state
             
-            elif env.type == 1 or env.type == 2 or env.type == 3 or env.type == 4:
+            elif env.type == 1 or env.type == 2 or env.type == 3 or env.type == 4 or env.type == 5:
                 test_reward = []
                 final_p_know = []
                 for _ in range(CONSTANTS['NUM_TESTS']):
@@ -354,6 +344,6 @@ if __name__ == '__main__':
     print("INIT P(Know): \n", init_p_know)
     print("FINAL P(Know): \n", final_p_know)
     print("IMPROVEMENT PER SKILL: \n", np.array(final_p_know) - np.array(init_p_know))
-    print("INIT AVG P(KNOW): ", init_avg_p_know)
+    print("INIT AVG P(KNOW): ", np.mean(init_p_know))
     print("FINAL AVG P(KNOW): ", final_avg_p_know)
     print("TOTAL RUNS: ", CONSTANTS["RUN_NUM"])

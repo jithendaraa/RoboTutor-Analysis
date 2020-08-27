@@ -59,7 +59,6 @@ class TutorSimulator:
         self.literacy_activities = pd.unique(np.array(self.literacy_activities)).tolist()
         self.math_activities = pd.unique(np.array(self.math_activities)).tolist()
         self.story_activities = pd.unique(np.array(self.story_activities)).tolist()
-
     
     def reset(self):
         self.attempt = 0

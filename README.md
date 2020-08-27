@@ -49,7 +49,7 @@
 - [ ] Type 5 (**Action**: Same as 3 but with removed transition constraint and area rotation constraint "Lit-Num-Lit-Sto")
     - [ ] ItemBKT
     - [ ] ActivityBKT
-    - [ ] hotDINA_skill
+    - [x] hotDINA_skill
     - [ ] hotDINA_full
 
 For meaning of "types of RL agent", please refer <a href="https://docs.google.com/document/d/1saE4yC0xdfc8t3REdJMxbOeBfwfSbaFcSIyDA8Yhqbc/edit"> this doc </a>

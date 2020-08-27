@@ -60,10 +60,10 @@ class StudentEnv():
                 self.tutor_simulator = TutorSimulator(t1=t1, t2=t2, t3=t3, area_rotation=self.area_rotation, type=self.type, thresholds=True)
             else:
                 self.tutor_simulator.set_thresholds(t1, t2, t3)
-        elif self.type == 3:
+        elif self.type == 3 or self.type == 5:
             if self.tutor_simulator == None:
                 self.tutor_simulator = TutorSimulator(area_rotation=self.area_rotation, type=self.type, thresholds=False)
-        
+
 
     def set_initial_state(self, matrix_posn=None, matrix_area=None):
         
@@ -80,7 +80,7 @@ class StudentEnv():
             elif student_model_name == 'hotDINA_skill' or student_model_name == 'hotDINA_full':
                 self.state = np.array(student_model.alpha[self.student_num][-1]).copy()
         
-        elif self.type == 2 or self.type == 3 or self.type == 4:
+        elif self.type == 2 or self.type == 3 or self.type == 4 or self.type == 5:
 
             if student_model_name == 'ItemBKT':
                 pass
@@ -103,7 +103,7 @@ class StudentEnv():
                 elif first_area == 'S':
                     matrix_type = [3]
                 self.state = np.array(knows + matrix_type + matrix_posn)
-                if self.type == 4:
+                if self.type == 4 or self.type == 5:
                     self.state = np.array(knows + matrix_type)
             
             elif student_model_name == 'hotDINA_full':
@@ -170,18 +170,33 @@ class StudentEnv():
         observations = self.student_simulator.observations
         student_model_name = self.student_simulator.student_model_name
         new_student_params = self.student_simulator.new_student_params
-        
+
         if self.type == 1 or self.type == 2:
             t1, t2, t3 = action[0], action[1], action[2]
             self.set_tutor_simulator(t1=t1, t2=t2, t3=t3)
         else:
             self.set_tutor_simulator()
 
-        if self.type == None:
+        if self.type == None or self.type == 5:
+            activity_num = action
             prior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
             student_response = self.student_simulator.student_model.predict_response(activity_num, self.student_num, update=True)
             posterior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
             next_state = np.array(posterior_know.copy())
+            
+            if self.type == 5:
+                activity_name = self.student_simulator.uniq_activities[activity_num]
+
+                if activity_name in self.tutor_simulator.literacy_activities:
+                    matrix_num = [1]
+                elif activity_name in self.tutor_simulator.math_activities:
+                    matrix_num = [2]
+                elif activity_name in self.tutor_simulator.story_activities:
+                    matrix_num = [3]
+                else:
+                    print("OOPS! @environment.py", activity_name)
+
+                next_state = np.array(posterior_know + matrix_num)
             self.state = next_state.copy()
         
         elif self.type == 1:
@@ -254,9 +269,6 @@ class StudentEnv():
                 matrix_num = [3]
             next_state = np.array(posterior_know + matrix_num)
             self.state = next_state.copy()
-
-        elif self.type == 5:
-            pass
             
         return next_state, student_response, done, prior_know, posterior_know
     

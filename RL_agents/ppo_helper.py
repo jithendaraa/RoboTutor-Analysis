@@ -108,7 +108,7 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, un
                 action = policy.sample().cpu().numpy()[0]
             next_state, reward, _, done, posterior = env.step(action, CONSTANTS["MAX_TIMESTEPS"], timesteps=timesteps, activityName=activity_name,bayesian_update=bayesian_update)
         
-        elif env.type == 3:
+        elif env.type == 3 or env.type == 5:
             if deterministic == False:
                 action = policy.sample().cpu().numpy()[0]
             else:
@@ -149,7 +149,7 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, un
     
     if env.type == None:
         return total_reward
-    elif env.type == 1 or env.type == 2 or env.type == 3 or env.type == 4:
+    elif env.type == 1 or env.type == 2 or env.type == 3 or env.type == 4 or env.type == 5:
         return total_reward, posterior
     
 
@@ -174,7 +174,7 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
                 entropy = policy.entropy().mean()
                 new_log_probs = policy.log_prob(action)
             
-            elif CONSTANTS['AGENT_TYPE'] == 3:
+            elif CONSTANTS['AGENT_TYPE'] == 3 or CONSTANTS['AGENT_TYPE'] == 5:
                 policy, critic_value = model(state)
                 entropy = policy.entropy().mean()
                 new_log_probs = policy.log_prob(action.view(-1)).view(-1, 1)

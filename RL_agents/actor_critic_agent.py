@@ -128,9 +128,11 @@ class ActorCritic(nn.Module):
         self.n_actions = n_actions
         self.type = type
 
-        if type == None or type == 3:       
+        if type == None or type == 3 or type == 5:       
             self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
+            self.fc2 = nn.Linear(self.fc1_dims, self.fc1_dims)
             self.pi = nn.Linear(self.fc1_dims, n_actions)   #   Actor proposes policy 
+            print(n_actions)
             self.v = nn.Linear(self.fc1_dims, 1)            #   Critic gives a value to criticise the proposed action/policy
 
         elif type == 1 or type == 2:
@@ -151,7 +153,7 @@ class ActorCritic(nn.Module):
 
             self.story_pi = nn.Linear(self.fc1_dims, num_story_acts)
             self.story_value = nn.Linear(self.fc1_dims, 1)
-
+        
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu:0")
         self.optimizer = optim.Adam(self.parameters(), lr = lr)
@@ -160,9 +162,9 @@ class ActorCritic(nn.Module):
     def forward(self, state):
         # state should be a torch.Tensor
 
-        if self.type == None or self.type == 3:
-            x = self.fc1(state)
-            x = F.relu(x)
+        if self.type == None or self.type == 3 or self.type == 5:
+            x = F.relu(self.fc1(state))
+            x = F.relu(self.fc2(x))
             pi = F.softmax(self.pi(x), dim=1)
             v = self.v(x)
             pi = torch.distributions.Categorical(pi)    # discrete actions
@@ -211,8 +213,3 @@ class ActorCritic(nn.Module):
                     story_pi = torch.distributions.Categorical(story_pi)
                     pis.append(story_pi)
                     values.append(story_value)
-
-            if len(values) != 0:    values = torch.stack(values)
-
-            return pis, values
-
