@@ -159,6 +159,7 @@ class ActorCritic(nn.Module):
 
     def forward(self, state):
         # state should be a torch.Tensor
+
         if self.type == None or self.type == 3:
             x = self.fc1(state)
             x = F.relu(x)
@@ -177,9 +178,7 @@ class ActorCritic(nn.Module):
         
         elif self.type == 4:
             pis = []
-            literacy_values = []
-            math_values = []
-            story_values = []
+            values=  []
             matrix_nums = []
 
             for row in state.cpu().tolist():
@@ -197,25 +196,23 @@ class ActorCritic(nn.Module):
                     literacy_value = self.literacy_value(x).view(-1)
                     literacy_pi = torch.distributions.Categorical(literacy_pi)
                     pis.append(literacy_pi)
-                    literacy_values.append(literacy_value)
+                    values.append(literacy_value)
 
                 elif matrix_nums[i] == 2:
                     math_pi = F.softmax(self.math_pi(x), dim=1)
                     math_value = self.math_value(x).view(-1)
                     math_pi = torch.distributions.Categorical(math_pi)
                     pis.append(math_pi)
-                    math_values.append(math_value)
+                    values.append(math_value)
 
                 elif matrix_nums[i] == 3:
                     story_pi = F.softmax(self.story_pi(x), dim=1)
                     story_value = self.story_value(x).view(-1)
                     story_pi = torch.distributions.Categorical(story_pi)
                     pis.append(story_pi)
-                    story_values.append(story_value)
+                    values.append(story_value)
 
-            if len(literacy_values) != 0:   literacy_values = torch.stack(literacy_values)
-            if len(math_values) != 0:       math_values = torch.stack(math_values)
-            if len(story_values) != 0:      story_values = torch.stack(story_values)
+            if len(values) != 0:    values = torch.stack(values)
 
-            return pis, literacy_values, math_values, story_values, matrix_nums
+            return pis, values
 
