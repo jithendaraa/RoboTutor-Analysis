@@ -89,6 +89,7 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, un
     done = False
     total_reward = 0
     timesteps = 0
+
     while not done:
         timesteps += 1
         state = torch.Tensor(state).unsqueeze(0).to(device)
@@ -105,15 +106,35 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, un
             action = policy.probs.cpu().detach().numpy()[0]
             if deterministic == False:
                 action = policy.sample().cpu().numpy()[0]
+            next_state, reward, _, done, posterior = env.step(action, CONSTANTS["MAX_TIMESTEPS"], timesteps=timesteps, activityName=activity_name,bayesian_update=bayesian_update)
         
         elif env.type == 3:
-            action = policy.probs.cpu().detach().numpy()[0]
             if deterministic == False:
                 action = policy.sample().cpu().numpy()[0]
             else:
+                action = policy.probs.cpu().detach().numpy()[0]
+                action = action.tolist().index(max(action))
+            next_state, reward, _, done, posterior = env.step(action, CONSTANTS["MAX_TIMESTEPS"], timesteps=timesteps, activityName=activity_name,bayesian_update=bayesian_update)
+
+        elif env.type == 4:
+            policy = policy[0]
+            if deterministic == False:
+                action = policy.sample().cpu().numpy()[0]
+            else:
+                action = policy.probs.cpu().detach().numpy()
                 action = action.tolist().index(max(action))
 
-        next_state, reward, _, done, posterior = env.step(action, CONSTANTS["MAX_TIMESTEPS"], timesteps=timesteps, activityName=activity_name,bayesian_update=bayesian_update)
+            row = state[0]
+            matrix_num = int(row[-1].item())
+            if matrix_num == 1: # literacy
+                act = CONSTANTS['LITERACY_ACTS'][action]
+            elif matrix_num == 2:   # math
+                act = CONSTANTS['MATH_ACTS'][action]
+            elif matrix_num == 3:   # story
+                act = CONSTANTS['STORY_ACTS'][action]
+                
+            act_num = env.student_simulator.uniq_activities.index(act)
+            next_state, reward, _, done, posterior = env.step(act_num, [CONSTANTS['MAX_TIMESTEPS']] * CONSTANTS['NUM_ENVS'], timesteps=[timesteps]*CONSTANTS['NUM_ENVS'])
 
         prior = state[0]
         state = next_state.copy()
@@ -128,7 +149,7 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, un
     
     if env.type == None:
         return total_reward
-    elif env.type == 1 or env.type == 2 or env.type == 3:
+    elif env.type == 1 or env.type == 2 or env.type == 3 or env.type == 4:
         return total_reward, posterior
     
 

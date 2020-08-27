@@ -20,16 +20,16 @@ class StudentEnv():
     def __init__(self, student_simulator, action_size, student_id='new_student', env_num=1, type=None, prints=True, area_rotation=None, CONSTANTS=None, matrix_area=None, matrix_posn=None):
         
         self.student_simulator = student_simulator
+        self.tutor_simulator = None
         self.student_id = student_id
         self.student_num = self.student_simulator.uniq_student_ids.index(self.student_id)
-        self.action_size = action_size
         self.type = type
         self.area_rotation = area_rotation
+        self.action_size = action_size
         self.cycle_len = len(area_rotation.split('-'))
         self.CONSTANTS = CONSTANTS
         self.activity_num = None
         self.response = ""
-        self.tutor_simulator = None
         self.attempts = 0
 
         self.set_initial_state(matrix_area=matrix_area, matrix_posn=matrix_posn)

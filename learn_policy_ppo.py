@@ -172,6 +172,7 @@ def set_target_reward(env):
     init_avg_p_know = np.mean(np.array(init_p_know))
     target_avg_p_know = CONSTANTS["TARGET_P_KNOW"]
     CONSTANTS["TARGET_REWARD"] = 1000 * (target_avg_p_know - init_avg_p_know)
+    return init_p_know
 
 
 if __name__ == '__main__':
@@ -195,7 +196,7 @@ if __name__ == '__main__':
 
     env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
     env.checkpoint()
-    set_target_reward(env)
+    init_p_know = set_target_reward(env)
 
     num_literacy_acts = 0
     num_math_acts = 0
@@ -206,6 +207,8 @@ if __name__ == '__main__':
         num_math_acts = len(tutor_simulator.math_activities)
         num_story_acts = len(tutor_simulator.story_activities)
         action_size = [num_literacy_acts, num_math_acts, num_story_acts]
+        CONSTANTS['NUM_LITERACY_ACTS'], CONSTANTS['NUM_MATH_ACTS'], CONSTANTS['NUM_STORY_ACTS'] = action_size[0], action_size[1], action_size[2]
+        CONSTANTS['LITERACY_ACTS'], CONSTANTS['MATH_ACTS'], CONSTANTS['STORY_ACTS'] = tutor_simulator.literacy_activities, tutor_simulator.math_activities, tutor_simulator.story_activities
 
     model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[state_size], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=action_size, type=args.type)
     
@@ -284,74 +287,73 @@ if __name__ == '__main__':
                     lp = policy.log_prob(action[i:i+1])
                     if len(log_prob) == 0:  log_prob = lp
                     else:   log_prob = torch.cat((log_prob, lp), 0)
-                
                 critic_values.append(values)
                 
             else:
                 log_prob = policy.log_prob(action)
-                print(policy, action.size(), log_prob.size())
                 critic_values.append(critic_value)
 
             log_probs.append(log_prob)
             rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
             dones.append(torch.Tensor(1 - done).unsqueeze(1).to(device))
+            
             states.append(state)
             actions.append(action)
+            
             state = next_state.copy()
             frame_idx += 1
         
         _, critic_value_ = model(torch.Tensor(next_state).to(device))
         returns         = compute_gae(critic_value_, rewards, dones, critic_values, CONSTANTS["GAMMA"], CONSTANTS["GAE_LAMBDA"])
+        
         returns         = torch.cat(returns).detach()
         log_probs       = torch.cat(log_probs).detach()
         critic_values   = torch.cat(critic_values).detach()
         states          = torch.cat(states)
         actions         = torch.cat(actions)
-        advantage       = returns - critic_values
-        advantage       = normalize(advantage)
-
+        advantage       = normalize(returns - critic_values)
+ 
         # According to PPO paper: (states, actions, log_probs, returns, advantage) is together referred to as a "trajectory"
         ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS, type_=args.type)
         train_epoch += 1
-        # print("UPDATING.... Epoch Num:", train_epoch)
-        break
+        print("UPDATING.... Epoch Num:", train_epoch)
 
-        # if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
-        #     student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
-        #     env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
-        #     env.checkpoint()
-        #     # writer.add_scalar("test_rewards", test_reward, frame_idx)
-        #     if env.type == None:
-        #         test_reward = np.mean([test_env(env, model, device, CONSTANTS, deterministic=False) for _ in range(CONSTANTS["NUM_TESTS"])])
-        #         final_p_know = env.state
+        if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
+            student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
+            env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
+            env.checkpoint()
+            # writer.add_scalar("test_rewards", test_reward, frame_idx)
+            if env.type == None:
+                test_reward = np.mean([test_env(env, model, device, CONSTANTS, deterministic=False) for _ in range(CONSTANTS["NUM_TESTS"])])
+                final_p_know = env.state
             
-        #     elif env.type == 1 or env.type == 2 or env.type == 3:
-        #         test_reward = []
-        #         final_p_know = []
-        #         for _ in range(CONSTANTS['NUM_TESTS']):
-        #             tr, fpk = test_env(env, model, device, CONSTANTS, deterministic=False)
-        #             test_reward.append(tr)
-        #             final_p_know.append(fpk)
-        #         test_reward = np.mean(test_reward)
-        #         final_p_know = np.mean(final_p_know, axis=0) 
-                
-        #     print('Frame %s. reward: %s' % (frame_idx, test_reward))
-        #     final_avg_p_know = np.mean(final_p_know)
-        #     # Save a checkpoint every time we achieve a best reward
-        #     if best_reward is None or best_reward < test_reward:
-        #         if best_reward is not None:
-        #             print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
-        #             name = CONSTANTS['STUDENT_MODEL_NAME'] + "_type" + str(args.type) + ("_best_%+.3f_%d.dat" % (test_reward, frame_idx))
-        #             fname = os.path.join('.', 'checkpoints', name)
-        #             torch.save(model.state_dict(), fname)
-        #         best_reward = test_reward
-        #     if test_reward > CONSTANTS["TARGET_REWARD"]: 
-        #         early_stop = True
+            elif env.type == 1 or env.type == 2 or env.type == 3 or env.type == 4:
+                test_reward = []
+                final_p_know = []
+                for _ in range(CONSTANTS['NUM_TESTS']):
+                    tr, fpk = test_env(env, model, device, CONSTANTS, deterministic=False)
+                    test_reward.append(tr)
+                    final_p_know.append(fpk)
+                test_reward = np.mean(test_reward)
+                final_p_know = np.mean(final_p_know, axis=0) 
+            
+            print('Frame %s. reward: %s' % (frame_idx, test_reward))
+            final_avg_p_know = np.mean(final_p_know)
+            # Save a checkpoint every time we achieve a best reward
+            if best_reward is None or best_reward < test_reward:
+                if best_reward is not None:
+                    print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
+                    name = CONSTANTS['STUDENT_MODEL_NAME'] + "_type" + str(args.type) + ("_best_%+.3f_%d.dat" % (test_reward, frame_idx))
+                    fname = os.path.join('.', 'checkpoints', name)
+                    torch.save(model.state_dict(), fname)
+                best_reward = test_reward
+            if test_reward > CONSTANTS["TARGET_REWARD"]: 
+                early_stop = True
 
 
-    # print("INIT P(Know): \n", init_p_know)
-    # print("FINAL P(Know): \n", final_p_know)
-    # print("IMPROVEMENT PER SKILL: \n", np.array(final_p_know) - np.array(init_p_know))
-    # print("INIT AVG P(KNOW): ", init_avg_p_know)
-    # print("FINAL AVG P(KNOW): ", final_avg_p_know)
-    # print("TOTAL RUNS: ", CONSTANTS["RUN_NUM"])
+    print("INIT P(Know): \n", init_p_know)
+    print("FINAL P(Know): \n", final_p_know)
+    print("IMPROVEMENT PER SKILL: \n", np.array(final_p_know) - np.array(init_p_know))
+    print("INIT AVG P(KNOW): ", init_avg_p_know)
+    print("FINAL AVG P(KNOW): ", final_avg_p_know)
+    print("TOTAL RUNS: ", CONSTANTS["RUN_NUM"])
