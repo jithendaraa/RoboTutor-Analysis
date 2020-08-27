@@ -239,11 +239,17 @@ if __name__ == '__main__':
         for _ in range(CONSTANTS["PPO_STEPS"]):
             timesteps += 1
 
-            if isinstance(state, list): state = torch.tensor(state)
-            if torch.is_tensor(state) == False: state = torch.FloatTensor(state).to(device)
+            if isinstance(state, list): 
+                state = torch.tensor(state)
             
+            if torch.is_tensor(state) == False or isinstance(state, np.ndarray): 
+                state = torch.FloatTensor(state)
+            
+            if state.get_device() != device:
+                state = state.to(device)
+
             if args.type == 4:
-                policies, literacy_values, math_values, story_values, matrix_nums = model(state)
+                policies, values = model(state)
                 activity_actions = []
                 action = []
                 for policy in policies:
@@ -280,18 +286,13 @@ if __name__ == '__main__':
                     lp = policy.log_prob(action[i:i+1])
                     if len(log_prob) == 0:  log_prob = lp
                     else:   log_prob = torch.cat((log_prob, lp), 0)
-
-                    if matrix_nums[i] == 1:
-                        critic_values.append(literacy_values)
-                    elif matrix_nums[i] == 2:
-                        critic_values.append(math_values)
-                    elif matrix_nums[i] == 3:
-                        critic_values.append(story_values)
+                
+                critic_values.append(values)
                 
             else:
                 log_prob = policy.log_prob(action)
                 critic_values.append(critic_value)
-            
+
             log_probs.append(log_prob)
             rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
             dones.append(torch.Tensor(1 - done).unsqueeze(1).to(device))
@@ -299,22 +300,23 @@ if __name__ == '__main__':
             actions.append(action)
             state = next_state.copy()
             frame_idx += 1
-            
+        
+        _, critic_value_ = model(torch.Tensor(next_state).to(device))
+        returns         = compute_gae(critic_value_, rewards, dones, critic_values, CONSTANTS["GAMMA"], CONSTANTS["GAE_LAMBDA"])
+        returns         = torch.cat(returns).detach()
+        log_probs       = torch.cat(log_probs).detach()
+        critic_values   = torch.cat(critic_values).detach()
+        states          = torch.cat(states)
+        actions         = torch.cat(actions)
+        advantage       = returns - critic_values
+        advantage       = normalize(advantage)
 
-        # _, critic_value_ = model(torch.Tensor(next_state).to(device))
-        # returns         = compute_gae(critic_value_, rewards, dones, critic_values, CONSTANTS["GAMMA"], CONSTANTS["GAE_LAMBDA"])
-        # returns         = torch.cat(returns).detach()
-        # log_probs       = torch.cat(log_probs).detach()
-        # critic_values   = torch.cat(critic_values).detach()
-        # states          = torch.cat(states)
-        # actions         = torch.cat(actions)
-        # advantage       = returns - critic_values
-        # advantage       = normalize(advantage)
-
+        break
         # According to PPO paper: (states, actions, log_probs, returns, advantage) is together referred to as a "trajectory"
         # ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS, type_=args.type)
         # train_epoch += 1
         # print("UPDATING.... Epoch Num:", train_epoch)
+        # break
 
         # if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
         #     student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
