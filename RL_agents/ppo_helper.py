@@ -146,53 +146,54 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
     for _ in range(CONSTANTS["PPO_EPOCHS"]):
         # grabs random mini-batches several times until we have covered all data
         for state, action, old_log_probs, return_, advantage in ppo_iter(states, actions, log_probs, returns, advantages, CONSTANTS["PPO_STEPS"], CONSTANTS["NUM_ENVS"], CONSTANTS["MINI_BATCH_SIZE"]):
+            # print("OLD LOG PROBS", old_log_probs, old_log_probs.size())
             
-            if CONSTANTS['AGENT_TYPE'] == 4:
-                policies, critic_value = model(state)
-                entropies = []
-                log_prob = []
-                print(action)
-                for i in range(len(policies)):
-                    policy = policies[i]
-
-                    if len(entropies) == 0:
-                        entropies = policy.entropy()
-                    else:
-                        entropies = torch.cat((entropies, policy.entropy()), 0)
-
-                    lp = policy.log_prob(action[i:i+1])
-                    if len(log_prob) == 0:  log_prob = lp
-                    else:   log_prob = torch.cat((log_prob, lp), 0)
-                    # print(lp.size(), "ya")
-                
-                entropy = entropies.mean()
-                # print(log_prob, log_prob.size())
-            else:
+            if CONSTANTS['AGENT_TYPE'] == 1 or CONSTANTS['AGENT_TYPE'] == 2:
                 policy, critic_value = model(state)
                 entropy = policy.entropy().mean()
                 new_log_probs = policy.log_prob(action)
-                # print(action.size(), policy)
-                # print(new_log_probs, new_log_probs.size())
+            
+            elif CONSTANTS['AGENT_TYPE'] == 3:
+                policy, critic_value = model(state)
+                entropy = policy.entropy().mean()
+                new_log_probs = policy.log_prob(action.view(-1)).view(-1, 1)
+            
+            elif CONSTANTS['AGENT_TYPE'] == 4:
+                policies, critic_value = model(state)
+                entropies = []
+                new_log_probs = []
+                # print(action.size(), len(policies))
+                for i in range(len(policies)):
+                    policy = policies[i]
 
-            # ratio = (new_log_probs - old_log_probs).exp()
-            # surr1 = ratio * advantage
-            # surr2 = torch.clamp(ratio, 1.0 - clip_param, 1.0 + clip_param) * advantage
+                    if len(entropies) == 0: entropies = policy.entropy()
+                    else:   entropies = torch.cat((entropies, policy.entropy()), 0)
+                    lp = policy.log_prob(action[i])
+                    if len(new_log_probs) == 0:  new_log_probs = lp
+                    else:   new_log_probs = torch.cat((new_log_probs, lp), 0)
 
-            # actor_loss  = - torch.min(surr1, surr2).mean()
-            # critic_loss = (return_ - critic_value).pow(2).mean()
+                entropy = entropies.mean()
+                new_log_probs = new_log_probs.view(-1, 1)
+            
+            ratio = (new_log_probs - old_log_probs).exp()
+            surr1 = ratio * advantage
+            surr2 = torch.clamp(ratio, 1.0 - clip_param, 1.0 + clip_param) * advantage
 
-            # loss = CONSTANTS["CRITIC_DISCOUNT"] * critic_loss + actor_loss - CONSTANTS["ENTROPY_BETA"] * entropy
-            # model.optimizer.zero_grad()
-            # loss.backward()
-            # model.optimizer.step()
+            actor_loss  = - torch.min(surr1, surr2).mean()
+            critic_loss = (return_ - critic_value).pow(2).mean()
 
-            # # track statistics
-            # sum_returns += return_.mean()
-            # sum_advantage += advantage.mean()
-            # sum_loss_actor += actor_loss
-            # sum_loss_critic += critic_loss
-            # sum_loss_total += loss
-            # sum_entropy += entropy
+            loss = CONSTANTS["CRITIC_DISCOUNT"] * critic_loss + actor_loss - CONSTANTS["ENTROPY_BETA"] * entropy
+            model.optimizer.zero_grad()
+            loss.backward()
+            model.optimizer.step()
+
+            # track statistics
+            sum_returns += return_.mean()
+            sum_advantage += advantage.mean()
+            sum_loss_actor += actor_loss
+            sum_loss_critic += critic_loss
+            sum_loss_total += loss
+            sum_entropy += entropy
             count_steps += 1
 
         # writer.add_scalar("returns", sum_returns / count_steps, frame_idx)
