@@ -167,7 +167,7 @@ def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=10):
     avg_lenient_performance_ys = np.mean(avg_lenient_performance_ys, axis=0)
     xs = np.arange(len(avg_performance_ys)).tolist()
     if plots:
-        file_name = 'plots/Thresholds/Current_RT_Thresholds_' + str(CONSTANTS['MAX_TIMESTEPS']) + 'obs_' + CONSTANTS['STUDENT_MODEL_NAME'] + '_' + CONSTANTS['STUDENT_ID'] + '.png'
+        file_name = 'plots/Thresholds/village_' + CONSTANTS['VILLAGE'] + '/Current_RT_Thresholds_' + str(CONSTANTS['MAX_TIMESTEPS']) + 'obs_' + CONSTANTS['STUDENT_MODEL_NAME'] + '_' + CONSTANTS['STUDENT_ID'] + '.png'
         plt.title("Current RT policy after " + str(CONSTANTS['MAX_TIMESTEPS']) + " attempts using normal thresholds for " + CONSTANTS['STUDENT_MODEL_NAME'] + '(' + CONSTANTS['STUDENT_ID'] + ')')
         plt.plot(xs, performance_ys, color='r', label=label1)
         plt.plot(xs, lenient_performance_ys, color='b', label=label2)
@@ -175,7 +175,6 @@ def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=10):
         plt.ylabel('Avg P(Know) across skills')
         plt.legend()
         plt.savefig(file_name)
-        plt.show()
 
 def set_target_reward(env):
     init_p_know = env.reset()[:CONSTANTS['NUM_SKILLS']]
