@@ -9,7 +9,15 @@
    git clone https://github.com/jithendaraa/hotDINA
    git clone https://github.com/jithendaraa/RoboTutor-Analysis
    ```
-3. Coming soon!
+3. Setting up all the required RoboTutor data in `RoboTutor-Analysis/Data`:
+    - Check out step 3 in <a href='https://github.com/jithendaraa/hotDINA/blob/master/README.md'>README for hotDINA</a> to set up activity tables, CTA and Code Drop 2 Matrices. 
+    - For getting transactions tables per village, see step 2 in the same README. 
+    - At the end of the data setup your `Data` directory must look something like this:
+
+    <center><img src="Data_directory_screenshot.png"></center>
+
+    Don't worry if you do not have the .pkl and CTA_22.xlsx files, the various scripts will still work!
+
 
 ## Instructions and Usage
 
