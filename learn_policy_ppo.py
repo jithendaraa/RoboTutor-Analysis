@@ -38,12 +38,12 @@ CONSTANTS = {
     "TARGET_P_KNOW"                     :   0.8,
     "LEARNING_RATE"                     :   1e-4,
     "FC1_DIMS"                          :   256,
-    'PPO_STEPS'                         :   10,
+    'PPO_STEPS'                         :   256, # Must be a multiple of MINI_BATCH_SIZE
     'PPO_EPOCHS'                        :   10,
     'TEST_EPOCHS'                       :   10,
     'NUM_TESTS'                         :   10,
     'GAE_LAMBDA'                        :   0.95,
-    "MINI_BATCH_SIZE"                   :   32,
+    "MINI_BATCH_SIZE"                   :   64,
     "MAX_TIMESTEPS"                     :   50,
     'GAMMA'                             :   0.99,
     'GAE_LAMBDA'                        :   0.95,
@@ -68,11 +68,11 @@ def set_constants(args):
     CONSTANTS['AGENT_TYPE'] = args.type
     CONSTANTS['STUDENT_ID'] = args.student_id
     CONSTANTS['STUDENT_MODEL_NAME'] = args.student_model_name
-    CONSTANTS['PPO_STEPS'] = args.ppo_steps
     CONSTANTS['AREA_ROTATION_CONSTRAINT'] = args.area_rotation_constraint
     CONSTANTS['TRANSITION_CONSTRAINT'] = args.transition_constraint
     CONSTANTS['AREA_ROTATION'] = args.area_rotation
     CONSTANTS['MAX_TIMESTEPS'] = args.max_timesteps
+    CONSTANTS['PPO_STEPS'] = max(args.max_timesteps, CONSTANTS['PPO_STEPS'])
     CONSTANTS['NEW_STUDENT_PARAMS'] = args.new_student_params
     CONSTANTS['NUM_ENVS'] = args.num_envs
     CONSTANTS['TARGET_P_KNOW'] = args.target
@@ -213,7 +213,6 @@ if __name__ == '__main__':
     student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
     tutor_simulator = TutorSimulator(CONSTANTS['LOW_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_PERFORMANCE_THRESHOLD'], area_rotation=CONSTANTS['AREA_ROTATION'], type=CONSTANTS['AGENT_TYPE'], thresholds=CONSTANTS['USES_THRESHOLDS'])
     set_action_constants(args.type, tutor_simulator)
-    print(student_simulator.uniq_student_ids)
 
     uniq_activities = student_simulator.uniq_activities
     uniq_student_ids = student_simulator.uniq_student_ids
@@ -242,6 +241,7 @@ if __name__ == '__main__':
     envs.checkpoint()
     state = np.array(envs.reset())
     loop = 0
+    done = False
 
     while not early_stop:
         loop += 1
@@ -299,26 +299,29 @@ if __name__ == '__main__':
                 next_state, reward, student_response, done, posterior_know = envs.step(action.cpu().numpy(), [CONSTANTS['MAX_TIMESTEPS']] * CONSTANTS['NUM_ENVS'], timesteps=[timesteps]*CONSTANTS['NUM_ENVS'])
                 log_prob = policy.log_prob(action)
                 critic_values.append(critic_value)
-                
-                for i in range(len(action)):
-                    a = action[i]
-                    r = reward[i]
-                    if a[0] < a[1] < a[2]:
-                        print(a, '-->', r)
 
-            log_probs.append(log_prob)
+                # if args.type == 3:
+                    # for i in range(len(action)):
+                    #     if action[i].item() == 0:
+                    #         decision = 'prev'
+                    #     elif action[i].item() == 1:
+                    #         decision = 'same'
+                    #     elif action[i].item() == 2:
+                    #         decision = 'next'
+                    #     elif action[i].item() == 3:
+                    #         decision = 'next_next'
+                    #     print(decision, '-->' ,reward[i])
+                    
             rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
+            log_probs.append(log_prob)
             dones.append(torch.Tensor(1 - done).unsqueeze(1).to(device))
-            
             states.append(state)
             actions.append(action)
-            
             state = next_state.copy()
             frame_idx += 1
-        
+
         _, critic_value_ = model(torch.Tensor(next_state).to(device))
         returns         = compute_gae(critic_value_, rewards, dones, critic_values, CONSTANTS["GAMMA"], CONSTANTS["GAE_LAMBDA"])
-
         returns         = torch.cat(returns).detach()
         log_probs       = torch.cat(log_probs).detach()
         critic_values   = torch.cat(critic_values).detach()
@@ -331,8 +334,7 @@ if __name__ == '__main__':
         train_epoch += 1
         print("UPDATING.... Epoch Num:", train_epoch)
         
-        if train_epoch % 1 == 0:
-            print("________________________________________________________________________________________________________________________________________________________________")
+        if train_epoch % CONSTANTS['TEST_EPOCHS'] == 0:
             student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
             env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
             env.checkpoint()
@@ -345,6 +347,9 @@ if __name__ == '__main__':
                 test_reward = []
                 final_p_know = []
                 for _ in range(CONSTANTS['NUM_TESTS']):
+                    student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
+                    env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
+                    env.checkpoint()
                     tr, fpk = test_env(env, model, device, CONSTANTS, deterministic=False)
                     test_reward.append(tr)
                     final_p_know.append(fpk)

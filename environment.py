@@ -335,8 +335,6 @@ class StudentEnv():
         if timesteps != None and timesteps >= max_timesteps:
             done = True
         
-        print("HI")
-        print(prior_know, posterior_know)
         avg_prior_know = np.mean(np.array(prior_know))
         avg_posterior_know = np.mean(np.array(posterior_know))
         reward = 1000 * (avg_posterior_know - avg_prior_know) 
