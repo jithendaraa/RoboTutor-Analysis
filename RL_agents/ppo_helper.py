@@ -76,7 +76,7 @@ def log_runs(type, CONSTANTS, prior, posterior, action, timesteps, reward, prior
             f.write(run_text)
     
     elif type == 1:
-        run_text = "Run Number: " + str(CONSTANTS["RUN_NUM"]) + "Action: " + str(action) + "\nPrior Know: " + str(prior.cpu().numpy()) + "\nPost. Know: " + str(posterior) + "\Max Timesteps: " + str(CONSTANTS['MAX_TIMESTEPS']) + " Reward: " + str(reward) + "\nAvg Prior Know: " + str(prior_avg_know) + " Avg Posterior Know: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
+        run_text = "Run Number: " + str(CONSTANTS["RUN_NUM"]) + " Action (Thresholds): " + str(action) + "\nPrior Know: " + str(prior.cpu().numpy()) + "\nPost. Know: " + str(posterior) + "\Max Timesteps: " + str(CONSTANTS['MAX_TIMESTEPS']) + " Reward: " + str(reward) + "\nAvg Prior Know: " + str(prior_avg_know) + " Avg Posterior Know: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
         print(run_text)
         with open("RL_agents/ppo_logs/test_run.txt", "a") as f:
             f.write(run_text)

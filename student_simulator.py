@@ -17,14 +17,14 @@ from student_models.hotDINA_skill import hotDINA_skill
 from student_models.hotDINA_full import hotDINA_full
 
 class StudentSimulator():
-    def __init__(self, village="114", observations="10000", student_model_name="ItemBKT", subscript="student_specific", path='', new_student_params=None, prints=True):
+    def __init__(self, village="114", observations="10000", student_model_name="ItemBKT", subscript="student_specific", path='', new_student_params=None, prints=True, print_student_params=True):
         self.CONSTANTS = {
             "PATH_TO_CTA"                           : "Data/CTA.xlsx",
             "PATH_TO_ACTIVITY_TABLE"                : "Data/Activity_table_v4.1_22Apr2020.pkl",
             "VILLAGE"                               : village,
             "OBSERVATIONS"                          : observations,
             "SUBSCRIPT"                             : subscript, #"student_specific" or "village_specific" for BKT subscripting
-            "PRINT_PARAMS_FOR_STUDENT"              : True,
+            "PRINT_PARAMS_FOR_STUDENT"              : print_student_params,
             "PATH_TO_VILLAGE_STEP_TRANSAC_FILES"    : [],
             "STUDENT_MODEL_INITIALISER"             : {
                                                         "ItemBKT"       : "self.student_model = ItemBKT(self.params_dict, self.kc_list, self.uniq_student_ids)",
@@ -229,6 +229,14 @@ class StudentSimulator():
             self.activity_bkt_update(data_dict)
         
         elif self.student_model_name == 'hotDINA_skill':
+            if self.CONSTANTS["PRINT_PARAMS_FOR_STUDENT"] == True and self.student_model_name == 'hotDINA_skill':
+                print("theta: ", self.params_dict['theta'])
+                print('a: ', self.params_dict['a'])
+                print('b: ', self.params_dict['b'])
+                print("learn: ", self.params_dict['learn'])
+                print("guess: ", self.params_dict['g'])
+                print("ss: ", self.params_dict['ss'])
+                print()
             self.hotDINA_skill_update(data_dict, bayesian_update, plot, train_students=train_students)
         
         elif self.student_model_name == 'hotDINA_full':
@@ -275,14 +283,6 @@ class StudentSimulator():
         self.student_model.update(activity_observations, student_nums, activities)
 
     def hotDINA_skill_update(self, data_dict, bayesian_update=True, plot=True, train_students=None):
-        if self.CONSTANTS["PRINT_PARAMS_FOR_STUDENT"] == True and self.student_model_name == 'hotDINA_skill':
-            print("theta: ", self.params_dict['theta'])
-            print('a: ', self.params_dict['a'])
-            print('b: ', self.params_dict['b'])
-            print("learn: ", self.params_dict['learn'])
-            print("guess: ", self.params_dict['g'])
-            print("ss: ", self.params_dict['ss'])
-            print()
 
         observations = data_dict['y']
         items = data_dict['items']
