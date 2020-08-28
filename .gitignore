@@ -1,5 +1,5 @@
 .ipynb_checkpoints
-/Data
+/Data/village_*
 /ppo_logs
 /dqn_logs
 /actor_critic_logs
@@ -11,3 +11,5 @@ Untitled.ipynb
 *.txt
 *.xlsx
 .vscode
+*.pkl
+*.csv

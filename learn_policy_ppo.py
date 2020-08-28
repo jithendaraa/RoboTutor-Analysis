@@ -75,7 +75,6 @@ def set_constants(args):
     CONSTANTS['MAX_TIMESTEPS'] = args.max_timesteps
     CONSTANTS['NEW_STUDENT_PARAMS'] = args.new_student_params
     CONSTANTS['NUM_ENVS'] = args.num_envs
-    CONSTANTS['PPO_STEPS'] = args.ppo_steps
     CONSTANTS['TARGET_P_KNOW'] = args.target
 
     if args.type == None:
@@ -121,7 +120,7 @@ def arg_parser():
     parser.add_argument('-mt', '--max_timesteps', help="Total questions that will be given to the student/RL agent", type=int, default=CONSTANTS['MAX_TIMESTEPS'])
     parser.add_argument('-sid', '--student_id', default=CONSTANTS['STUDENT_ID'], help="Student id")
     parser.add_argument('-smn', '--student_model_name', help="Student model name")
-    parser.add_argument('--ppo_steps', help="PPO Steps", default=CONSTANTS['PPO_STEPS'])
+    parser.add_argument('--ppo_steps', help="PPO Steps", default=CONSTANTS['PPO_STEPS'], type=int)
     parser.add_argument('-ar', '--area_rotation', help="Area rotation sequence like L-N-L-S", default=CONSTANTS['AREA_ROTATION'])
     parser.add_argument('-arc', '--area_rotation_constraint', help="Should questions be constrained like lit-num-lit-stories? True/False", default=True)
     parser.add_argument('-tc', '--transition_constraint', help="Should transition be constrained to prev,same,next, next-next? True/False", default=True)
@@ -167,7 +166,7 @@ def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=10):
     avg_lenient_performance_ys = np.mean(avg_lenient_performance_ys, axis=0)
     xs = np.arange(len(avg_performance_ys)).tolist()
     if plots:
-        file_name = 'plots/Thresholds/village_' + CONSTANTS['VILLAGE'] + '/Current_RT_Thresholds_' + str(CONSTANTS['MAX_TIMESTEPS']) + 'obs_' + CONSTANTS['STUDENT_MODEL_NAME'] + '_' + CONSTANTS['STUDENT_ID'] + '.png'
+        file_name = 'plots/Current_RT_Thresholds/village_' + CONSTANTS['VILLAGE'] + '/Current_RT_Thresholds_' + str(CONSTANTS['MAX_TIMESTEPS']) + 'obs_' + CONSTANTS['STUDENT_MODEL_NAME'] + '_' + CONSTANTS['STUDENT_ID'] + '.png'
         plt.title("Current RT policy after " + str(CONSTANTS['MAX_TIMESTEPS']) + " attempts using normal thresholds for " + CONSTANTS['STUDENT_MODEL_NAME'] + '(' + CONSTANTS['STUDENT_ID'] + ')')
         plt.plot(xs, performance_ys, color='r', label=label1)
         plt.plot(xs, lenient_performance_ys, color='b', label=label2)
@@ -175,6 +174,7 @@ def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=10):
         plt.ylabel('Avg P(Know) across skills')
         plt.legend()
         plt.savefig(file_name)
+        plt.show()
 
 def set_target_reward(env):
     init_p_know = env.reset()[:CONSTANTS['NUM_SKILLS']]
@@ -236,7 +236,7 @@ if __name__ == '__main__':
     best_reward = None
     early_stop = False
 
-    Prepare environments
+    # Prepare environments
     envs = [make_env(i+1, student_simulator, student_id, action_size, type=args.type, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS) for i in range(CONSTANTS["NUM_ENVS"])]
     envs = SubprocVecEnv(envs)
     envs.checkpoint()
@@ -299,6 +299,12 @@ if __name__ == '__main__':
                 next_state, reward, student_response, done, posterior_know = envs.step(action.cpu().numpy(), [CONSTANTS['MAX_TIMESTEPS']] * CONSTANTS['NUM_ENVS'], timesteps=[timesteps]*CONSTANTS['NUM_ENVS'])
                 log_prob = policy.log_prob(action)
                 critic_values.append(critic_value)
+                
+                for i in range(len(action)):
+                    a = action[i]
+                    r = reward[i]
+                    if a[0] < a[1] < a[2]:
+                        print(a, '-->', r)
 
             log_probs.append(log_prob)
             rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
@@ -312,7 +318,7 @@ if __name__ == '__main__':
         
         _, critic_value_ = model(torch.Tensor(next_state).to(device))
         returns         = compute_gae(critic_value_, rewards, dones, critic_values, CONSTANTS["GAMMA"], CONSTANTS["GAE_LAMBDA"])
-        
+
         returns         = torch.cat(returns).detach()
         log_probs       = torch.cat(log_probs).detach()
         critic_values   = torch.cat(critic_values).detach()
@@ -325,7 +331,8 @@ if __name__ == '__main__':
         train_epoch += 1
         print("UPDATING.... Epoch Num:", train_epoch)
         
-        if train_epoch % CONSTANTS["TEST_EPOCHS"] == 0:
+        if train_epoch % 1 == 0:
+            print("________________________________________________________________________________________________________________________________________________________________")
             student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
             env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
             env.checkpoint()
