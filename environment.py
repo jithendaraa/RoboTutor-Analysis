@@ -200,21 +200,33 @@ class StudentEnv():
             self.state = next_state.copy()
         
         elif self.type == 1:
+            reward = 0.0
+            if t1 > t2:
+                reward -= 100
+                done = True
+            if t2 > t3:
+                reward -= 100
+                done = True
+            if t1 > t3:
+                reward -= 100
+                done = True
             avg_performance_given_thresholds = []
             avg_posterior_know = None
             avg_prior_know = None
             posterior_know = []
-            prior_know = None
-            for _ in range(5):
-                student_simulator = StudentSimulator(village, observations, student_model_name, new_student_params, prints=False)
-                tutor_simulator = TutorSimulator(t1=t1, t2=t2, t3=t3, area_rotation=self.area_rotation, type=self.type, thresholds=True)
-                prior_know = np.mean(student_simulator.student_model.alpha[self.student_num][-1].copy())
-                performance_given_thresholds = evaluate_performance_thresholds(student_simulator, tutor_simulator, prints=prints, CONSTANTS=self.CONSTANTS)
-                posterior_know.append(student_simulator.student_model.alpha[self.student_num][-1].copy())
-                avg_performance_given_thresholds.append(performance_given_thresholds)
-            avg_performance_given_thresholds = np.mean(avg_performance_given_thresholds, axis=0)
-            posterior_know = np.mean(posterior_know, axis=0)
-            avg_posterior_know = np.mean(posterior_know)
+            prior_know = np.mean(self.student_simulator.student_model.alpha[self.student_num][-1].copy())
+            if done == False:
+                for _ in range(5):
+                    student_simulator = StudentSimulator(village, observations, student_model_name, new_student_params, prints=False)
+                    tutor_simulator = TutorSimulator(t1=t1, t2=t2, t3=t3, area_rotation=self.area_rotation, type=self.type, thresholds=True)
+                    prior_know = np.mean(student_simulator.student_model.alpha[self.student_num][-1].copy())
+                    performance_given_thresholds = evaluate_performance_thresholds(student_simulator, tutor_simulator, prints=prints, CONSTANTS=self.CONSTANTS)
+                    posterior_know.append(student_simulator.student_model.alpha[self.student_num][-1].copy())
+                    avg_performance_given_thresholds.append(performance_given_thresholds)
+                avg_performance_given_thresholds = np.mean(avg_performance_given_thresholds, axis=0)
+            if len(posterior_know) > 1:
+                posterior_know = np.mean(posterior_know, axis=0)
+            else: posterior_know = prior_know
             self.reset()
             next_state = self.state.copy()
             student_response = None
@@ -330,5 +342,4 @@ class StudentEnv():
         avg_prior_know = np.mean(np.array(prior_know))
         avg_posterior_know = np.mean(np.array(posterior_know))
         reward = 1000 * (avg_posterior_know - avg_prior_know) 
-
         return next_state, reward, student_response, done, posterior_know
