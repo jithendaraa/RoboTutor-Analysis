@@ -141,6 +141,7 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, un
         total_reward += reward
         prior_avg_know      =  torch.mean(prior).item()
         posterior_avg_know  =  np.mean(posterior)
+        print(prior_avg_know, posterior_avg_know, reward, done)
         gain = (posterior_avg_know - prior_avg_know)
         log_runs(env.type, CONSTANTS, prior, posterior, action, timesteps, reward, prior_avg_know, posterior_avg_know, gain, activity_name, skill_group=None)
 
