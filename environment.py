@@ -333,10 +333,12 @@ class StudentEnv():
         elif self.student_simulator.student_model_name == 'hotDINA_full':
             self.hotDINA_full_step(activity_num)
         
-        if timesteps != None and timesteps >= max_timesteps:
-            done = True
-        
         avg_prior_know = np.mean(np.array(prior_know))
         avg_posterior_know = np.mean(np.array(posterior_know))
         reward = 1000 * (avg_posterior_know - avg_prior_know) 
+        
+        if timesteps != None and timesteps >= max_timesteps:
+            done = True
+            next_state = np.array(self.reset())
+        
         return next_state, reward, student_response, done, posterior_know
