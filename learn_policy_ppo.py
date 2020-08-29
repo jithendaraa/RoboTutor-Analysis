@@ -308,18 +308,6 @@ if __name__ == '__main__':
                 next_state, reward, student_response, done, posterior_know = envs.step(action.cpu().numpy(), [CONSTANTS['MAX_TIMESTEPS']] * CONSTANTS['NUM_ENVS'], timesteps=[timesteps]*CONSTANTS['NUM_ENVS'])
                 log_prob = policy.log_prob(action)
                 critic_values.append(critic_value)
-
-                # if args.type == 3:
-                    # for i in range(len(action)):
-                    #     if action[i].item() == 0:
-                    #         decision = 'prev'
-                    #     elif action[i].item() == 1:
-                    #         decision = 'same'
-                    #     elif action[i].item() == 2:
-                    #         decision = 'next'
-                    #     elif action[i].item() == 3:
-                    #         decision = 'next_next'
-                    #     print(decision, '-->' ,reward[i])
                     
             rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
             log_probs.append(log_prob)
@@ -377,7 +365,6 @@ if __name__ == '__main__':
                 best_reward = test_reward
             if test_reward > CONSTANTS["TARGET_REWARD"]: 
                 early_stop = True
-
 
     print("INIT P(Know): \n", init_p_know)
     print("FINAL P(Know): \n", final_p_know)
