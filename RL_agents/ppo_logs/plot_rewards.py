@@ -4,7 +4,7 @@ from matplotlib import style
 
 def draw_graph():
     style.use('fivethirtyeight')
-    fig = plt.figure()
+    fig = plt.figure(figsize=(15, 11))
     ax1 = fig.add_subplot(1,2,1)
     ax2 = fig.add_subplot(1,2,2)
     
@@ -59,6 +59,8 @@ def draw_graph():
         ax2.set_xlabel('Activity attempts')
         ax2.set_ylabel('Avg P(Know) across all skills')
         ax2.legend()
+
+        plt.savefig('../../plots/training_results.png', bbox_inches='tight', )
 
     ani = animation.FuncAnimation(fig, animate, interval=1000)
 
