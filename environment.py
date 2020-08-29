@@ -233,7 +233,8 @@ class StudentEnv():
         elif self.type == 2:
             self.tutor_simulator.set_thresholds(t1, t2, t3)
             if self.activity_num != None:   p_know_activity = self.student_simulator.student_model.get_p_know_activity(self.student_num, self.activity_num)
-            x, y, area, activity_name = self.tutor_simulator.get_next_activity(p_know_activity=p_know_activity, prev_activity_num=self.activity_num, response=str(self.response), prints=False)
+            
+            x, y, area, activity_name = self.tutor_simulator.get_next_activity(p_know_prev_activity=p_know_activity, prev_activity_num=self.activity_num, response=str(self.response), prints=False)
             self.activity_num = self.student_simulator.uniq_activities.index(activity_name)
             prior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
             student_response = self.student_simulator.student_model.predict_response(self.activity_num, self.student_num, update=True)

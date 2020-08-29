@@ -50,7 +50,7 @@ def ppo_iter(states, actions, log_probs, returns, advantages, PPO_STEPS, NUM_ENV
 
 def log_know_gains(type, CONSTANTS, init_state, posterior_avg_know, total_reward):
     
-    with open("RL_agents/ppo_logs/rewards.txt", "a") as f:
+    with open("RL_agents/ppo_logs/rewards_type" + str(type) + ".txt", "a") as f:
         if CONSTANTS["RUN_NUM"] == 0 and type != 1:
             f.write("0,"+ str(np.mean(np.array(init_state))) + "\n")
         text = str(CONSTANTS["RUN_NUM"]) + "," + str(posterior_avg_know) + "\n"
@@ -60,7 +60,7 @@ def log_know_gains(type, CONSTANTS, init_state, posterior_avg_know, total_reward
         with open("RL_agents/ppo_logs/avg_scores.txt", "a") as f:
             text = str(CONSTANTS["RUN_NUM"]/CONSTANTS["AVG_OVER_RUNS"]) + "," + str(posterior_avg_know) + "\n"
             f.write(text)
-    with open("RL_agents/ppo_logs/test_run.txt", "a") as f:
+    with open("RL_agents/ppo_logs/test_run_type" + str(type) + ".txt", "a") as f:
         f.write("Total Reward: " + str(total_reward) + "\n\n")
 
 def log_runs(type, CONSTANTS, prior, posterior, action, timesteps, reward, prior_avg_know, posterior_avg_know, gain, activity_name, skill_group=None):
@@ -78,10 +78,10 @@ def log_runs(type, CONSTANTS, prior, posterior, action, timesteps, reward, prior
     elif type == 1:
         run_text = "Run Number: " + str(CONSTANTS["RUN_NUM"]) + " Action (Thresholds): " + str(action) + "\nPrior Know: " + str(prior.cpu().numpy()) + "\nPost. Know: " + str(posterior) + "\Max Timesteps: " + str(CONSTANTS['MAX_TIMESTEPS']) + " Reward: " + str(reward) + "\nAvg Prior Know: " + str(prior_avg_know) + " Avg Posterior Know: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
         print(run_text)
-        with open("RL_agents/ppo_logs/test_run.txt", "a") as f:
+        with open("RL_agents/ppo_logs/test_run_type" + str(type) + ".txt", "a") as f:
             f.write(run_text)
 
-def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, uniq_skill_groups=None, deterministic=True, bayesian_update=True):
+def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, uniq_skill_groups=None, deterministic=True, bayesian_update=True,):
     
     state = env.reset()
     activity_name = None

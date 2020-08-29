@@ -21,10 +21,11 @@ from reader import *
 from helper import *
 
 CONSTANTS = {
-    'NUM_ENVS'                          :   2,
+    'NUM_ENVS'                          :   8,
     'NUM_SKILLS'                        :   22,
     'STATE_SIZE'                        :   22,
     'ACTION_SIZE'                       :   43,
+    "TARGET_P_KNOW"                     :   0.87,
     'NUM_OBS'                           :   '100',
     'VILLAGE'                           :   '130',
     'STUDENT_ID'                        :   'new_student',
@@ -35,7 +36,6 @@ CONSTANTS = {
     'AGENT_TYPE'                        :   None,
     'AREA_ROTATION_CONSTRAINT'          :   True,
     'TRANSITION_CONSTRAINT'             :   True,
-    "TARGET_P_KNOW"                     :   0.8,
     "LEARNING_RATE"                     :   1e-4,
     "FC1_DIMS"                          :   256,
     'PPO_STEPS'                         :   256, # Must be a multiple of MINI_BATCH_SIZE
@@ -52,6 +52,7 @@ CONSTANTS = {
     "ENTROPY_BETA"                      :   0.001,
     "RUN_NUM"                           :   0,
     'PRINT_STUDENT_PARAMS'              :   True,
+    'CLEAR_LOGS'                        :   True,
     # Current RoboTutor Thresholds
     'LOW_PERFORMANCE_THRESHOLD'         :   0.5,
     'MID_PERFORMANCE_THRESHOLD'         :   0.83,
@@ -76,6 +77,7 @@ def set_constants(args):
     CONSTANTS['NEW_STUDENT_PARAMS'] = args.new_student_params
     CONSTANTS['NUM_ENVS'] = args.num_envs
     CONSTANTS['TARGET_P_KNOW'] = args.target
+    CONSTANTS['CLEAR_LOGS'] = args.clear_logs
 
     if args.type == None:
         CONSTANTS['STATE_SIZE'] = 22
@@ -128,6 +130,7 @@ def arg_parser():
     parser.add_argument('-m', '--model', help="Model file to load from checkpoints directory, if any")
     parser.add_argument('-nsp', '--new_student_params', help="The model params new_student has to start with; enter student_id")
     parser.add_argument("-e", "--num_envs", default=CONSTANTS["NUM_ENVS"], help="Number of observations to train on", type=int)
+    parser.add_argument("-c", "--clear_logs", default=CONSTANTS["CLEAR_LOGS"])
     args = parser.parse_args()
     set_constants(args)
     use_cuda = torch.cuda.is_available()
@@ -152,11 +155,11 @@ def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=10):
     for _ in range(avg_over_runs):
         
         student_simulator = StudentSimulator(village=CONSTANTS['VILLAGE'], observations=CONSTANTS['NUM_OBS'], student_model_name=CONSTANTS['STUDENT_MODEL_NAME'], new_student_params=CONSTANTS['NEW_STUDENT_PARAMS'], prints=False)
-        tutor_simulator = TutorSimulator(CONSTANTS['LOW_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_PERFORMANCE_THRESHOLD'], area_rotation=CONSTANTS['AREA_ROTATION'], type=CONSTANTS['AGENT_TYPE'], thresholds=CONSTANTS['USES_THRESHOLDS'])
+        tutor_simulator = TutorSimulator(CONSTANTS['LOW_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_PERFORMANCE_THRESHOLD'], CONSTANTS['AREA_ROTATION'], type=1, thresholds=True)
         performance_ys = evaluate_performance_thresholds(student_simulator, tutor_simulator, prints=prints, CONSTANTS=CONSTANTS)
         
         student_simulator = StudentSimulator(village=CONSTANTS['VILLAGE'], observations=CONSTANTS['NUM_OBS'], student_model_name=CONSTANTS['STUDENT_MODEL_NAME'], new_student_params=CONSTANTS['NEW_STUDENT_PARAMS'], prints=False)
-        tutor_simulator = TutorSimulator(CONSTANTS['LOW_LENIENT_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_LENIENT_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_LENIENT_PERFORMANCE_THRESHOLD'], area_rotation=CONSTANTS['AREA_ROTATION'], type=CONSTANTS['AGENT_TYPE'], thresholds=CONSTANTS['USES_THRESHOLDS'])
+        tutor_simulator = TutorSimulator(CONSTANTS['LOW_LENIENT_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_LENIENT_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_LENIENT_PERFORMANCE_THRESHOLD'], CONSTANTS['AREA_ROTATION'], type=1, thresholds=True)
         lenient_performance_ys = evaluate_performance_thresholds(student_simulator, tutor_simulator, prints=prints, CONSTANTS=CONSTANTS)
         
         avg_performance_ys.append(performance_ys)
@@ -174,7 +177,14 @@ def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=10):
         plt.ylabel('Avg P(Know) across skills')
         plt.legend()
         plt.savefig(file_name)
-        plt.show()
+        
+        with open("RL_agents/ppo_logs/current_rt_thresholds.txt", "w") as f:
+            for i in range(len(xs)):
+                f.write(str(xs[i]) + ',' + str(performance_ys[i]) + '\n')
+
+        with open("RL_agents/ppo_logs/current_rt_lenient_thresholds.txt", "w") as f:
+            for i in range(len(xs)):
+                f.write(str(xs[i]) + ',' + str(lenient_performance_ys[i]) + '\n')
 
 def set_target_reward(env):
     init_p_know = env.reset()[:CONSTANTS['NUM_SKILLS']]
@@ -199,12 +209,11 @@ def set_action_constants(type, tutor_simulator):
 
 if __name__ == '__main__':
     
-    clear_files("ppo", True, path='RL_agents/')
     mkdir('.', 'checkpoints')
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if use_cuda else "cpu:0")
-    
     args = arg_parser()
+    clear_files("ppo", args.clear_logs, path='RL_agents/', type=args.type)
     student_id = CONSTANTS['STUDENT_ID']
     area_rotation = CONSTANTS['AREA_ROTATION']
 
@@ -225,7 +234,7 @@ if __name__ == '__main__':
     env.checkpoint()
     init_p_know = set_target_reward(env)
 
-    if args.type == 1 or args.type == 2: evaluate_current_RT_thresholds(plots=True, prints=False, avg_over_runs=10)
+    evaluate_current_RT_thresholds(plots=True, prints=False, avg_over_runs=10)
 
     model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[state_size], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=action_size, type=args.type)
     if args.model != None:  model.load_state_dict(torch.load("checkpoints/"+args.model))
