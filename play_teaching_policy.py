@@ -99,7 +99,6 @@ def set_constants(args):
         CONSTANTS['TRANSITION_CONSTRAINT'] = False
         CONSTANTS['AREA_ROTATION_CONSTRAINT'] = False
 
-
 def arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("-o", "--observations", default=CONSTANTS["NUM_OBS"], help="Number of observations to train on")
@@ -109,14 +108,70 @@ def arg_parser():
     parser.add_argument("-m", "--model", help="Model file to load")
     parser.add_argument('-sid', '--student_id', default=CONSTANTS['STUDENT_ID'], help="Student id")
     parser.add_argument("-smn", "--student_model_name", help="Student model that the Student Simulator uses", default=CONSTANTS['STUDENT_MODEL_NAME'])
-    parser.add_argument("-d", "--deterministic", default=CONSTANTS['DETERMINISTIC'], action="store_true", help="enable deterministic actions")
+    parser.add_argument("-d", "--deterministic", default=CONSTANTS['DETERMINISTIC'], help="enable deterministic actions")
     parser.add_argument('-nsp', '--new_student_params', help="The model params new_student has to start with; enter student_id")
+    parser.add_argument('-ar', '--area_rotation', help="Area rotation sequence like L-N-L-S", default=CONSTANTS['AREA_ROTATION'])
+    parser.add_argument('-arc', '--area_rotation_constraint', help="Should questions be constrained like lit-num-lit-stories? True/False", default=True)
+    parser.add_argument('-tc', '--transition_constraint', help="Should transition be constrained to prev,same,next, next-next? True/False", default=True)
     args = parser.parse_args()
     set_constants(args)
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if use_cuda else "cpu:0")
     print('Device:', device)        # Autodetect CUDA
     return args
+
+def set_action_constants(type, tutor_simulator):
+    if args.type == 4 or args.type == 5 or args.type == None:
+        num_literacy_acts = len(tutor_simulator.literacy_activities)
+        num_math_acts = len(tutor_simulator.math_activities)
+        num_story_acts = len(tutor_simulator.story_activities)
+        CONSTANTS['ACTION_SIZE'] = [num_literacy_acts, num_math_acts, num_story_acts]
+        CONSTANTS['NUM_LITERACY_ACTS'], CONSTANTS['NUM_MATH_ACTS'], CONSTANTS['NUM_STORY_ACTS'] = CONSTANTS['ACTION_SIZE'][0], CONSTANTS['ACTION_SIZE'][1], CONSTANTS['ACTION_SIZE'][2]
+        CONSTANTS['LITERACY_ACTS'], CONSTANTS['MATH_ACTS'], CONSTANTS['STORY_ACTS'] = tutor_simulator.literacy_activities, tutor_simulator.math_activities, tutor_simulator.story_activities
+        if args.type == 5 or args.type == None:  
+            CONSTANTS['ACTION_SIZE'] = num_literacy_acts + num_math_acts + num_story_acts
+    else:
+        pass
+
+def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=10):
+
+    LOW_PERFORMANCE_THRESHOLD = CONSTANTS['LOW_PERFORMANCE_THRESHOLD']
+    MID_PERFORMANCE_THRESHOLD = CONSTANTS['MID_PERFORMANCE_THRESHOLD']
+    HIGH_PERFORMANCE_THRESHOLD = CONSTANTS['HIGH_PERFORMANCE_THRESHOLD']
+
+    LOW_LENIENT_PERFORMANCE_THRESHOLD = CONSTANTS['LOW_LENIENT_PERFORMANCE_THRESHOLD']
+    MID_LENIENT_PERFORMANCE_THRESHOLD = CONSTANTS['MID_LENIENT_PERFORMANCE_THRESHOLD']
+    HIGH_LENIENT_PERFORMANCE_THRESHOLD = CONSTANTS['HIGH_LENIENT_PERFORMANCE_THRESHOLD']
+    
+    avg_performance_ys = []
+    avg_lenient_performance_ys = []
+    label1 = "Current RT Thresholds(" + str(LOW_PERFORMANCE_THRESHOLD) + ", " + str(MID_PERFORMANCE_THRESHOLD) + ", " + str(HIGH_PERFORMANCE_THRESHOLD) + ")"
+    label2 = "Current Lenient RT Thresholds(" + str(LOW_LENIENT_PERFORMANCE_THRESHOLD) + ", " + str(MID_LENIENT_PERFORMANCE_THRESHOLD) + ", " + str(HIGH_LENIENT_PERFORMANCE_THRESHOLD) + ")"
+    for _ in range(avg_over_runs):
+        
+        student_simulator = StudentSimulator(village=CONSTANTS['VILLAGE'], observations=CONSTANTS['NUM_OBS'], student_model_name=CONSTANTS['STUDENT_MODEL_NAME'], new_student_params=CONSTANTS['NEW_STUDENT_PARAMS'], prints=False)
+        tutor_simulator = TutorSimulator(CONSTANTS['LOW_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_PERFORMANCE_THRESHOLD'], CONSTANTS['AREA_ROTATION'], type=1, thresholds=True)
+        performance_ys = evaluate_performance_thresholds(student_simulator, tutor_simulator, prints=prints, CONSTANTS=CONSTANTS)
+        
+        student_simulator = StudentSimulator(village=CONSTANTS['VILLAGE'], observations=CONSTANTS['NUM_OBS'], student_model_name=CONSTANTS['STUDENT_MODEL_NAME'], new_student_params=CONSTANTS['NEW_STUDENT_PARAMS'], prints=False)
+        tutor_simulator = TutorSimulator(CONSTANTS['LOW_LENIENT_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_LENIENT_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_LENIENT_PERFORMANCE_THRESHOLD'], CONSTANTS['AREA_ROTATION'], type=1, thresholds=True)
+        lenient_performance_ys = evaluate_performance_thresholds(student_simulator, tutor_simulator, prints=prints, CONSTANTS=CONSTANTS)
+        
+        avg_performance_ys.append(performance_ys)
+        avg_lenient_performance_ys.append(lenient_performance_ys)
+    
+    avg_performance_ys = np.mean(avg_performance_ys, axis=0)
+    avg_lenient_performance_ys = np.mean(avg_lenient_performance_ys, axis=0)
+    xs = np.arange(len(avg_performance_ys)).tolist()
+    if plots:
+        file_name = 'plots/Current_RT_Thresholds/village_' + CONSTANTS['VILLAGE'] + '/Current_RT_Thresholds_' + str(CONSTANTS['MAX_TIMESTEPS']) + 'obs_' + CONSTANTS['STUDENT_MODEL_NAME'] + '_' + CONSTANTS['STUDENT_ID'] + '.png'
+        plt.title("Current RT policy after " + str(CONSTANTS['MAX_TIMESTEPS']) + " attempts using normal thresholds for " + CONSTANTS['STUDENT_MODEL_NAME'] + '(' + CONSTANTS['STUDENT_ID'] + ')')
+        plt.plot(xs, performance_ys, color='r', label=label1)
+        plt.plot(xs, lenient_performance_ys, color='b', label=label2)
+        plt.xlabel('#Opportunities')
+        plt.ylabel('Avg P(Know) across skills')
+        plt.legend()
+    return xs, performance_ys, lenient_performance_ys
 
 
 if __name__ == '__main__':
@@ -131,7 +186,39 @@ if __name__ == '__main__':
 
     student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
     tutor_simulator = TutorSimulator(CONSTANTS['LOW_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_PERFORMANCE_THRESHOLD'], area_rotation=CONSTANTS['AREA_ROTATION'], type=CONSTANTS['AGENT_TYPE'], thresholds=CONSTANTS['USES_THRESHOLDS'])
+    set_action_constants(args.type, tutor_simulator)
 
-
-
+    uniq_activities = student_simulator.uniq_activities
+    uniq_student_ids = student_simulator.uniq_student_ids
+    student_num = uniq_student_ids.index(student_id)
     
+    state_size  = CONSTANTS["STATE_SIZE"]
+    action_size = CONSTANTS["ACTION_SIZE"]
+
+    env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
+    env.checkpoint()
+
+    num_inputs  = CONSTANTS["STATE_SIZE"]
+    n_actions = CONSTANTS["ACTION_SIZE"]
+    model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[num_inputs], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=n_actions, type=args.type)
+    model.load_state_dict(torch.load("checkpoints/" + args.model))
+
+    print("Loaded model at checkpoints/" + str(args.model))
+
+    total_reward, posterior, learning_progress = play_env(env, model, device, CONSTANTS, deterministic=args.deterministic)
+    new_student_avg = []
+    for know in learning_progress[student_num]:
+        avg_know = np.mean(np.array(know))
+        new_student_avg.append(avg_know)
+    
+    # Push avg P(Know) of each student in CONSTANTS["COMPARE_STUDENT_IDS"] into student_avgs after each opportunity. student_avgs is thus a 2d list
+    student_avgs = []
+    for compare_student_num in [0, 1]:
+        student_avg = []
+        for know in learning_progress[compare_student_num]:
+            avg_know = np.mean(np.array(know))
+            student_avg.append(avg_know)
+        student_avgs.append(student_avg)
+    
+    xs, threshold_ys, lenient_threshold_ys = evaluate_current_RT_thresholds(plots=False, prints=False)
+    plot_learning(learning_progress, [], CONSTANTS['MAX_TIMESTEPS'], new_student_avg, algo="PPO", xs=xs, threshold_ys=threshold_ys, lenient_threshold_ys=lenient_threshold_ys)

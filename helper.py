@@ -118,7 +118,7 @@ def output_avg_p_know(episode_num, avg_over_episodes, scores, filename, avg_p_kn
             text = str(episode_num/avg_over_episodes) + ", Avg P(Know)" + str(avg_p_know) + ", Avg score:" + str(avg_score) + "\n"
             f.write(text)
 
-def plot_learning(learning_progress, student_ids, timesteps, new_student_avg, algo):
+def plot_learning(learning_progress, student_ids, timesteps, new_student_avg, algo, xs=None, threshold_ys=None, lenient_threshold_ys=None):
     """
         Given 
             learning_progress, student_ids etc.,
@@ -140,6 +140,10 @@ def plot_learning(learning_progress, student_ids, timesteps, new_student_avg, al
             y.append(p_avg_know)
         plt.plot(x, y, label=student_id)
     
+    if xs != None:
+        plt.plot(xs, threshold_ys, color='r', label="Current RT Thresholds")
+        plt.plot(xs, lenient_threshold_ys, color='b', label="Current lenient RT Thresholds")
+
     x = np.arange(1, len(new_student_avg) + 1).tolist()
     plt.plot(x, new_student_avg, label="RL Agent", color="black")
     plt.legend()
