@@ -26,7 +26,7 @@ def draw_graph():
                         xs.append(float(x))
                         ys.append(float(y))
         
-            ax1.plot(xs, ys, linewidth=2, alpha=0.5, label="RL agent policy: type" + str(type_), color=colors[type_ - 1])
+            ax1.plot(xs[:], ys[:], linewidth=2, alpha=0.5, label="RL agent policy: type" + str(type_), color=colors[type_ - 1])
         
 
         ax1.set_title("RL agent policy")
