@@ -34,11 +34,11 @@ class StudentSimulator():
                                                     },
         }
         self.new_student_knew = None
+        self.new_student_params = new_student_params
         path_to_Qmatrix = os.getcwd() + '/' + path + '../hotDINA/qmatrix.txt'
         self.village = village
         self.observations = observations
         self.student_model_name = student_model_name
-        self.new_student_params = new_student_params
         self.hotDINA_skill_slurm_files = {}
         self.hotDINA_full_slurm_files = {}
         self.params_dict = {}
@@ -181,7 +181,7 @@ class StudentSimulator():
     def set_new_student_params(self):
         
         if self.new_student_params == None and self.new_student_knew == None:
-            self.new_student_params = 0.1
+            self.new_student_knew = 0.1
             return
         
         student_model_name = self.student_model_name
