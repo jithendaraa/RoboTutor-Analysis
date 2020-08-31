@@ -10,6 +10,7 @@ import pandas as pd
 import tqdm
 from pathlib import Path
 import pickle
+import copy
 
 
 class hotDINA_skill():
@@ -27,6 +28,8 @@ class hotDINA_skill():
         self.g = params_dict['g']
         self.ss = params_dict['ss']
 
+        self.new_student_knew = 0.1 # P(Know) for new_student
+
         self.bayesian_update = True
         self.responsibilty = responsibilty
         # P(Know)'s of every student for every skill after every opportunity
@@ -40,16 +43,18 @@ class hotDINA_skill():
         for i in range(self.I):
             for k in range(self.K):
                 self.knews[i][k] = sigmoid(1.7 * self.a[k] * (self.theta[i] - self.b[k]))
-            self.alpha[i].append(self.knews[i].tolist())
+            
+            if i == self.I - 1: self.alpha[i].append([self.new_student_knew] * self.K)
+            else: self.alpha[i].append(self.knews[i].tolist())
             self.avg_knows[i].append(np.mean(self.knews[i]))
 
     def checkpoint(self):
-        self.checkpoint_alpha = self.alpha.copy()
-        self.checkpoint_avg_knows = self.avg_knows.copy()
+        self.checkpoint_alpha = copy.deepcopy(self.alpha)
+        self.checkpoint_avg_knows = copy.deepcopy(self.avg_knows)
     
     def reset(self):
-        self.alpha = self.checkpoint_alpha.copy()
-        self.avg_knows = self.checkpoint_avg_knows.copy()
+        self.alpha = copy.deepcopy(self.checkpoint_alpha)
+        self.avg_knows = copy.deepcopy(self.checkpoint_avg_knows)
 
     def update_skill(self, i, k, t, y, know):
         prior_know = know[k]
@@ -65,12 +70,11 @@ class hotDINA_skill():
 
             posterior_know = posterior_know + \
                 (1-posterior_know) * self.learn[k]
-
         else:
             posterior_know = prior_know + (1-prior_know) * self.learn[k]
 
         know[k] = posterior_know
-        return know
+        return know.copy()
 
     def update(self, observations, items, users, bayesian_update=True, plot=True, train_students=None):
         self.bayesian_update = bayesian_update
@@ -81,7 +85,7 @@ class hotDINA_skill():
             correct = int(observations[i])
             item = items[i]
             skills = self.Q[item]
-            know = self.alpha[user][-1]
+            know = self.alpha[user][-1].copy()
             for k in range(len(skills)):
                 skill = skills[k]
                 if skill == 1:
@@ -111,7 +115,7 @@ class hotDINA_skill():
         return know
 
     def predict_response(self, item, user, update=False, bayesian_update=True, plot=False):
-        current_know = self.alpha[user][-1]
+        current_know = self.alpha[user][-1].copy()
         skills = self.Q[item]
         p_correct = 1.0
         p_min_correct = 1.0

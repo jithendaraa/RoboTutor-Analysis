@@ -5,6 +5,7 @@ from tutor_simulator import TutorSimulator
 
 from reader import *
 from helper import *
+import copy
 # The Environment that the RL agent interacts with
 # Given an action returns the new_state, reward, student_response, done and posterior know (P(Know) after student attempt)
 
@@ -111,7 +112,7 @@ class StudentEnv():
 
     def reset(self):
         self.student_simulator.reset()
-        self.state  = self.checkpoint_state.copy()
+        self.state  = self.checkpoint_state
         return self.state.copy()
 
     def checkpoint(self):

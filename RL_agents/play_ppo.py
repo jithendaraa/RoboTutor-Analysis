@@ -119,7 +119,7 @@ if __name__ == '__main__':
     # empty contents of all txt files in "ppo_logs" (which has been gitignored due to large file size) folder, set to False if you don't want to empty contents
     clear_files("ppo", True, path='RL_agents/')
 
-    # # Load model
+    # Load model
     num_inputs  = CONSTANTS["STATE_SIZE"]
     n_actions = CONSTANTS["ACTION_SIZE"]
     model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[num_inputs], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=n_actions)

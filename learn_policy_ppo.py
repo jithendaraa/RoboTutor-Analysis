@@ -37,7 +37,7 @@ CONSTANTS = {
     'AREA_ROTATION_CONSTRAINT'          :   True,
     'TRANSITION_CONSTRAINT'             :   True,
     "LEARNING_RATE"                     :   1e-4,
-    "FC1_DIMS"                          :   1792,
+    "FC1_DIMS"                          :   1024,
     "FC2_DIMS"                          :   2048,
     'FC3_DIMS'                          :   1024,
     'PPO_STEPS'                         :   256, # Must be a multiple of MINI_BATCH_SIZE
@@ -136,7 +136,7 @@ def arg_parser():
     args = parser.parse_args()
     set_constants(args)
     use_cuda = torch.cuda.is_available()
-    device = torch.device("cuda:0" if use_cuda else "cpu:0")
+    device = torch.device("cuda:0" if use_cuda else "cpu:0") # -o 200 -mt 200
     print('Device:', device)        # Autodetect CUDA
     return args
 

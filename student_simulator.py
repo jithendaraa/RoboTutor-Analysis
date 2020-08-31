@@ -178,7 +178,6 @@ class StudentSimulator():
         self.remove_discrepant_activities()
 
     def set_new_student_params(self):
-
         if self.new_student_params == None:
             return
         
@@ -190,28 +189,9 @@ class StudentSimulator():
 
     def reset(self):
         self.student_model.reset()
-        student_model = self.student_model
-        if self.student_model_name == 'ActivityBKT':
-            student_model.know              = self.checkpoint_know.copy()
-            student_model.know_act          = self.checkpoint_know_act.copy()
-            student_model.learning_progress = self.checkpoint_learning_progress.copy()
-
-        elif self.student_model_name == 'hotDINA_skill' or self.student_model_name == 'hotDINA_full':
-            student_model.alpha     = self.checkpoint_know.copy()
-            student_model.avg_knows = self.checkpoint_avg_knows.copy()
         
     def checkpoint(self):
         self.student_model.checkpoint()
-        student_model = self.student_model
-        
-        if self.student_model_name == 'ActivityBKT':
-            self.checkpoint_know                = student_model.know.copy()
-            self.checkpoint_know_act            = student_model.know_act.copy()
-            self.checkpoint_learning_progress   = student_model.learning_progress.copy()
-        
-        elif self.student_model_name == 'hotDINA_skill' or self.student_model_name == 'hotDINA_full':
-            self.checkpoint_know                = student_model.alpha.copy()
-            self.checkpoint_avg_knows           = student_model.avg_knows.copy()
         
     def update_on_log_data(self, data_dict, train_split=1.0, train_students=None, bayesian_update=True, plot=True):
         """

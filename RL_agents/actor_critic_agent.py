@@ -130,10 +130,10 @@ class ActorCritic(nn.Module):
 
         if type == None or type == 3 or type == 5:       
             self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
-            self.fc2 = nn.Linear(self.fc1_dims, self.fc1_dims)
-            self.fc3 = nn.Linear(self.fc1_dims, self.fc1_dims)
-            self.pi = nn.Linear(self.fc1_dims, n_actions)   #   Actor proposes policy 
-            self.v = nn.Linear(self.fc1_dims, 1)            #   Critic gives a value to criticise the proposed action/policy
+            self.fc2 = nn.Linear(self.fc1_dims, 3072)
+            self.fc3 = nn.Linear(3072, 2000)
+            self.pi = nn.Linear(2000, n_actions)   #   Actor proposes policy 
+            self.v = nn.Linear(2000, 1)            #   Critic gives a value to criticise the proposed action/policy
 
         elif type == 1 or type == 2:
             self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)

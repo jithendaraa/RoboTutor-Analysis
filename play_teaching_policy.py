@@ -45,7 +45,8 @@ CONSTANTS = {
     'PRINT_STUDENT_PARAMS'              :   True,
     'CLEAR_LOGS'                        :   True,
     'DETERMINISTIC'                     :   False,
-    'USES_THRESHOLDS'                   :   False,    
+    'USES_THRESHOLDS'                   :   False,  
+    'AVG_OVER_RUNS'                     :   10,  
     # Current RoboTutor Thresholds
     'LOW_PERFORMANCE_THRESHOLD'         :   0.5,
     'MID_PERFORMANCE_THRESHOLD'         :   0.83,
@@ -133,7 +134,7 @@ def set_action_constants(type, tutor_simulator):
     else:
         pass
 
-def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=10):
+def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=CONSTANTS['AVG_OVER_RUNS']):
 
     LOW_PERFORMANCE_THRESHOLD = CONSTANTS['LOW_PERFORMANCE_THRESHOLD']
     MID_PERFORMANCE_THRESHOLD = CONSTANTS['MID_PERFORMANCE_THRESHOLD']
@@ -205,20 +206,36 @@ if __name__ == '__main__':
 
     print("Loaded model at checkpoints/" + str(args.model))
 
-    total_reward, posterior, learning_progress = play_env(env, model, device, CONSTANTS, deterministic=args.deterministic)
-    new_student_avg = []
-    for know in learning_progress[student_num]:
-        avg_know = np.mean(np.array(know))
-        new_student_avg.append(avg_know)
+    total_reward, posterior, learning_progress = None, None, None
+    print(student_simulator.student_model.alpha[student_num])
+    for _ in range(CONSTANTS['AVG_OVER_RUNS']):
+        tr, p, lp = play_env(env, model, device, CONSTANTS, deterministic=args.deterministic)
+        if total_reward == None and posterior == None and learning_progress == None:
+            total_reward = [tr]
+            posterior = [p]
+            learning_progress = [lp]
+        else:
+            total_reward.append(tr)
+            posterior.append(p)
+            learning_progress.append(lp)
     
-    # Push avg P(Know) of each student in CONSTANTS["COMPARE_STUDENT_IDS"] into student_avgs after each opportunity. student_avgs is thus a 2d list
-    student_avgs = []
-    for compare_student_num in [0, 1]:
-        student_avg = []
-        for know in learning_progress[compare_student_num]:
-            avg_know = np.mean(np.array(know))
-            student_avg.append(avg_know)
-        student_avgs.append(student_avg)
+    total_reward = np.mean(total_reward)
+    print(total_reward)
+
     
-    xs, threshold_ys, lenient_threshold_ys = evaluate_current_RT_thresholds(plots=False, prints=False)
-    plot_learning(learning_progress, [], CONSTANTS['MAX_TIMESTEPS'], new_student_avg, algo="PPO", xs=xs, threshold_ys=threshold_ys, lenient_threshold_ys=lenient_threshold_ys)
+    # new_student_avg = []
+    # for know in learning_progress[student_num]:
+    #     avg_know = np.mean(np.array(know))
+    #     new_student_avg.append(avg_know)
+    
+    # # Push avg P(Know) of each student in CONSTANTS["COMPARE_STUDENT_IDS"] into student_avgs after each opportunity. student_avgs is thus a 2d list
+    # student_avgs = []
+    # for compare_student_num in [0, 1]:
+    #     student_avg = []
+    #     for know in learning_progress[compare_student_num]:
+    #         avg_know = np.mean(np.array(know))
+    #         student_avg.append(avg_know)
+    #     student_avgs.append(student_avg)
+    
+    # xs, threshold_ys, lenient_threshold_ys = evaluate_current_RT_thresholds(plots=False, prints=False)
+    # plot_learning(learning_progress, [], CONSTANTS['MAX_TIMESTEPS'], new_student_avg, algo="PPO", xs=xs, threshold_ys=threshold_ys, lenient_threshold_ys=lenient_threshold_ys)

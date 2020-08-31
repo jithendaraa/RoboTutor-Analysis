@@ -61,7 +61,7 @@ def log_know_gains(type, CONSTANTS, init_state, posterior_avg_know, total_reward
             text = str(CONSTANTS["RUN_NUM"]/CONSTANTS["AVG_OVER_RUNS"]) + "," + str(posterior_avg_know) + "\n"
             f.write(text)
     with open("RL_agents/ppo_logs/test_run_type" + str(type) + ".txt", "a") as f:
-        f.write("Total Reward: " + str(total_reward) + "\n\n")
+        f.write(str(CONSTANTS["RUN_NUM"]) + "," + str(total_reward) + "\n")
 
 def log_runs(type, CONSTANTS, prior, posterior, action, timesteps, reward, prior_avg_know, posterior_avg_know, gain, activity_name, skill_group=None):
     
@@ -238,51 +238,56 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
         timesteps += 1
         state = torch.Tensor(state).unsqueeze(0).to(device)
         policy, _ = model(state)
-        policy = F.softmax(policy, dim=1)
-        action_probs = torch.distributions.Categorical(policy)
-        action = torch.max(policy.view(-1), 0)[1].item()
         
-        if deterministic is False:
-            action = action_probs.sample().item()
+        if env.type == None:
+            action = torch.max(policy.view(-1), 0)[1].item()
+            if deterministic is False:
+                action = action_probs.sample().item()
+            activity_name = np.random.choice(skill_group_to_activity_map[str(action)])
+            skill_group = uniq_skill_groups[action]
         
-        activityName = np.random.choice(skill_group_to_activity_map[str(action)])
-        skill_group = uniq_skill_groups[action]
-        print("Prior avg: ", np.mean(state.cpu().numpy()[0]))
-        print(state.cpu().numpy()[0])
-        print(action,activityName, skill_group)
-        next_state, reward, student_response, done, posterior = env.step(action, timesteps, CONSTANTS["MAX_TIMESTEPS"], activityName)
-        print(next_state)
-        print("Posterior avg:", np.mean(next_state))
+        elif env.type == 1 or env.type == 2:
+            action = policy.probs.cpu().detach().numpy()[0]
+            if deterministic == False:
+                action = policy.sample().cpu().numpy()[0]
+            next_state, reward, _, done, posterior = env.step(action, CONSTANTS["MAX_TIMESTEPS"], timesteps=timesteps, activityName=activity_name,bayesian_update=bayesian_update)
+        
+        elif env.type == 3 or env.type == 5:
+            if deterministic == False:
+                action = policy.sample().cpu().numpy()[0]
+            else:
+                action = policy.probs.cpu().detach().numpy()[0]
+                action = action.tolist().index(max(action))
+            next_state, reward, _, done, posterior = env.step(action, CONSTANTS["MAX_TIMESTEPS"], timesteps=timesteps, bayesian_update=True)
 
-        prior = state[0]
+        prior = state[0][:22].cpu().numpy()
         posterior = torch.Tensor(next_state).unsqueeze(0).to(device)[0]
         posterior_avg_know  =  torch.mean(posterior).item()
         prior_avg_know      =  torch.mean(state).item()
         gain = (posterior_avg_know - prior_avg_know)
 
-        prior_know = []
-        posterior_know = []
-
-        for skill_idx in skill_group:
-            prior_know.append(prior[skill_idx].item())
-            posterior_know.append(posterior[skill_idx].item())
-
-        run_text = "Run Number: " + str(timesteps) + "\Action: " + str(action) + " Skill group: " + str(skill_group) + "\nPrior Know: " + str(prior_know) + "\nPost. Know: " + str(posterior_know) + "\nTimestep: " + str(timesteps) + " Reward: " + str(reward) + " ActivityName: " + activityName + "\nPrior: " + str(prior_avg_know) + " Posterior: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
+        # prior_know = []
+        # posterior_know = []
+        # for skill_idx in skill_group:
+        #     prior_know.append(prior[skill_idx].item())
+        #     posterior_know.append(posterior[skill_idx].item())
+        # run_text = "Run Number: " + str(timesteps) + "\Action: " + str(action) + " Skill group: " + str(skill_group) + "\nPrior Know: " + str(prior_know) + "\nPost. Know: " + str(posterior_know) + "\nTimestep: " + str(timesteps) + " Reward: " + str(reward) + " ActivityName: " + activityName + "\nPrior: " + str(prior_avg_know) + " Posterior: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
 
         state = next_state
         total_reward += reward
     
-        with open("RL_agents/ppo_logs/play_run.txt", "a") as f:
-            f.write(run_text)
+        # with open("RL_agents/ppo_logs/play_run.txt", "a") as f:
+        #     f.write(run_text)
 
-    with open("RL_agents/ppo_logs/play_run.txt", "a") as f:
-        f.write("Total Reward: " + str(total_reward) + "\n")
+    # with open("RL_agents/ppo_logs/play_run.txt", "a") as f:
+    #     f.write("Total Reward: " + str(total_reward) + "\n")
     
     print("In %d steps we got %.3f reward" % (timesteps, total_reward))
     
     student_model_name = env.student_simulator.student_model_name
     if student_model_name == 'hotDINA_full' or student_model_name == 'hotDINA_skill':
         learning_progress = env.student_simulator.student_model.alpha
+    
     return total_reward, posterior, learning_progress   
 
 def normalize(x):
