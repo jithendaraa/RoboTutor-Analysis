@@ -61,7 +61,6 @@ def draw_graph():
         plt.savefig('../../plots/Training plots/training_results.png', bbox_inches='tight', )
 
     ani = animation.FuncAnimation(fig, animate, interval=1000)
-
     plt.show()
 
 

@@ -362,8 +362,8 @@ if __name__ == '__main__':
                 if best_reward is not None:
                     print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
                     
-                    file_name_no_reward = CONSTANTS['STUDENT_ID'] + ':' + args.student_model_name + ":" + 'obs_' + args.observations + ':max_timesteps_' + str(args.max_timesteps) + ":village_" + args.village_num + ":type_" + str(args.type)
-                    file_name = file_name_no_reward + ":" + str(test_reward)
+                    file_name_no_reward = CONSTANTS['STUDENT_ID'] + '~' + args.student_model_name + "~" + 'obs_' + args.observations + '~max_timesteps_' + str(args.max_timesteps) + "~village_" + args.village_num + "~type_" + str(args.type)
+                    file_name = file_name_no_reward + "~" + str(test_reward) + '.dat'
                     os.chdir('checkpoints')
                     # get all files starting like file_name_no_reward
                     files = os.listdir('.')
