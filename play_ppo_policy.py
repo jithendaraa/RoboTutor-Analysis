@@ -233,6 +233,8 @@ if __name__ == '__main__':
         ax[i].set_ylabel("Avg P(Know) across skills")
         ax[i].set_title("Student: " + student_id)
         ax[i].grid()
+        ax[i].legend()
+
     plt.grid()
     plt.show()
     plt.savefig('plots/Played plots/Type ' + str(args.type) + '/village_' + args.village_num + ':obs_' + args.observations + ':' + args.student_model_name + '.png')
