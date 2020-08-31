@@ -47,6 +47,7 @@ CONSTANTS = {
     'DETERMINISTIC'                     :   False,
     'USES_THRESHOLDS'                   :   False,  
     'AVG_OVER_RUNS'                     :   10,  
+    'STUDENT_SPEC_MODEL'                :   False,
     # Current RoboTutor Thresholds
     'LOW_PERFORMANCE_THRESHOLD'         :   0.5,
     'MID_PERFORMANCE_THRESHOLD'         :   0.83,
@@ -65,6 +66,7 @@ def set_constants(args):
     CONSTANTS['STUDENT_MODEL_NAME'] = args.student_model_name
     CONSTANTS['DETERMINISTIC'] = args.deterministic
     CONSTANTS['NEW_STUDENT_PARAMS'] = args.new_student_params
+    CONSTANTS['STUDENT_SPEC_MODEL'] = args.student_spec_model
 
     if args.type == None:
         CONSTANTS['STATE_SIZE'] = 22
@@ -106,8 +108,8 @@ def arg_parser():
     parser.add_argument("-o", "--observations", default=CONSTANTS["NUM_OBS"], help="Number of observations to train on")
     parser.add_argument("-v", "--village_num", default=CONSTANTS['VILLAGE'], help="Village number to play learnt policy on")
     parser.add_argument('-t', '--type', help="RL Agent type (1-5)", type=int)
+    parser.add_argument('--student_spec_model', help="Set true if you want to use model specific to the student", default=CONSTANTS['STUDENT_SPEC_MODEL'])
     parser.add_argument('-mt', '--max_timesteps', help="Total questions that will be given to the student/RL agent", type=int, default=CONSTANTS['MAX_TIMESTEPS'])
-    parser.add_argument("-m", "--model", help="Model file to load")
     parser.add_argument('-sid', '--student_id', default=CONSTANTS['STUDENT_ID'], help="Student id")
     parser.add_argument("-smn", "--student_model_name", help="Student model that the Student Simulator uses", default=CONSTANTS['STUDENT_MODEL_NAME'])
     parser.add_argument("-d", "--deterministic", default=CONSTANTS['DETERMINISTIC'], help="enable deterministic actions")
@@ -196,9 +198,19 @@ if __name__ == '__main__':
     uniq_student_ids = student_simulator.uniq_student_ids
     student_num = uniq_student_ids.index(student_id)
 
+    checkpoint_file_name_start = student_id + '~' + args.student_model_name + '~obs_' + args.observations + '~max_timesteps_' + str(args.max_timesteps) + '~village_' + args.village_num + '~type_' + str(args.type) + '~'
+
+    checkpoint_files = os.listdir('./checkpoints')
+    checkpoint_file_name = ""
+
+    for file in checkpoint_files:
+        if file[:len(checkpoint_file_name_start)] == checkpoint_file_name_start:
+            checkpoint_file_name = file
+            break
+
     model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[state_size], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=action_size, type=args.type)
-    model.load_state_dict(torch.load("checkpoints/" + args.model))
-    print("Loaded model at checkpoints/" + str(args.model))
+    model.load_state_dict(torch.load("checkpoints/" + checkpoint_file_name))
+    print("Loaded model at checkpoints/" + checkpoint_file_name)
     
     fig = plt.figure(figsize=(15, 11))
 
@@ -212,6 +224,27 @@ if __name__ == '__main__':
         student_id = student_simulator.uniq_student_ids[i]
         CONSTANTS['NEW_STUDENT_PARAMS'] = student_id
         if student_id == 'new_student': CONSTANTS['NEW_STUDENT_PARAMS'] = None
+
+        if CONSTANTS['STUDENT_SPEC_MODEL']:
+            checkpoint_file_name_start = student_id + '~' + args.student_model_name + '~obs_' + args.observations + '~max_timesteps_' + str(args.max_timesteps) + '~village_' + args.village_num + '~type_' + str(args.type) + '~'
+
+            checkpoint_files = os.listdir('./checkpoints')
+            checkpoint_file_name = ""
+            for file in checkpoint_files:
+                if file[:len(checkpoint_file_name_start)] == checkpoint_file_name_start:
+                    checkpoint_file_name = file
+                    break
+           
+            if checkpoint_file_name == "":
+                checkpoint_file_name_start = 'new_student~' + args.student_model_name + '~obs_' + args.observations + '~max_timesteps_' + str(args.max_timesteps) + '~village_' + args.village_num + '~type_' + str(args.type) + '~'
+                for file in checkpoint_files:
+                    if file[:len(checkpoint_file_name_start)] == checkpoint_file_name_start:
+                        checkpoint_file_name = file
+                        break
+
+            model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[state_size], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=action_size, type=args.type)
+            model.load_state_dict(torch.load("checkpoints/" + checkpoint_file_name))
+
         student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=student_id, prints=False)
 
         env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
