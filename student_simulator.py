@@ -371,4 +371,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     village = args.village_num
     observations = args.observations
-    main("hotDINA_full", village, observations, train_ratio=0.85)
+    main("hotDINA_skill", village, observations, train_ratio=0.85)

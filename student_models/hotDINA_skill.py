@@ -194,13 +194,9 @@ class hotDINA_skill():
             for j in range(len(_users)):
                 user = _users[j]
                 item = _items[j]
-                correct_response, min_correct_response = self.predict_response(item, user, update=True, bayesian_update=bayesian_update)
-                if self.responsibilty == 'independent':
-                    response = np.random.binomial(n=1, p=correct_response)
-                    predicted_responses.append(response)
-                elif self.responsibilty == 'hardest_skill':
-                    response = np.random.binomial(n=1, p=min_correct_response)
-                    predicted_responses.append(response)
+                correct_response = self.predict_response(item, user, update=True, bayesian_update=bayesian_update)
+                response = np.random.binomial(n=1, p=correct_response)
+                predicted_responses.append(response)
 
         if len(idxs) > 0:
             items_ = items[idxs[-1]:]
@@ -228,13 +224,9 @@ class hotDINA_skill():
         for j in range(len(_users)):
             user = _users[j]
             item = _items[j]
-            correct_response, min_correct_response = self.predict_response(item, user, update=True, bayesian_update=bayesian_update)
-            if self.responsibilty == 'independent':
-                response = np.random.binomial(n=1, p=correct_response)
-                predicted_responses.append(response)
-            elif self.responsibilty == 'hardest_skill':
-                response = np.random.binomial(n=1, p=min_correct_response)
-                predicted_responses.append(response)
+            correct_response = self.predict_response(item, user, update=True, bayesian_update=bayesian_update)
+            response = np.random.binomial(n=1, p=correct_response)
+            predicted_responses.append(response)
 
         majority_response = [1.0] * len(corrects)
         majority_class_rmse = rmse(majority_response, corrects)
