@@ -307,7 +307,7 @@ class StudentEnv():
         
         return next_state, student_response, done, prior_know, posterior_know
         
-    def step(self, action, max_timesteps, timesteps=None, activityName=None, bayesian_update=True, plot=False, prints=False):
+    def step(self, action, max_timesteps, timesteps=None, activityName=None, bayesian_update=True, plot=False, prints=False, reset_after_done=True):
 
         done = False
         student_ids = [self.student_id]
@@ -340,6 +340,6 @@ class StudentEnv():
         
         if timesteps != None and timesteps >= max_timesteps:
             done = True
-            next_state = np.array(self.reset())
+            if reset_after_done:    next_state = np.array(self.reset())
         
         return next_state, reward, student_response, done, posterior_know
