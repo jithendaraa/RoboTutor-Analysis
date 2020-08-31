@@ -29,10 +29,11 @@ class StudentSimulator():
             "STUDENT_MODEL_INITIALISER"             : {
                                                         "ItemBKT"       : "self.student_model = ItemBKT(self.params_dict, self.kc_list, self.uniq_student_ids)",
                                                         "ActivityBKT"   : "self.student_model = ActivityBKT(self.params_dict, self.kc_list, self.uniq_student_ids, self.uniq_activities, self.activity_learning_progress, path=path)",
-                                                        "hotDINA_skill" : "self.student_model = hotDINA_skill(self.params_dict, path_to_Qmatrix)",
+                                                        "hotDINA_skill" : "self.student_model = hotDINA_skill(self.params_dict, path_to_Qmatrix, new_student_knew=self.new_student_knew)",
                                                         "hotDINA_full"  : "self.student_model = hotDINA_full(self.params_dict, path_to_Qmatrix)"
                                                     },
         }
+        self.new_student_knew = None
         path_to_Qmatrix = os.getcwd() + '/' + path + '../hotDINA/qmatrix.txt'
         self.village = village
         self.observations = observations
@@ -178,7 +179,9 @@ class StudentSimulator():
         self.remove_discrepant_activities()
 
     def set_new_student_params(self):
-        if self.new_student_params == None:
+        
+        if self.new_student_params == None and self.new_student_knew == None:
+            self.new_student_params = 0.1
             return
         
         student_model_name = self.student_model_name

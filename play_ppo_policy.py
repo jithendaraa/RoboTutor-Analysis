@@ -237,7 +237,7 @@ if __name__ == '__main__':
 
     plt.grid()
     plt.show()
-    plt.savefig('plots/Played plots/Type ' + str(args.type) + '/village_' + args.village_num + ':obs_' + args.observations + ':' + args.student_model_name + '.png')
+    plt.savefig('../RoboTutor-Analysis/plots/Played plots/Type ' + str(args.type) + '/village_' + args.village_num + ':obs_' + args.observations + ':' + args.student_model_name + '.png')
         
     # Push avg P(Know) of each student in CONSTANTS["COMPARE_STUDENT_IDS"] into student_avgs after each opportunity. student_avgs is thus a 2d list
     # student_avgs = []

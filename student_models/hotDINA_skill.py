@@ -14,7 +14,7 @@ import copy
 
 
 class hotDINA_skill():
-    def __init__(self, params_dict, path_to_Qmatrix, responsibilty='independent'):
+    def __init__(self, params_dict, path_to_Qmatrix, responsibilty='independent', new_student_knew=None):
 
         self.I = len(params_dict['theta'])
         self.K = len(params_dict['a'])
@@ -28,7 +28,7 @@ class hotDINA_skill():
         self.g = params_dict['g']
         self.ss = params_dict['ss']
 
-        self.new_student_knew = 0.1 # P(Know) for new_student
+        self.new_student_knew = new_student_knew # P(Know) for new_student
 
         self.bayesian_update = True
         self.responsibilty = responsibilty
@@ -44,7 +44,7 @@ class hotDINA_skill():
             for k in range(self.K):
                 self.knews[i][k] = sigmoid(1.7 * self.a[k] * (self.theta[i] - self.b[k]))
             
-            if i == self.I - 1: self.alpha[i].append([self.new_student_knew] * self.K)
+            if i == self.I - 1 and new_student_knew != None: self.alpha[i].append([self.new_student_knew] * self.K)
             else: self.alpha[i].append(self.knews[i].tolist())
             self.avg_knows[i].append(np.mean(self.knews[i]))
 

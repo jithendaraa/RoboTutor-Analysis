@@ -227,6 +227,7 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
 def play_env(env, model, device, CONSTANTS, deterministic=True):
     state = env.reset()
     init_state = state.copy()
+    num_skill = 22
     done = False
     total_reward = 0
     timesteps = 0
@@ -258,10 +259,10 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
             else:
                 action = policy.probs.cpu().detach().numpy()[0]
                 action = action.tolist().index(max(action))
-            next_state, reward, _, done, posterior = env.step(action, CONSTANTS["MAX_TIMESTEPS"], timesteps=timesteps, bayesian_update=True)
+            next_state, reward, _, done, posterior = env.step(action, CONSTANTS["MAX_TIMESTEPS"], timesteps=timesteps, bayesian_update=True, reset_after_done=False)
 
-        prior = state[0][:22].cpu().numpy()
-        posterior = torch.Tensor(next_state).unsqueeze(0).to(device)[0]
+        prior = state[0][:num_skill].cpu().numpy()
+        posterior = torch.Tensor(next_state[:num_skill]).unsqueeze(0).to(device)[0]
         posterior_avg_know  =  torch.mean(posterior).item()
         prior_avg_know      =  torch.mean(state).item()
         gain = (posterior_avg_know - prior_avg_know)
@@ -288,7 +289,7 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
     if student_model_name == 'hotDINA_full' or student_model_name == 'hotDINA_skill':
         learning_progress = env.student_simulator.student_model.alpha
     
-    return total_reward, posterior, learning_progress   
+    return total_reward, posterior.cpu().numpy(), learning_progress   
 
 def normalize(x):
     x -= x.mean()

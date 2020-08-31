@@ -152,6 +152,7 @@ def plot_learning(learning_progress, student_ids, timesteps, new_student_avg, al
     plt.title("Avg P(Know) vs. #opportunities")
     plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0), useMathText=True)
     # plt.savefig("plots/" + algo + '_results.jpg')
+    plt.grid()
     plt.show()
 
 def slurm_output_params(path, village="130", slurm_id="10301619"):
