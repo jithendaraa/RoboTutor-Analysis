@@ -199,7 +199,6 @@ if __name__ == '__main__':
     student_num = uniq_student_ids.index(student_id)
 
     checkpoint_file_name_start = student_id + '~' + args.student_model_name + '~obs_' + args.observations + '~max_timesteps_' + str(args.max_timesteps) + '~village_' + args.village_num + '~type_' + str(args.type) + '~'
-
     checkpoint_files = os.listdir('./checkpoints')
     checkpoint_file_name = ""
 
@@ -210,7 +209,7 @@ if __name__ == '__main__':
 
     model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[state_size], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=action_size, type=args.type)
     model.load_state_dict(torch.load("checkpoints/" + checkpoint_file_name))
-    print("Loaded model at checkpoints/" + checkpoint_file_name)
+    # print("Loaded model at checkpoints/" + checkpoint_file_name)
     
     fig = plt.figure(figsize=(15, 11))
 
@@ -235,16 +234,10 @@ if __name__ == '__main__':
                 if file[:len(checkpoint_file_name_start)] == checkpoint_file_name_start:
                     checkpoint_file_name = file
                     break
-           
-            if checkpoint_file_name == "":
-                checkpoint_file_name_start = 'new_student~' + args.student_model_name + '~obs_' + args.observations + '~max_timesteps_' + str(args.max_timesteps) + '~village_' + args.village_num + '~type_' + str(args.type) + '~'
-                for file in checkpoint_files:
-                    if file[:len(checkpoint_file_name_start)] == checkpoint_file_name_start:
-                        checkpoint_file_name = file
-                        break
 
             model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[state_size], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=action_size, type=args.type)
             model.load_state_dict(torch.load("checkpoints/" + checkpoint_file_name))
+            # print("Loaded model at checkpoints/" + checkpoint_file_name, student_id)
 
         student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=student_id, prints=False)
 
@@ -290,6 +283,5 @@ if __name__ == '__main__':
         ax[i].legend()
 
     plt.tight_layout()
-    plt.grid()
     plt.savefig('../RoboTutor-Analysis/plots/Played plots/Type ' + str(args.type) + '/village_' + args.village_num + '~obs_' + args.observations + '~' + args.student_model_name + '.png')
     plt.show()
