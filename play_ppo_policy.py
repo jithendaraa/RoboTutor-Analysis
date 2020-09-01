@@ -219,11 +219,12 @@ if __name__ == '__main__':
         ax.append(fig.add_subplot(3,3,i+1))
         ax[i].clear()
     
-    for i in range(len(student_simulator.uniq_student_ids) - 1):
+    for i in range(len(student_simulator.uniq_student_ids)):
         student_num = i
         student_id = student_simulator.uniq_student_ids[i]
         CONSTANTS['NEW_STUDENT_PARAMS'] = student_id
-        if student_id == 'new_student': CONSTANTS['NEW_STUDENT_PARAMS'] = None
+        if student_id == 'new_student': 
+            CONSTANTS['NEW_STUDENT_PARAMS'] = None
 
         if CONSTANTS['STUDENT_SPEC_MODEL']:
             checkpoint_file_name_start = student_id + '~' + args.student_model_name + '~obs_' + args.observations + '~max_timesteps_' + str(args.max_timesteps) + '~village_' + args.village_num + '~type_' + str(args.type) + '~'
