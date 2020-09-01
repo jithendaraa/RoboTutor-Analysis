@@ -179,8 +179,8 @@ class StudentSimulator():
         self.remove_discrepant_activities()
 
     def set_new_student_params(self):
-        
-        if self.new_student_params == None and self.new_student_knew == None:
+
+        if self.new_student_params == None or self.new_student_params == 'new_student':
             self.new_student_knew = 0.1
             return
         
