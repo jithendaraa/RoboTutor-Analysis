@@ -60,7 +60,13 @@ class hotDINA_skill():
         prior_know = know[k]
         posterior_know = None
         p_correct = (self.ss[k] * prior_know) + (self.g[k] * (1 - prior_know))
+        # Prevent division by 0
+        if p_correct == 1.0: p_correct -= 1e-8
+        elif p_correct == 0.0: p_correct += 1e-8
         p_wrong = 1.0 - p_correct
+        if p_wrong == 0.0 or p_correct == 0.0:
+            print(self.ss[k], self.g[k], prior_know, k)
+        # print(p_correct, self.ss[k], self.g[k], k, p_wrong)
 
         if self.bayesian_update:
             if y == 1:
