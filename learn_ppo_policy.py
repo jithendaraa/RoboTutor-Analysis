@@ -36,7 +36,7 @@ CONSTANTS = {
     'AGENT_TYPE'                        :   None,
     'AREA_ROTATION_CONSTRAINT'          :   True,
     'TRANSITION_CONSTRAINT'             :   True,
-    "LEARNING_RATE"                     :   1e-4,
+    "LEARNING_RATE"                     :   5e-2,
     "FC1_DIMS"                          :   1024,
     "FC2_DIMS"                          :   2048,
     'FC3_DIMS'                          :   1024,

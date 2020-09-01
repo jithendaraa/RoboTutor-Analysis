@@ -219,7 +219,7 @@ if __name__ == '__main__':
         ax.append(fig.add_subplot(3,3,i+1))
         ax[i].clear()
     
-    for i in range(len(student_simulator.uniq_student_ids)):
+    for i in range(len(student_simulator.uniq_student_ids) - 1):
         student_num = i
         student_id = student_simulator.uniq_student_ids[i]
         CONSTANTS['NEW_STUDENT_PARAMS'] = student_id
@@ -261,6 +261,26 @@ if __name__ == '__main__':
 
         ax[i].plot(xs, threshold_ys, color='r', label="Current RT Thresholds")
         ax[i].plot(xs, lenient_threshold_ys, color='b', label="Current lenient RT Thresholds")
+        
+        RL_perf_text = ""
+
+        if i == 0:
+            threshold_text = ""
+            lenient_threshold_text = ""
+            for j in range(len(xs)):
+                threshold_text += str(xs[j]) + "," + str(threshold_ys[j]) + '\n'
+                lenient_threshold_text += str(xs[j]) + "," + str(lenient_threshold_ys[j]) + '\n'
+            with open("plots/Played plots/threshold.txt", "w") as f:
+                f.write(threshold_text)
+            with open("plots/Played plots/lenient_threshold.txt", "w") as f:
+                f.write(lenient_threshold_text)
+        
+        for j in range(len(x)):
+            RL_perf_text += str(x[j]) + "," + str(new_student_avg[j]) + '\n'
+        
+        with open("plots/Played plots/Type " + str(args.type) + "/" + student_id + "_RL_perf.txt", "w") as f:
+            f.write(RL_perf_text)
+        
         ax[i].plot(x, new_student_avg, label="RL Agent", color="black")
         ax[i].set_xlabel("# Opportunities")
         ax[i].set_ylabel("Avg P(Know) across skills")
@@ -268,17 +288,7 @@ if __name__ == '__main__':
         ax[i].grid()
         ax[i].legend()
 
-    plt.savefig('../RoboTutor-Analysis/plots/Played plots/Type ' + str(args.type) + '/village_' + args.village_num + '~obs_' + args.observations + '~' + args.student_model_name + '.png')
+    plt.tight_layout()
     plt.grid()
+    plt.savefig('../RoboTutor-Analysis/plots/Played plots/Type ' + str(args.type) + '/village_' + args.village_num + '~obs_' + args.observations + '~' + args.student_model_name + '.png')
     plt.show()
-        
-    # Push avg P(Know) of each student in CONSTANTS["COMPARE_STUDENT_IDS"] into student_avgs after each opportunity. student_avgs is thus a 2d list
-    # student_avgs = []
-    # for compare_student_num in [0, 1]:
-    #     student_avg = []
-    #     for know in learning_progress[compare_student_num]:
-    #         avg_know = np.mean(np.array(know))
-    #         student_avg.append(avg_know)
-    #     student_avgs.append(student_avg)
-    # # 
-    # plot_learning(learning_progress, [], CONSTANTS['MAX_TIMESTEPS'], new_student_avg, algo="PPO", xs=xs, threshold_ys=threshold_ys, lenient_threshold_ys=lenient_threshold_ys)

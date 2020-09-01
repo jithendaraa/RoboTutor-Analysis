@@ -251,7 +251,7 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
             action = policy.probs.cpu().detach().numpy()[0]
             if deterministic == False:
                 action = policy.sample().cpu().numpy()[0]
-            next_state, reward, _, done, posterior = env.step(action, CONSTANTS["MAX_TIMESTEPS"], timesteps=timesteps, activityName=activity_name,bayesian_update=bayesian_update)
+            next_state, reward, _, done, posterior = env.step(action, CONSTANTS["MAX_TIMESTEPS"], timesteps=timesteps, bayesian_update=True, reset_after_done=False)
         
         elif env.type == 3 or env.type == 5:
             if deterministic == False:
