@@ -260,6 +260,26 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
                 action = policy.probs.cpu().detach().numpy()[0]
                 action = action.tolist().index(max(action))
             next_state, reward, _, done, posterior = env.step(action, CONSTANTS["MAX_TIMESTEPS"], timesteps=timesteps, bayesian_update=True, reset_after_done=False)
+        
+        elif env.type == 4:
+            policy = policy[0]
+            if deterministic == False:
+                action = policy.sample().cpu().numpy()[0]
+            else:
+                action = policy.probs.cpu().detach().numpy()
+                action = action.tolist().index(max(action))
+
+            row = state[0]
+            matrix_num = int(row[-1].item())
+            if matrix_num == 1: # literacy
+                act = CONSTANTS['LITERACY_ACTS'][action]
+            elif matrix_num == 2:   # math
+                act = CONSTANTS['MATH_ACTS'][action]
+            elif matrix_num == 3:   # story
+                act = CONSTANTS['STORY_ACTS'][action]
+                
+            act_num = env.student_simulator.uniq_activities.index(act)
+            next_state, reward, _, done, posterior = env.step(act_num, CONSTANTS["MAX_TIMESTEPS"], timesteps=timesteps, bayesian_update=True, reset_after_done=False)
 
         prior = state[0][:num_skill].cpu().numpy()
         posterior = torch.Tensor(next_state[:num_skill]).unsqueeze(0).to(device)[0]
