@@ -46,7 +46,6 @@ CONSTANTS = {
     'CLEAR_LOGS'                        :   True,
     'DETERMINISTIC'                     :   False,
     'USES_THRESHOLDS'                   :   False,  
-    'AVG_OVER_RUNS'                     :   10,  
     'STUDENT_SPEC_MODEL'                :   False,
     # Current RoboTutor Thresholds
     'LOW_PERFORMANCE_THRESHOLD'         :   0.5,
@@ -108,7 +107,7 @@ def arg_parser():
     parser.add_argument("-o", "--observations", default=CONSTANTS["NUM_OBS"], help="Number of observations to train on")
     parser.add_argument("-v", "--village_num", default=CONSTANTS['VILLAGE'], help="Village number to play learnt policy on")
     parser.add_argument('-t', '--type', help="RL Agent type (1-5)", type=int)
-    parser.add_argument('--student_spec_model', help="Set true if you want to use model specific to the student", default=CONSTANTS['STUDENT_SPEC_MODEL'])
+    parser.add_argument('-ssm', '--student_spec_model', help="Set true if you want to use model specific to the student", default=CONSTANTS['STUDENT_SPEC_MODEL'])
     parser.add_argument('-mt', '--max_timesteps', help="Total questions that will be given to the student/RL agent", type=int, default=CONSTANTS['MAX_TIMESTEPS'])
     parser.add_argument('-sid', '--student_id', default=CONSTANTS['STUDENT_ID'], help="Student id")
     parser.add_argument("-smn", "--student_model_name", help="Student model that the Student Simulator uses", default=CONSTANTS['STUDENT_MODEL_NAME'])
@@ -207,8 +206,8 @@ if __name__ == '__main__':
             checkpoint_file_name = file
             break
 
-    model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[state_size], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=action_size, type=args.type)
-    model.load_state_dict(torch.load("checkpoints/" + checkpoint_file_name))
+    new_student_model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[state_size], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=action_size, type=args.type)
+    new_student_model.load_state_dict(torch.load("checkpoints/" + checkpoint_file_name))
     # print("Loaded model at checkpoints/" + checkpoint_file_name)
     
     fig = plt.figure(figsize=(15, 11))
@@ -218,6 +217,10 @@ if __name__ == '__main__':
         ax.append(fig.add_subplot(3,3,i+1))
         ax[i].clear()
     
+    total_threshold_avgs = 0.0
+    total_lenient_threshold_avgs = 0.0
+    total_posterior_avgs = 0.0
+
     for i in range(len(student_simulator.uniq_student_ids)):
         student_num = i
         student_id = student_simulator.uniq_student_ids[i]
@@ -227,7 +230,6 @@ if __name__ == '__main__':
 
         if CONSTANTS['STUDENT_SPEC_MODEL']:
             checkpoint_file_name_start = student_id + '~' + args.student_model_name + '~obs_' + args.observations + '~max_timesteps_' + str(args.max_timesteps) + '~village_' + args.village_num + '~type_' + str(args.type) + '~'
-
             checkpoint_files = os.listdir('./checkpoints')
             checkpoint_file_name = ""
             for file in checkpoint_files:
@@ -243,44 +245,69 @@ if __name__ == '__main__':
 
         env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
         env.checkpoint()
-        total_reward, posterior, learning_progress = play_env(env, model, device, CONSTANTS, deterministic=args.deterministic)
-    
-        new_student_avg = []
+        prior = env.state[:22]
+
+        total_reward, posterior, learning_progress = play_env(env, new_student_model, device, CONSTANTS, deterministic=args.deterministic)
+        xs, threshold_ys, lenient_threshold_ys = evaluate_current_RT_thresholds(plots=False, prints=False)
+        student_spec_avg = []
+        student_avg = []
+        
         for know in learning_progress[student_num]:
             avg_know = np.mean(np.array(know))
-            new_student_avg.append(avg_know)
+            student_avg.append(avg_know)
+        
+        x = np.arange(1, len(student_avg) + 1).tolist()
 
-        x = np.arange(1, len(new_student_avg) + 1).tolist()
-        xs, threshold_ys, lenient_threshold_ys = evaluate_current_RT_thresholds(plots=False, prints=False)
+        if CONSTANTS['STUDENT_SPEC_MODEL']:
+            _total_reward, _posterior, _learning_progress = play_env(env, model, device, CONSTANTS, deterministic=args.deterministic)
+            for know in _learning_progress[student_num]:
+                _avg_know = np.mean(np.array(know))
+                student_spec_avg.append(_avg_know)
+            
+            ax[i].plot(x, student_spec_avg, label="Student-specific RL Policy", color="orange", alpha=0.5)
 
-        ax[i].plot(xs, threshold_ys, color='r', label="Current RT Thresholds")
-        ax[i].plot(xs, lenient_threshold_ys, color='b', label="Current lenient RT Thresholds")
-        
-        RL_perf_text = ""
-
-        if i == 0:
-            threshold_text = ""
-            lenient_threshold_text = ""
-            for j in range(len(xs)):
-                threshold_text += str(xs[j]) + "," + str(threshold_ys[j]) + '\n'
-                lenient_threshold_text += str(xs[j]) + "," + str(lenient_threshold_ys[j]) + '\n'
-            with open("plots/Played plots/threshold.txt", "w") as f:
-                f.write(threshold_text)
-            with open("plots/Played plots/lenient_threshold.txt", "w") as f:
-                f.write(lenient_threshold_text)
-        
-        for j in range(len(x)):
-            RL_perf_text += str(x[j]) + "," + str(new_student_avg[j]) + '\n'
-        
-        with open("plots/Played plots/Type " + str(args.type) + "/" + student_id + "_RL_perf.txt", "w") as f:
-            f.write(RL_perf_text)
-        
-        ax[i].plot(x, new_student_avg, label="RL Agent", color="black")
+        ax[i].plot(xs, threshold_ys, color='r', label="Current RT Thresholds", alpha=0.5)
+        ax[i].plot(xs, lenient_threshold_ys, color='b', label="Current lenient RT Thresholds", alpha=0.5)
+        ax[i].plot(x, student_avg, label="Generic RL Policy Type " + str(args.type), color="black")
         ax[i].set_xlabel("# Opportunities")
         ax[i].set_ylabel("Avg P(Know) across skills")
         ax[i].set_title("Student: " + student_id)
         ax[i].grid()
         ax[i].legend()
+
+        print('Student ', i, "\nAvg. prior Know: ", np.mean(prior), "\nAvg. posterior Know: ", np.mean(posterior))
+        print("threshold averages:", threshold_ys[-1] )
+        print("lenient threshold averages:", lenient_threshold_ys[-1] )
+        threshold_policy_improvement = 100*(np.mean(posterior) - threshold_ys[-1])/threshold_ys[-1]
+        lenient_threshold_policy_improvement = 100*(np.mean(posterior) - lenient_threshold_ys[-1])/lenient_threshold_ys[-1]
+        print("threshold and lenient threshold policy improvements: ",  threshold_policy_improvement, lenient_threshold_policy_improvement, '\n')
+        total_threshold_avgs += threshold_ys[-1]
+        total_lenient_threshold_avgs += lenient_threshold_ys[-1]
+        total_posterior_avgs += np.mean(posterior)
+        
+    total_threshold_policy_improvement = 100*(total_posterior_avgs - total_threshold_avgs)/total_threshold_avgs
+    total_lenient_threshold_policy_improvement = 100*(np.mean(posterior) - total_lenient_threshold_avgs)/total_lenient_threshold_avgs
+
+    print("TOTAL THRESHOLD IMPROVEMENT: ", total_threshold_policy_improvement)
+    print("TOTAL LENIENT THRESHOLD IMPROVEMENT: ", total_lenient_threshold_policy_improvement)
+        # RL_perf_text = ""
+
+        # if i == 0:
+        #     threshold_text = ""
+        #     lenient_threshold_text = ""
+        #     for j in range(len(xs)):
+        #         threshold_text += str(xs[j]) + "," + str(threshold_ys[j]) + '\n'
+        #         lenient_threshold_text += str(xs[j]) + "," + str(lenient_threshold_ys[j]) + '\n'
+        #     with open("plots/Played plots/threshold.txt", "w") as f:
+        #         f.write(threshold_text)
+        #     with open("plots/Played plots/lenient_threshold.txt", "w") as f:
+        #         f.write(lenient_threshold_text)
+        
+        # for j in range(len(x)):
+        #     RL_perf_text += str(x[j]) + "," + str(student_avg[j]) + '\n'
+        
+        # with open("plots/Played plots/Type " + str(args.type) + "/" + student_id + "_RL_perf.txt", "w") as f:
+        #     f.write(RL_perf_text)
 
     plt.tight_layout()
     plt.savefig('../RoboTutor-Analysis/plots/Played plots/Type ' + str(args.type) + '/village_' + args.village_num + '~obs_' + args.observations + '~' + args.student_model_name + '.png')
