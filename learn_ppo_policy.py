@@ -25,7 +25,7 @@ CONSTANTS = {
     'NUM_SKILLS'                        :   22,
     'STATE_SIZE'                        :   22,
     'ACTION_SIZE'                       :   43,
-    "TARGET_P_KNOW"                     :   0.97,
+    "TARGET_P_KNOW"                     :   0.35,
     'NUM_OBS'                           :   '100',
     'VILLAGE'                           :   '130',
     'STUDENT_ID'                        :   'new_student',
@@ -36,17 +36,17 @@ CONSTANTS = {
     'AGENT_TYPE'                        :   None,
     'AREA_ROTATION_CONSTRAINT'          :   True,
     'TRANSITION_CONSTRAINT'             :   True,
-    "LEARNING_RATE"                     :   5e-2,
+    "LEARNING_RATE"                     :   1e-4,
     "FC1_DIMS"                          :   1024,
     "FC2_DIMS"                          :   2048,
     'FC3_DIMS'                          :   1024,
-    'PPO_STEPS'                         :   256, # Must be a multiple of MINI_BATCH_SIZE
+    'PPO_STEPS'                         :   512, # Must be a multiple of MINI_BATCH_SIZE
     'PPO_EPOCHS'                        :   10,
-    'TEST_EPOCHS'                       :   10,
+    'TEST_EPOCHS'                       :   5,
     'NUM_TESTS'                         :   10,
     'GAE_LAMBDA'                        :   0.95,
-    "MINI_BATCH_SIZE"                   :   64,
-    "MAX_TIMESTEPS"                     :   50,
+    "MINI_BATCH_SIZE"                   :   32,
+    "MAX_TIMESTEPS"                     :   200,
     'GAMMA'                             :   0.99,
     'GAE_LAMBDA'                        :   0.95,
     'PPO_EPSILON'                       :   0.2,
@@ -91,16 +91,19 @@ def set_constants(args):
         CONSTANTS['STATE_SIZE'] = 22
         CONSTANTS['ACTION_SIZE'] = 3
         CONSTANTS['USES_THRESHOLDS'] = True
+        CONSTANTS['FC1_DIMS'] = 256
     
     elif args.type == 2:    # State size: number of KC's + 1 matrix_type state + 1 position state; Action size: 3 threshold values
         CONSTANTS['STATE_SIZE'] = 22 + 1 + 1
         CONSTANTS['ACTION_SIZE'] = 3
         CONSTANTS['USES_THRESHOLDS'] = True
+        CONSTANTS['FC1_DIMS'] = 256
 
     elif args.type == 3:
         CONSTANTS['STATE_SIZE'] = 22 + 1 + 1
         CONSTANTS['ACTION_SIZE'] = 4    # prev, same, next, next_next
         CONSTANTS['USES_THRESHOLDS'] = False
+        CONSTANTS['FC1_DIMS'] = 256
     
     elif args.type == 4:
         CONSTANTS['STATE_SIZE'] = 22 + 1 
@@ -243,7 +246,7 @@ if __name__ == '__main__':
 
     frame_idx = 0
     train_epoch = 0
-    best_reward = None
+    best_reward = -1000.0
     early_stop = False
 
     # Prepare environments
@@ -332,6 +335,8 @@ if __name__ == '__main__':
         ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS, type_=args.type)
         train_epoch += 1
         print("UPDATING.... Epoch Num:", train_epoch)
+        # if train_epoch > 800:
+        #     break
         
         if train_epoch % CONSTANTS['TEST_EPOCHS'] == 0:
             student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
@@ -358,26 +363,25 @@ if __name__ == '__main__':
             print('Frame %s. reward: %s' % (frame_idx, test_reward))
             final_avg_p_know = np.mean(final_p_know)
             # Save a checkpoint every time we achieve a best reward
-            if best_reward is None or best_reward < test_reward:
-                if best_reward is not None:
-                    print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
+            if best_reward < test_reward:
+                print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
                     
-                    file_name_no_reward = CONSTANTS['STUDENT_ID'] + '~' + args.student_model_name + "~" + 'obs_' + args.observations + '~max_timesteps_' + str(args.max_timesteps) + "~village_" + args.village_num + "~type_" + str(args.type)
-                    file_name = file_name_no_reward + "~" + str(test_reward) + '.dat'
-                    os.chdir('checkpoints')
-                    # get all files starting like file_name_no_reward
-                    files = os.listdir('.')
-                    files_to_del = []
-                    for file in files:
-                        if file[:len(file_name_no_reward)] == file_name_no_reward:
-                            files_to_del.append(file)
-
-                    for file in files_to_del:
-                        os.system('rm -rf ' + file)
-                    
-                    os.chdir('..')
-                    fname = os.path.join('.', 'checkpoints', file_name)
-                    torch.save(model.state_dict(), fname)
+                file_name_no_reward = CONSTANTS['STUDENT_ID'] + '~' + args.student_model_name + "~" + 'obs_' + args.observations + '~max_timesteps_' + str(args.max_timesteps) + "~village_" + args.village_num + "~type_" + str(args.type)
+                file_name = file_name_no_reward + "~" + str(test_reward) + '.dat'
+                os.chdir('checkpoints')
+                # get all files starting like file_name_no_reward
+                files = os.listdir('.')
+                files_to_del = []
+                for file in files:
+                    if file[:len(file_name_no_reward)] == file_name_no_reward:
+                        files_to_del.append(file)
+                for file in files_to_del:
+                    os.system('rm -rf ' + file)
+                
+                os.chdir('..')
+                fname = os.path.join('.', 'checkpoints', file_name)
+                torch.save(model.state_dict(), fname)
+                
                 best_reward = test_reward
             if test_reward > CONSTANTS["TARGET_REWARD"]: 
                 early_stop = True
