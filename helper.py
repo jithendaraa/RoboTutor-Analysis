@@ -200,7 +200,9 @@ def slurm_output_params(path, village="130", slurm_id="10301619"):
 
 def evaluate_performance_thresholds(student_simulator, tutor_simulator, CONSTANTS=None, prints=True):
 
-    student_id = CONSTANTS['STUDENT_ID']
+    student_id = CONSTANTS['NEW_STUDENT_PARAMS']
+    if student_id == None: 
+        student_id = 'new_student'
     student_num = student_simulator.uniq_student_ids.index(student_id)
     uniq_activities = student_simulator.uniq_activities
     student_model_name = CONSTANTS['STUDENT_MODEL_NAME']
@@ -209,10 +211,12 @@ def evaluate_performance_thresholds(student_simulator, tutor_simulator, CONSTANT
         prior_know = np.array(student_simulator.student_model.alpha[student_num][-1])
         prior_avg_know = np.mean(prior_know)
     
-    if prints: print()
     activity_num = None
     response = ""
     ys = []
+    ys.append(prior_avg_know)
+    
+    if prints: print()
     for _ in range(CONSTANTS['MAX_TIMESTEPS']):
         if activity_num != None:
             p_know_activity = student_simulator.student_model.get_p_know_activity(student_num, activity_num)

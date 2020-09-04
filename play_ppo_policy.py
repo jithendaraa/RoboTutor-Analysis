@@ -150,6 +150,9 @@ def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=CONSTA
     avg_lenient_performance_ys = []
     label1 = "Current RT Thresholds(" + str(LOW_PERFORMANCE_THRESHOLD) + ", " + str(MID_PERFORMANCE_THRESHOLD) + ", " + str(HIGH_PERFORMANCE_THRESHOLD) + ")"
     label2 = "Current Lenient RT Thresholds(" + str(LOW_LENIENT_PERFORMANCE_THRESHOLD) + ", " + str(MID_LENIENT_PERFORMANCE_THRESHOLD) + ", " + str(HIGH_LENIENT_PERFORMANCE_THRESHOLD) + ")"
+
+    student_simulator = StudentSimulator(village=CONSTANTS['VILLAGE'], observations=CONSTANTS['NUM_OBS'], student_model_name=CONSTANTS['STUDENT_MODEL_NAME'], new_student_params=CONSTANTS['NEW_STUDENT_PARAMS'], prints=False)
+    
     for _ in range(avg_over_runs):
         student_simulator = StudentSimulator(village=CONSTANTS['VILLAGE'], observations=CONSTANTS['NUM_OBS'], student_model_name=CONSTANTS['STUDENT_MODEL_NAME'], new_student_params=CONSTANTS['NEW_STUDENT_PARAMS'], prints=False)
         tutor_simulator = TutorSimulator(CONSTANTS['LOW_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_PERFORMANCE_THRESHOLD'], CONSTANTS['AREA_ROTATION'], type=1, thresholds=True)
@@ -256,7 +259,7 @@ if __name__ == '__main__':
             avg_know = np.mean(np.array(know))
             student_avg.append(avg_know)
         
-        x = np.arange(1, len(student_avg) + 1).tolist()
+        x = np.arange(len(student_avg)).tolist()
 
         if CONSTANTS['STUDENT_SPEC_MODEL']:
             _total_reward, _posterior, _learning_progress = play_env(env, model, device, CONSTANTS, deterministic=args.deterministic)
@@ -278,15 +281,15 @@ if __name__ == '__main__':
         print('Student ', i, "\nAvg. prior Know: ", np.mean(prior), "\nAvg. posterior Know: ", np.mean(posterior))
         print("threshold averages:", threshold_ys[-1] )
         print("lenient threshold averages:", lenient_threshold_ys[-1] )
-        threshold_policy_improvement = 100*(np.mean(posterior) - threshold_ys[-1])/threshold_ys[-1]
-        lenient_threshold_policy_improvement = 100*(np.mean(posterior) - lenient_threshold_ys[-1])/lenient_threshold_ys[-1]
+        threshold_policy_improvement = 100 * (np.mean(posterior) - threshold_ys[-1])/threshold_ys[-1]
+        lenient_threshold_policy_improvement = 100 * (np.mean(posterior) - lenient_threshold_ys[-1])/lenient_threshold_ys[-1]
         print("threshold and lenient threshold policy improvements: ",  threshold_policy_improvement, lenient_threshold_policy_improvement, '\n')
         total_threshold_avgs += threshold_ys[-1]
         total_lenient_threshold_avgs += lenient_threshold_ys[-1]
         total_posterior_avgs += np.mean(posterior)
         
-    total_threshold_policy_improvement = 100*(total_posterior_avgs - total_threshold_avgs)/total_threshold_avgs
-    total_lenient_threshold_policy_improvement = 100*(np.mean(posterior) - total_lenient_threshold_avgs)/total_lenient_threshold_avgs
+    total_threshold_policy_improvement = 100 * (total_posterior_avgs - total_threshold_avgs)/total_threshold_avgs
+    total_lenient_threshold_policy_improvement = 100 * (total_posterior_avgs - total_lenient_threshold_avgs)/total_lenient_threshold_avgs
 
     print("TOTAL THRESHOLD IMPROVEMENT: ", total_threshold_policy_improvement)
     print("TOTAL LENIENT THRESHOLD IMPROVEMENT: ", total_lenient_threshold_policy_improvement)
