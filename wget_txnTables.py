@@ -1,5 +1,12 @@
 import os
-txn_txt_google_drive_links = ['https://drive.google.com/file/d/1SeMa3mlNnJgYyebUvFWhd9TDTXcOGcut/view?usp=sharing']
+txn_txt_google_drive_links = ['https://drive.google.com/file/d/1SeMa3mlNnJgYyebUvFWhd9TDTXcOGcut/view?usp=sharing',
+                                'https://drive.google.com/file/d/1ykoJrsyIsBrFrLqdj6DcLzMrBBzkqDXD/view?usp=sharing',
+                                'https://drive.google.com/file/d/1YT0pZltOdkfZjYkKU3I4pjnb9ONv-_Re/view?usp=sharing',
+                                'https://drive.google.com/file/d/1psRTMfS_4WYBH0Qo3V48kVcLldtb7WA1/view?usp=sharing',
+                                'https://drive.google.com/file/d/1dKc3E3RXdzp4N2zoPyvkHCW-eASOBv5L/view?usp=sharing',
+                                'https://drive.google.com/file/d/1MU3tfeQtClECkSSCPe22aDQQZ_41_15u/view?usp=sharing',
+                                'https://drive.google.com/file/d/1Z7E-TxUhQZ2FcMeNTfh7tLQeS4jZwbG0/view?usp=sharing'
+                                ]
 
 for i in range(len(txn_txt_google_drive_links)):
     link = txn_txt_google_drive_links[i]
