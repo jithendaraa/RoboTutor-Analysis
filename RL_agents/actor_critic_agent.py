@@ -100,7 +100,6 @@ class ActorCriticAgent(object):
         
         return action.item(), explore, skills, activityName
 
-
     def learn(self, state, reward, state_, done):
         self.actor_critic.optimizer.zero_grad()
 
@@ -121,24 +120,31 @@ class ActorCriticAgent(object):
         
 # used only for PPO algo, Actor Critic Algo uses the class `ActorCriticNetwork`
 class ActorCritic(nn.Module):
-    def __init__(self, lr, input_dims, fc1_dims, n_actions, type=None):
+    def __init__(self, lr, input_dims, fc1_dims, fc2_dims, n_actions, type=None):
         super(ActorCritic, self).__init__()
         self.input_dims = input_dims
         self.fc1_dims = fc1_dims
+        self.fc2_dims = fc2_dims
         self.n_actions = n_actions
         self.type = type
+        self.lr = lr
+        self.epochs = 0
 
-        if type == None or type == 3 or type == 5:       
+        if type == None or type == 5:       
             self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
-            self.fc2 = nn.Linear(self.fc1_dims, 3072)
-            self.fc3 = nn.Linear(3072, 2000)
-            self.pi = nn.Linear(2000, n_actions)   #   Actor proposes policy 
-            self.v = nn.Linear(2000, 1)            #   Critic gives a value to criticise the proposed action/policy
+            self.fc2 = nn.Linear(self.fc1_dims, 512)
+            self.fc3 = nn.Linear(512, 512)
+            self.fc4 = nn.Linear(512, 512)
+            self.pi = nn.Linear(512, n_actions)   #   Actor proposes policy 
+            self.v = nn.Linear(512, 1)            #   Critic gives a value to criticise the proposed action/policy
 
         elif type == 1 or type == 2:
             self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
-            self.pi = nn.Linear(self.fc1_dims, n_actions)   #   Actor proposes policy; n_actions = 3, 1 for each threshold 
-            self.v = nn.Linear(self.fc1_dims, 1)            #   Critic gives a value to criticise the proposed action/policy
+            self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
+            self.fc3 = nn.Linear(self.fc2_dims, self.fc2_dims)
+            self.fc4 = nn.Linear(self.fc2_dims, self.fc2_dims)
+            self.pi = nn.Linear(self.fc2_dims, n_actions)   #   Actor proposes policy; n_actions = 3, 1 for each threshold 
+            self.v = nn.Linear(self.fc2_dims, 1)            #   Critic gives a value to criticise the proposed action/policy
         
         elif type == 4:
             num_literacy_acts, num_math_acts, num_story_acts = n_actions[0], n_actions[1], n_actions[2]
@@ -154,18 +160,35 @@ class ActorCritic(nn.Module):
             self.story_pi = nn.Linear(self.fc1_dims, num_story_acts)
             self.story_value = nn.Linear(self.fc1_dims, 1)
         
-
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu:0")
-        self.optimizer = optim.Adam(self.parameters(), lr = lr)
+        decayRate = 0.97
+        self.optimizer = optim.Adam(self.parameters(), lr = lr,  betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+        self.lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=self.optimizer, gamma=decayRate)
+        
         self.to(self.device)
 
     def forward(self, state):
-        # state should be a torch.Tensor
+        self.epochs += 1
 
-        if self.type == None or self.type == 3 or self.type == 5:
+        if isinstance(state, list): state = torch.tensor(state)
+        if torch.is_tensor(state) == False or isinstance(state, np.ndarray):    state = torch.FloatTensor(state)
+        if state.get_device() != self.device:    state = state.to(self.device)
+
+        if self.type == None or self.type == 5:
             x = F.relu(self.fc1(state))
             x = F.relu(self.fc2(x))
             x = F.relu(self.fc3(x))
+            x = F.relu(self.fc4(x))
+            pi = F.softmax(self.pi(x), dim=1)
+            v = self.v(x)
+            pi = torch.distributions.Categorical(pi)    # discrete actions
+            return pi, v
+        
+        elif self.type == 3:
+            x = F.relu(self.fc1(state))
+            x = F.relu(self.fc2(x))
+            x = F.relu(self.fc3(x))
+            x = F.relu(self.fc4(x))
             pi = F.softmax(self.pi(x), dim=1)
             v = self.v(x)
             pi = torch.distributions.Categorical(pi)    # discrete actions
@@ -174,6 +197,9 @@ class ActorCritic(nn.Module):
         elif self.type == 1 or self.type == 2:
             x = self.fc1(state)
             x = F.relu(x)
+            x = F.relu(self.fc2(x))
+            x = F.relu(self.fc3(x))
+            x = F.relu(self.fc4(x))
             value = self.v(x)
             probs = torch.sigmoid(self.pi(x))
             dist = torch.distributions.continuous_bernoulli.ContinuousBernoulli(probs=probs)    # continuous actions in [0, 1]

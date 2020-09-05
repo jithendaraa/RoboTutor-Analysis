@@ -18,7 +18,7 @@ class Discrete():
         self.shape = (size, )
 
 class StudentEnv():
-    def __init__(self, student_simulator, action_size, student_id='new_student', env_num=1, type=None, prints=True, area_rotation=None, CONSTANTS=None, matrix_area=None, matrix_posn=None):
+    def __init__(self, student_simulator, action_size, student_id='new_student', env_num=1, type=None, prints=True, area_rotation=None, CONSTANTS=None, matrix_area=None, matrix_posn=None, anti_rl=False):
         
         self.student_simulator = student_simulator
         self.tutor_simulator = None
@@ -32,6 +32,7 @@ class StudentEnv():
         self.activity_num = None
         self.response = ""
         self.attempts = 0
+        self.anti_rl = anti_rl
 
         self.set_initial_state(matrix_area=matrix_area, matrix_posn=matrix_posn)
         self.set_skill_groups()
@@ -232,19 +233,27 @@ class StudentEnv():
             done = True
         
         elif self.type == 2:
-            self.tutor_simulator.set_thresholds(t1, t2, t3)
-            if self.activity_num != None:   p_know_activity = self.student_simulator.student_model.get_p_know_activity(self.student_num, self.activity_num)
-            
-            x, y, area, activity_name = self.tutor_simulator.get_next_activity(p_know_prev_activity=p_know_activity, prev_activity_num=self.activity_num, response=str(self.response), prints=False)
-            self.activity_num = self.student_simulator.uniq_activities.index(activity_name)
-            prior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
-            student_response = self.student_simulator.student_model.predict_response(self.activity_num, self.student_num, update=True)
-            posterior_know = np.array(self.student_simulator.student_model.alpha[self.student_num][-1])
-            posterior_avg_know = np.mean(posterior_know)
-            next_matrix_type = self.tutor_simulator.get_matrix_area()
-            p_know_activity = self.student_simulator.student_model.get_p_know_activity(self.student_num, self.activity_num)
-            next_matrix_posn = self.tutor_simulator.get_matrix_posn(p_know_act=p_know_activity)
-            next_state = np.array(posterior_know.tolist() + [next_matrix_type] +[next_matrix_posn])
+
+            if False:
+                next_state = self.state.copy()
+                student_response = None
+                done = True
+                posterior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
+                prior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
+            else:
+                self.tutor_simulator.set_thresholds(t1, t2, t3)
+
+                if self.activity_num != None:   p_know_activity = self.student_simulator.student_model.get_p_know_activity(self.student_num, self.activity_num)
+                x, y, area, activity_name = self.tutor_simulator.get_next_activity(p_know_prev_activity=p_know_activity, prev_activity_num=self.activity_num, response=str(self.response), prints=False)
+                self.activity_num = self.student_simulator.uniq_activities.index(activity_name)
+                prior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
+                student_response = self.student_simulator.student_model.predict_response(self.activity_num, self.student_num, update=True)
+                posterior_know = np.array(self.student_simulator.student_model.alpha[self.student_num][-1])
+                posterior_avg_know = np.mean(posterior_know)
+                next_matrix_type = self.tutor_simulator.get_matrix_area()
+                p_know_activity = self.student_simulator.student_model.get_p_know_activity(self.student_num, self.activity_num)
+                next_matrix_posn = self.tutor_simulator.get_matrix_posn(p_know_act=p_know_activity)
+                next_state = np.array(posterior_know.tolist() + [next_matrix_type] +[next_matrix_posn])
         
         elif self.type == 3:
             if action == 0: decision = "prev"
@@ -337,9 +346,17 @@ class StudentEnv():
         avg_prior_know = np.mean(np.array(prior_know))
         avg_posterior_know = np.mean(np.array(posterior_know))
         reward = 1000 * (avg_posterior_know - avg_prior_know) 
-        
-        if timesteps != None and timesteps >= max_timesteps:
+
+        if student_response == None:
             done = True
             if reset_after_done:    next_state = np.array(self.reset())
+            reward = -500
+
+        elif timesteps != None and timesteps >= max_timesteps:
+            done = True
+            if reset_after_done:    next_state = np.array(self.reset())
+        
+        if self.anti_rl:
+            return next_state, -reward, student_response, done, posterior_know
         
         return next_state, reward, student_response, done, posterior_know

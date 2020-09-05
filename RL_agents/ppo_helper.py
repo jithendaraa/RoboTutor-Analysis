@@ -50,6 +50,9 @@ def ppo_iter(states, actions, log_probs, returns, advantages, PPO_STEPS, NUM_ENV
         yield states[rand_ids, :], actions.view(PPO_STEPS * NUM_ENVS, -1)[rand_ids, :], log_probs.view(PPO_STEPS * NUM_ENVS, -1)[rand_ids, :], returns[rand_ids, :], advantages[rand_ids, :]
 
 def log_know_gains(type, CONSTANTS, init_state, posterior_avg_know, total_reward, writer=None):
+
+    if CONSTANTS['RUN_NUM'] == 0:
+        writer.add_scalar('P(Know) vs. #opportunities', np.mean(init_state[:22]), CONSTANTS['RUN_NUM'])
     
     writer.add_scalar('P(Know) vs. #opportunities', posterior_avg_know, CONSTANTS['RUN_NUM'])
     # with open("RL_agents/ppo_logs/rewards_type" + str(type) + ".txt", "a") as f:
@@ -207,7 +210,12 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
             loss = CONSTANTS["CRITIC_DISCOUNT"] * critic_loss + actor_loss - CONSTANTS["ENTROPY_BETA"] * entropy
             model.optimizer.zero_grad()
             loss.backward()
+            
             model.optimizer.step()
+            if frame_idx % 38400 == 0:
+                model.lr_scheduler.step()
+                for param_group in model.optimizer.param_groups:
+                    print('current LR: ', param_group['lr'])
 
             # track statistics
             sum_returns += return_.mean()
@@ -261,8 +269,6 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
             else:
                 action = policy.probs.cpu().detach().numpy()[0]
                 action = action.tolist().index(max(action))
-                print("deterministic")
-            print(env.student_simulator.uniq_activities[action])
             next_state, reward, _, done, posterior = env.step(action, CONSTANTS["MAX_TIMESTEPS"], timesteps=timesteps, bayesian_update=True, reset_after_done=False)
         
         elif env.type == 4:
@@ -290,22 +296,8 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
         posterior_avg_know  =  torch.mean(posterior).item()
         prior_avg_know      =  torch.mean(state).item()
         gain = (posterior_avg_know - prior_avg_know)
-
-        # prior_know = []
-        # posterior_know = []
-        # for skill_idx in skill_group:
-        #     prior_know.append(prior[skill_idx].item())
-        #     posterior_know.append(posterior[skill_idx].item())
-        # run_text = "Run Number: " + str(timesteps) + "\Action: " + str(action) + " Skill group: " + str(skill_group) + "\nPrior Know: " + str(prior_know) + "\nPost. Know: " + str(posterior_know) + "\nTimestep: " + str(timesteps) + " Reward: " + str(reward) + " ActivityName: " + activityName + "\nPrior: " + str(prior_avg_know) + " Posterior: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
-
         state = next_state
         total_reward += reward
-    
-        # with open("RL_agents/ppo_logs/play_run.txt", "a") as f:
-        #     f.write(run_text)
-
-    # with open("RL_agents/ppo_logs/play_run.txt", "a") as f:
-    #     f.write("Total Reward: " + str(total_reward) + "\n")
     
     print("In %d steps we got %.3f reward" % (timesteps, total_reward))
     

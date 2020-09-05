@@ -9,7 +9,7 @@ def draw_graph():
     ax2 = fig.add_subplot(1,2,2)
     
     def animate(i):
-        RL_types = [1,2,3,4,5]
+        RL_types = [2,3,4,5]
         colors = ['red', 'blue', 'black', 'green', 'purple']
         ax1.clear()
 
@@ -25,7 +25,7 @@ def draw_graph():
                         xs.append(float(x))
                         ys.append(float(y))
         
-            ax1.plot(xs[:], ys[:], linewidth=2, alpha=0.5, label="RL agent policy: type" + str(type_), color=colors[type_ - 1])
+            ax1.plot(xs[:], ys[:], linewidth=2, alpha=0.3, label="RL agent policy: type" + str(type_), color=colors[type_ - 1])
         
         ax1.set_title("RL agent policy")
         ax1.set_xlabel('Epochs')
@@ -62,6 +62,5 @@ def draw_graph():
 
     ani = animation.FuncAnimation(fig, animate, interval=1000)
     plt.show()
-
 
 draw_graph()

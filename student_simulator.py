@@ -84,7 +84,7 @@ class StudentSimulator():
         self.set_hotDINA_full_slurm_files()
     
     def set_hotDINA_skill_slurm_files(self):
-        self.hotDINA_skill_slurm_files['130'] = "10301619"
+        self.hotDINA_skill_slurm_files['130'] = "10666874"
     
     def set_hotDINA_full_slurm_files(self):
         # Remove this later, this slurm file is correct fit only for hotDINA_skill model, not hotDINA_full
@@ -181,7 +181,7 @@ class StudentSimulator():
     def set_new_student_params(self):
 
         if self.new_student_params == None or self.new_student_params == 'new_student':
-            self.new_student_knew = 0.1
+            self.new_student_knew = 0.05
             return
         
         student_model_name = self.student_model_name

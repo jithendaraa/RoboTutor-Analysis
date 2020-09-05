@@ -37,11 +37,11 @@ CONSTANTS = {
     'AGENT_TYPE'                        :   None,
     'AREA_ROTATION_CONSTRAINT'          :   True,
     'TRANSITION_CONSTRAINT'             :   True,
-    "LEARNING_RATE"                     :   1e-3,
+    "LEARNING_RATE"                     :   8e-3,
     "FC1_DIMS"                          :   1024,
     "FC2_DIMS"                          :   2048,
     'FC3_DIMS'                          :   1024,
-    'PPO_STEPS'                         :   512, # Must be a multiple of MINI_BATCH_SIZE
+    'PPO_STEPS'                         :   128, # Must be a multiple of MINI_BATCH_SIZE
     'PPO_EPOCHS'                        :   10,
     'TEST_EPOCHS'                       :   5,
     'NUM_TESTS'                         :   10,
@@ -98,8 +98,8 @@ def set_constants(args):
         CONSTANTS['STATE_SIZE'] = 22 + 1 + 1
         CONSTANTS['ACTION_SIZE'] = 3
         CONSTANTS['USES_THRESHOLDS'] = True
-        CONSTANTS['FC1_DIMS'] = 384
-        CONSTANTS['FC2_DIMS'] = 512
+        CONSTANTS['FC1_DIMS'] = 128
+        CONSTANTS['FC2_DIMS'] = 256
 
     elif args.type == 3:
         CONSTANTS['STATE_SIZE'] = 22 + 1 + 1
@@ -225,6 +225,9 @@ if __name__ == '__main__':
     clear_files("ppo", args.clear_logs, path='RL_agents/', type=args.type)
     student_id = CONSTANTS['STUDENT_ID']
     area_rotation = CONSTANTS['AREA_ROTATION']
+    os.chdir('runs')
+    os.system('rm -rf *')
+    os.chdir('..')
     writer = SummaryWriter('runs/type' + str(args.type))
 
     # village 130: ['5A27001753', '5A27001932', '5A28002555', '5A29000477', '6105000515', '6112001212', '6115000404', '6116002085', 'new_student']
@@ -377,15 +380,20 @@ if __name__ == '__main__':
                 # get all files starting like file_name_no_reward
                 files = os.listdir('.')
                 files_to_del = []
+                save = True
                 for file in files:
                     if file[:len(file_name_no_reward)] == file_name_no_reward:
                         files_to_del.append(file)
                 for file in files_to_del:
-                    os.system('rm -rf ' + file)
+                    if float(file[:-4].split('~')[-1]) > test_reward:   
+                        save = False
+                    else:
+                        os.system('rm -rf ' + file)
                 
                 os.chdir('..')
-                fname = os.path.join('.', 'checkpoints', file_name)
-                torch.save(model.state_dict(), fname)
+                if save:
+                    fname = os.path.join('.', 'checkpoints', file_name)
+                    torch.save(model.state_dict(), fname)
                 
                 best_reward = test_reward
             if test_reward > CONSTANTS["TARGET_REWARD"]: 
