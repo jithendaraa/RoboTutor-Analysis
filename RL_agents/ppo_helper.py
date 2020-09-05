@@ -12,7 +12,7 @@ from reader import *
 
 STUDENT_ID = ["CQCKBY_105"]
 
-def make_env(i, student_simulator, student_id, ACTION_SIZE, type=None, area_rotation=None, CONSTANTS=None):
+def make_env(i, student_simulator, student_id, ACTION_SIZE, type=None, area_rotation=None, CONSTANTS=None, anti_rl=False):
     # returns a functions which creates a single environment
     def _thunk():
         env = StudentEnv(student_simulator=student_simulator,
@@ -21,7 +21,8 @@ def make_env(i, student_simulator, student_id, ACTION_SIZE, type=None, area_rota
                             env_num=i,
                             type=type,
                             area_rotation=area_rotation,
-                            CONSTANTS=CONSTANTS)
+                            CONSTANTS=CONSTANTS, 
+                            anti_rl=anti_rl)
         return env
     return _thunk
 
@@ -48,20 +49,21 @@ def ppo_iter(states, actions, log_probs, returns, advantages, PPO_STEPS, NUM_ENV
         rand_ids = np.random.randint(0, batch_size, MINI_BATCH_SIZE)
         yield states[rand_ids, :], actions.view(PPO_STEPS * NUM_ENVS, -1)[rand_ids, :], log_probs.view(PPO_STEPS * NUM_ENVS, -1)[rand_ids, :], returns[rand_ids, :], advantages[rand_ids, :]
 
-def log_know_gains(type, CONSTANTS, init_state, posterior_avg_know, total_reward):
+def log_know_gains(type, CONSTANTS, init_state, posterior_avg_know, total_reward, writer=None):
     
-    with open("RL_agents/ppo_logs/rewards_type" + str(type) + ".txt", "a") as f:
-        if CONSTANTS["RUN_NUM"] == 0 and type != 1:
-            f.write("0,"+ str(np.mean(np.array(init_state))) + "\n")
-        text = str(CONSTANTS["RUN_NUM"]) + "," + str(posterior_avg_know) + "\n"
-        f.write(text)
+    writer.add_scalar('P(Know) vs. #opportunities', posterior_avg_know, CONSTANTS['RUN_NUM'])
+    # with open("RL_agents/ppo_logs/rewards_type" + str(type) + ".txt", "a") as f:
+    #     if CONSTANTS["RUN_NUM"] == 0 and type != 1:
+    #         f.write("0,"+ str(np.mean(np.array(init_state[:22]))) + "\n")
+    #     text = str(CONSTANTS["RUN_NUM"]) + "," + str(posterior_avg_know) + "\n"
+    #     f.write(text)
     
-    if CONSTANTS["RUN_NUM"] % CONSTANTS["AVG_OVER_RUNS"] == 0:
-        with open("RL_agents/ppo_logs/avg_scores.txt", "a") as f:
-            text = str(CONSTANTS["RUN_NUM"]/CONSTANTS["AVG_OVER_RUNS"]) + "," + str(posterior_avg_know) + "\n"
-            f.write(text)
-    with open("RL_agents/ppo_logs/test_run_type" + str(type) + ".txt", "a") as f:
-        f.write(str(CONSTANTS["RUN_NUM"]) + "," + str(total_reward) + "\n")
+    # if CONSTANTS["RUN_NUM"] % CONSTANTS["AVG_OVER_RUNS"] == 0:
+    #     with open("RL_agents/ppo_logs/avg_scores.txt", "a") as f:
+    #         text = str(CONSTANTS["RUN_NUM"]/CONSTANTS["AVG_OVER_RUNS"]) + "," + str(posterior_avg_know) + "\n"
+    #         f.write(text)
+    # with open("RL_agents/ppo_logs/test_run_type" + str(type) + ".txt", "a") as f:
+    #     f.write(str(CONSTANTS["RUN_NUM"]) + "," + str(total_reward) + "\n")
 
 def log_runs(type, CONSTANTS, prior, posterior, action, timesteps, reward, prior_avg_know, posterior_avg_know, gain, activity_name, skill_group=None):
     
@@ -81,7 +83,7 @@ def log_runs(type, CONSTANTS, prior, posterior, action, timesteps, reward, prior
         with open("RL_agents/ppo_logs/test_run_type" + str(type) + ".txt", "a") as f:
             f.write(run_text)
 
-def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, uniq_skill_groups=None, deterministic=True, bayesian_update=True,):
+def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, uniq_skill_groups=None, deterministic=True, bayesian_update=True, writer=None):
     
     state = env.reset()
     activity_name = None
@@ -144,7 +146,7 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, un
         gain = (posterior_avg_know - prior_avg_know)
         log_runs(env.type, CONSTANTS, prior, posterior, action, timesteps, reward, prior_avg_know, posterior_avg_know, gain, activity_name, skill_group=None)
 
-    log_know_gains(env.type, CONSTANTS, init_state, posterior_avg_know, total_reward)
+    log_know_gains(env.type, CONSTANTS, init_state, posterior_avg_know, total_reward, writer=writer)
     CONSTANTS["RUN_NUM"] += 1
     
     if env.type == None:
@@ -152,7 +154,6 @@ def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, un
     elif env.type == 1 or env.type == 2 or env.type == 3 or env.type == 4 or env.type == 5:
         return total_reward, posterior
     
-
 def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages, CONSTANTS, type_=None, writer=None):
     count_steps = 0
     sum_returns = 0.0
@@ -217,12 +218,12 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
             sum_entropy += entropy
             count_steps += 1
 
-        # writer.add_scalar("returns", sum_returns / count_steps, frame_idx)
-        # writer.add_scalar("advantage", sum_advantage / count_steps, frame_idx)
-        # writer.add_scalar("loss_actor", sum_loss_actor / count_steps, frame_idx)
-        # writer.add_scalar("loss_critic", sum_loss_critic / count_steps, frame_idx)
-        # writer.add_scalar("entropy", sum_entropy / count_steps, frame_idx)
-        # writer.add_scalar("loss_total", sum_loss_total / count_steps, frame_idx)
+        writer.add_scalar("returns", sum_returns / count_steps, frame_idx)
+        writer.add_scalar("advantage", sum_advantage / count_steps, frame_idx)
+        writer.add_scalar("loss_actor", sum_loss_actor / count_steps, frame_idx)
+        writer.add_scalar("loss_critic", sum_loss_critic / count_steps, frame_idx)
+        writer.add_scalar("entropy", sum_entropy / count_steps, frame_idx)
+        writer.add_scalar("loss_total", sum_loss_total / count_steps, frame_idx)
 
 def play_env(env, model, device, CONSTANTS, deterministic=True):
     state = env.reset()
@@ -256,9 +257,12 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
         elif env.type == 3 or env.type == 5:
             if deterministic == False:
                 action = policy.sample().cpu().numpy()[0]
+                print(action)
             else:
                 action = policy.probs.cpu().detach().numpy()[0]
                 action = action.tolist().index(max(action))
+                print("deterministic")
+            print(env.student_simulator.uniq_activities[action])
             next_state, reward, _, done, posterior = env.step(action, CONSTANTS["MAX_TIMESTEPS"], timesteps=timesteps, bayesian_update=True, reset_after_done=False)
         
         elif env.type == 4:

@@ -7,6 +7,7 @@ import math
 
 import torch 
 import torch.nn.functional as F
+from torch.utils.tensorboard import SummaryWriter
 
 from lib.common import mkdir
 from lib.multiprocessing_env import SubprocVecEnv
@@ -25,7 +26,7 @@ CONSTANTS = {
     'NUM_SKILLS'                        :   22,
     'STATE_SIZE'                        :   22,
     'ACTION_SIZE'                       :   43,
-    "TARGET_P_KNOW"                     :   0.35,
+    "TARGET_P_KNOW"                     :   0.73,
     'NUM_OBS'                           :   '100',
     'VILLAGE'                           :   '130',
     'STUDENT_ID'                        :   'new_student',
@@ -36,7 +37,7 @@ CONSTANTS = {
     'AGENT_TYPE'                        :   None,
     'AREA_ROTATION_CONSTRAINT'          :   True,
     'TRANSITION_CONSTRAINT'             :   True,
-    "LEARNING_RATE"                     :   1e-4,
+    "LEARNING_RATE"                     :   1e-3,
     "FC1_DIMS"                          :   1024,
     "FC2_DIMS"                          :   2048,
     'FC3_DIMS'                          :   1024,
@@ -97,13 +98,14 @@ def set_constants(args):
         CONSTANTS['STATE_SIZE'] = 22 + 1 + 1
         CONSTANTS['ACTION_SIZE'] = 3
         CONSTANTS['USES_THRESHOLDS'] = True
-        CONSTANTS['FC1_DIMS'] = 256
+        CONSTANTS['FC1_DIMS'] = 384
+        CONSTANTS['FC2_DIMS'] = 512
 
     elif args.type == 3:
         CONSTANTS['STATE_SIZE'] = 22 + 1 + 1
         CONSTANTS['ACTION_SIZE'] = 4    # prev, same, next, next_next
         CONSTANTS['USES_THRESHOLDS'] = False
-        CONSTANTS['FC1_DIMS'] = 256
+        CONSTANTS['FC1_DIMS'] = 384
     
     elif args.type == 4:
         CONSTANTS['STATE_SIZE'] = 22 + 1 
@@ -118,6 +120,7 @@ def set_constants(args):
         CONSTANTS['USES_THRESHOLDS'] = False
         CONSTANTS['TRANSITION_CONSTRAINT'] = False
         CONSTANTS['AREA_ROTATION_CONSTRAINT'] = False
+        CONSTANTS['FC1_DIMS'] = 500
 
 def arg_parser():
     parser = argparse.ArgumentParser()
@@ -131,7 +134,8 @@ def arg_parser():
     parser.add_argument('-ar', '--area_rotation', help="Area rotation sequence like L-N-L-S", default=CONSTANTS['AREA_ROTATION'])
     parser.add_argument('-arc', '--area_rotation_constraint', help="Should questions be constrained like lit-num-lit-stories? True/False", default=True)
     parser.add_argument('-tc', '--transition_constraint', help="Should transition be constrained to prev,same,next, next-next? True/False", default=True)
-    parser.add_argument('--target', default=CONSTANTS['TARGET_P_KNOW'])
+    parser.add_argument('--target', default=CONSTANTS['TARGET_P_KNOW'], type=float)
+    parser.add_argument('--anti_rl', default=False)
     parser.add_argument('-m', '--model', help="Model file to load from checkpoints directory, if any")
     parser.add_argument('-nsp', '--new_student_params', help="The model params new_student has to start with; enter student_id")
     parser.add_argument("-e", "--num_envs", default=CONSTANTS["NUM_ENVS"], help="Number of observations to train on", type=int)
@@ -143,7 +147,7 @@ def arg_parser():
     print('Device:', device)        # Autodetect CUDA
     return args
 
-def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=10):
+def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=30):
 
     LOW_PERFORMANCE_THRESHOLD = CONSTANTS['LOW_PERFORMANCE_THRESHOLD']
     MID_PERFORMANCE_THRESHOLD = CONSTANTS['MID_PERFORMANCE_THRESHOLD']
@@ -221,6 +225,7 @@ if __name__ == '__main__':
     clear_files("ppo", args.clear_logs, path='RL_agents/', type=args.type)
     student_id = CONSTANTS['STUDENT_ID']
     area_rotation = CONSTANTS['AREA_ROTATION']
+    writer = SummaryWriter('runs/type' + str(args.type))
 
     # village 130: ['5A27001753', '5A27001932', '5A28002555', '5A29000477', '6105000515', '6112001212', '6115000404', '6116002085', 'new_student']
     
@@ -235,13 +240,13 @@ if __name__ == '__main__':
     state_size  = CONSTANTS["STATE_SIZE"]
     action_size = CONSTANTS["ACTION_SIZE"]
 
-    env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
+    env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS, anti_rl=args.anti_rl)
     env.checkpoint()
     init_p_know = set_target_reward(env)
 
     evaluate_current_RT_thresholds(plots=True, prints=False, avg_over_runs=10)
 
-    model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[state_size], fc1_dims=CONSTANTS["FC1_DIMS"], n_actions=action_size, type=args.type)
+    model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[state_size], fc1_dims=CONSTANTS["FC1_DIMS"], fc2_dims=CONSTANTS['FC2_DIMS'], n_actions=action_size, type=args.type)
     if args.model != None:  model.load_state_dict(torch.load("checkpoints/"+args.model))
 
     frame_idx = 0
@@ -250,7 +255,7 @@ if __name__ == '__main__':
     early_stop = False
 
     # Prepare environments
-    envs = [make_env(i+1, student_simulator, student_id, action_size, type=args.type, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS) for i in range(CONSTANTS["NUM_ENVS"])]
+    envs = [make_env(i+1, student_simulator, student_id, action_size, type=args.type, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS, anti_rl=args.anti_rl) for i in range(CONSTANTS["NUM_ENVS"])]
     envs = SubprocVecEnv(envs)
     envs.checkpoint()
     state = np.array(envs.reset())
@@ -332,7 +337,7 @@ if __name__ == '__main__':
         advantage       = normalize(returns - critic_values)
 
         # According to PPO paper: (states, actions, log_probs, returns, advantage) is together referred to as a "trajectory"
-        ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS, type_=args.type)
+        ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS, type_=args.type, writer=writer)
         train_epoch += 1
         print("UPDATING.... Epoch Num:", train_epoch)
         # if train_epoch > 800:
@@ -340,11 +345,11 @@ if __name__ == '__main__':
         
         if train_epoch % CONSTANTS['TEST_EPOCHS'] == 0:
             student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
-            env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
+            env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS, anti_rl=args.anti_rl)
             env.checkpoint()
             # writer.add_scalar("test_rewards", test_reward, frame_idx)
             if env.type == None:
-                test_reward = np.mean([test_env(env, model, device, CONSTANTS, deterministic=False) for _ in range(CONSTANTS["NUM_TESTS"])])
+                test_reward = np.mean([test_env(env, model, device, CONSTANTS, deterministic=False, writer=writer) for _ in range(CONSTANTS["NUM_TESTS"])])
                 final_p_know = env.state
             
             elif env.type == 1 or env.type == 2 or env.type == 3 or env.type == 4 or env.type == 5:
@@ -352,9 +357,9 @@ if __name__ == '__main__':
                 final_p_know = []
                 for _ in range(CONSTANTS['NUM_TESTS']):
                     student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
-                    env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
+                    env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS, anti_rl=args.anti_rl)
                     env.checkpoint()
-                    tr, fpk = test_env(env, model, device, CONSTANTS, deterministic=False)
+                    tr, fpk = test_env(env, model, device, CONSTANTS, deterministic=False, writer=writer)
                     test_reward.append(tr)
                     final_p_know.append(fpk)
                 test_reward = np.mean(test_reward)
@@ -366,7 +371,7 @@ if __name__ == '__main__':
             if best_reward < test_reward:
                 print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
                     
-                file_name_no_reward = CONSTANTS['STUDENT_ID'] + '~' + args.student_model_name + "~" + 'obs_' + args.observations + '~max_timesteps_' + str(args.max_timesteps) + "~village_" + args.village_num + "~type_" + str(args.type)
+                file_name_no_reward = CONSTANTS['STUDENT_ID'] + '~' + args.student_model_name + "~village_" + args.village_num + "~type_" + str(args.type)
                 file_name = file_name_no_reward + "~" + str(test_reward) + '.dat'
                 os.chdir('checkpoints')
                 # get all files starting like file_name_no_reward
