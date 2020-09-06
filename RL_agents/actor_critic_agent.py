@@ -146,6 +146,13 @@ class ActorCritic(nn.Module):
             self.pi = nn.Linear(self.fc2_dims, n_actions)   #   Actor proposes policy; n_actions = 3, 1 for each threshold 
             self.v = nn.Linear(self.fc2_dims, 1)            #   Critic gives a value to criticise the proposed action/policy
         
+        elif type == 3:
+            self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
+            self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
+            self.fc3 = nn.Linear(self.fc2_dims, self.fc2_dims)
+            self.pi = nn.Linear(self.fc2_dims, n_actions)   #   Actor proposes policy; n_actions = 3, 1 for each threshold 
+            self.v = nn.Linear(self.fc2_dims, 1)
+        
         elif type == 4:
             num_literacy_acts, num_math_acts, num_story_acts = n_actions[0], n_actions[1], n_actions[2]
             self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
@@ -188,7 +195,6 @@ class ActorCritic(nn.Module):
             x = F.relu(self.fc1(state))
             x = F.relu(self.fc2(x))
             x = F.relu(self.fc3(x))
-            x = F.relu(self.fc4(x))
             pi = F.softmax(self.pi(x), dim=1)
             v = self.v(x)
             pi = torch.distributions.Categorical(pi)    # discrete actions
