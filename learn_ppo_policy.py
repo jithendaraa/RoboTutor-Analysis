@@ -37,11 +37,11 @@ CONSTANTS = {
     'AGENT_TYPE'                        :   None,
     'AREA_ROTATION_CONSTRAINT'          :   True,
     'TRANSITION_CONSTRAINT'             :   True,
-    "LEARNING_RATE"                     :   8e-3,
+    "LEARNING_RATE"                     :   5e-4,
     "FC1_DIMS"                          :   1024,
     "FC2_DIMS"                          :   2048,
     'FC3_DIMS'                          :   1024,
-    'PPO_STEPS'                         :   128, # Must be a multiple of MINI_BATCH_SIZE
+    'PPO_STEPS'                         :   64, # Must be a multiple of MINI_BATCH_SIZE
     'PPO_EPOCHS'                        :   10,
     'TEST_EPOCHS'                       :   5,
     'NUM_TESTS'                         :   10,
