@@ -105,8 +105,10 @@ class StudentEnv():
                 elif first_area == 'S':
                     matrix_type = [3]
                 self.state = np.array(knows + matrix_type + matrix_posn)
-                if self.type == 4 or self.type == 5:
+                if self.type == 4:
                     self.state = np.array(knows + matrix_type)
+                elif self.type == 5:
+                    self.state = np.array(knows)
             
             elif student_model_name == 'hotDINA_full':
                 pass
@@ -189,15 +191,6 @@ class StudentEnv():
         
         elif self.type == 1:
             reward = 0.0
-            if t1 > t2:
-                reward -= 100
-                done = True
-            if t2 > t3:
-                reward -= 100
-                done = True
-            if t1 > t3:
-                reward -= 100
-                done = True
             avg_performance_given_thresholds = []
             posterior_know = []
             prior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()

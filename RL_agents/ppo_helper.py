@@ -212,10 +212,6 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
             loss.backward()
             
             model.optimizer.step()
-            if frame_idx % 38400 == 0:
-                model.lr_scheduler.step()
-                for param_group in model.optimizer.param_groups:
-                    print('current LR: ', param_group['lr'])
 
             # track statistics
             sum_returns += return_.mean()
@@ -225,6 +221,11 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
             sum_loss_total += loss
             sum_entropy += entropy
             count_steps += 1
+        
+        if _ == 0:
+            model.lr_scheduler.step()
+            for param_group in model.optimizer.param_groups:
+                print('current LR: ', param_group['lr'])
 
         writer.add_scalar("returns", sum_returns / count_steps, frame_idx)
         writer.add_scalar("advantage", sum_advantage / count_steps, frame_idx)
@@ -265,7 +266,6 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
         elif env.type == 3 or env.type == 5:
             if deterministic == False:
                 action = policy.sample().cpu().numpy()[0]
-                print(action)
             else:
                 action = policy.probs.cpu().detach().numpy()[0]
                 action = action.tolist().index(max(action))
@@ -273,13 +273,13 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
         
         elif env.type == 4:
             policy = policy[0]
+            row = state[0]
             if deterministic == False:
                 action = policy.sample().cpu().numpy()[0]
             else:
-                action = policy.probs.cpu().detach().numpy()
+                action = policy.probs.cpu().detach().numpy()[0]
                 action = action.tolist().index(max(action))
 
-            row = state[0]
             matrix_num = int(row[-1].item())
             if matrix_num == 1: # literacy
                 act = CONSTANTS['LITERACY_ACTS'][action]

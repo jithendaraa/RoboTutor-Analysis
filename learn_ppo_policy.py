@@ -26,7 +26,7 @@ CONSTANTS = {
     'NUM_SKILLS'                        :   22,
     'STATE_SIZE'                        :   22,
     'ACTION_SIZE'                       :   43,
-    "TARGET_P_KNOW"                     :   0.73,
+    "TARGET_P_KNOW"                     :   0.97,
     'NUM_OBS'                           :   '100',
     'VILLAGE'                           :   '130',
     'STUDENT_ID'                        :   'new_student',
@@ -105,7 +105,9 @@ def set_constants(args):
         CONSTANTS['STATE_SIZE'] = 22 + 1 + 1
         CONSTANTS['ACTION_SIZE'] = 4    # prev, same, next, next_next
         CONSTANTS['USES_THRESHOLDS'] = False
-        CONSTANTS['FC1_DIMS'] = 384
+        CONSTANTS['FC1_DIMS'] = 128
+        CONSTANTS['FC2_DIMS'] = 256
+        CONSTANTS['LEARNING_RATE'] = 1e-4
     
     elif args.type == 4:
         CONSTANTS['STATE_SIZE'] = 22 + 1 
@@ -113,14 +115,19 @@ def set_constants(args):
         CONSTANTS['USES_THRESHOLDS'] = False
         CONSTANTS['TRANSITION_CONSTRAINT'] = False
         CONSTANTS['AREA_ROTATION_CONSTRAINT'] = True
+        CONSTANTS['FC1_DIMS'] = 128
+        CONSTANTS['FC2_DIMS'] = 256
+        CONSTANTS['LEARNING_RATE'] = 5e-3
     
     elif args.type == 5:
-        CONSTANTS['STATE_SIZE'] = 22 + 1 
+        CONSTANTS['STATE_SIZE'] = 22
         CONSTANTS['ACTION_SIZE'] = None
         CONSTANTS['USES_THRESHOLDS'] = False
         CONSTANTS['TRANSITION_CONSTRAINT'] = False
         CONSTANTS['AREA_ROTATION_CONSTRAINT'] = False
-        CONSTANTS['FC1_DIMS'] = 500
+        CONSTANTS['FC1_DIMS'] = 128
+        CONSTANTS['FC2_DIMS'] = 256
+        CONSTANTS['LEARNING_RATE'] = 5e-3
 
 def arg_parser():
     parser = argparse.ArgumentParser()
@@ -291,6 +298,7 @@ if __name__ == '__main__':
                     action.append(policy.sample().cpu().numpy()[0])
                 action = torch.tensor(action).to(device)
 
+                # For state in every env
                 for i in range(len(state)):
                     row = state[i]
                     matrix_num = int(row[-1].item())
