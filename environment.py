@@ -185,20 +185,6 @@ class StudentEnv():
             student_response = self.student_simulator.student_model.predict_response(activity_num, self.student_num, update=True)
             posterior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
             next_state = np.array(posterior_know.copy())
-            
-            if self.type == 5:
-                activity_name = self.student_simulator.uniq_activities[activity_num]
-
-                if activity_name in self.tutor_simulator.literacy_activities:
-                    matrix_num = [1]
-                elif activity_name in self.tutor_simulator.math_activities:
-                    matrix_num = [2]
-                elif activity_name in self.tutor_simulator.story_activities:
-                    matrix_num = [3]
-                else:
-                    print("OOPS! @environment.py", activity_name)
-
-                next_state = np.array(posterior_know + matrix_num)
             self.state = next_state.copy()
         
         elif self.type == 1:
