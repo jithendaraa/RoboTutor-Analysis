@@ -4,6 +4,8 @@ import numpy as np
 
 class TutorSimulator:
     def __init__(self, t1=None, t2=None, t3=None, area_rotation='L-N-L-S', area_rot_start=0, type=None, area_rotation_constraint=True, transition_constraint=True, thresholds=True):
+        self.perf_threshold = [0.5, 0.83, 0.9]
+        self.perf_lenient_threshold = [0.4, 0.55, 0.7]
         self.literacy_matrix, self.math_matrix, self.stories_matrix, self.literacy_counts, self.math_counts, self.stories_counts = read_activity_matrix()
         self.literacy_pos = [0,0]
         self.math_pos = [0,0]
@@ -201,36 +203,56 @@ class TutorSimulator:
         self.attempt = self.attempt % len(self.area_rotation)
         prev_area = self.area_rotation[self.attempt - 1]
         area = self.area_rotation[self.attempt]
+
+        if prev_area == 'L':
+            prev_x, prev_y = self.literacy_pos[0], self.literacy_pos[1]
+            prev_act_name = self.literacy_matrix[prev_x][prev_y]
+        elif prev_area == 'N':
+            prev_x, prev_y = self.math_pos[0], self.math_pos[1]
+            prev_act_name = self.math_matrix[prev_x][prev_y]
+        elif prev_area == 'S':
+            prev_x, prev_y = self.stories_pos[0], self.stories_pos[1]
+            prev_act_name = self.stories_matrix[prev_x][prev_y]
+        
+        if prev_act_name[:5] == 'write' or prev_act_name[:4] == 'math':
+            self.set_thresholds(self.perf_lenient_threshold[0], self.perf_lenient_threshold[1], self.perf_lenient_threshold[2])
+        else:
+            self.set_thresholds(self.perf_threshold[0], self.perf_threshold[1], self.perf_threshold[2])
         
         if prev_area == area:
-            if p_know_act >= self.t3:
-                x, y, activity_name = self.next(area, False) if random.random() > 0.5 else self.next_next(area, False)
-            elif p_know_act >= self.t2:
-                x, y, activity_name = self.next(area, False)
-            elif p_know_act >= self.t1:
-                x, y, activity_name = self.same(area, False)
-            else:
-                x, y, activity_name = self.prev(area, False)
+            if p_know_act >= self.t3:   x, y, activity_name = self.next(area, False) if random.random() > 0.5 else self.next_next(area, False)
+            elif p_know_act >= self.t2: x, y, activity_name = self.next(area, False)
+            elif p_know_act >= self.t1: x, y, activity_name = self.same(area, False)
+            else:                       x, y, activity_name = self.prev(area, False)
         
         else:
-            if area == 'L':
-                x, y = self.literacy_pos[0], self.literacy_pos[1]
-            elif area == 'N':
-                x, y = self.math_pos[0], self.math_pos[1]
-            elif area == 'S':
-                x, y = self.stories_pos[0], self.stories_pos[1]
+            if area == 'L':     x, y = self.literacy_pos[0], self.literacy_pos[1]
+            elif area == 'N':   x, y = self.math_pos[0], self.math_pos[1]
+            elif area == 'S':   x, y = self.stories_pos[0], self.stories_pos[1]
 
-        if area == 'L':
-            matrix_posn = np.sum(self.literacy_counts[:x], dtype=np.uint8) + y + 1
-        elif area == 'N':
-            matrix_posn = np.sum(self.math_counts[:x], dtype=np.uint8) + y + 1
-        elif area == 'S':
-            matrix_posn = np.sum(self.stories_counts[:x], dtype=np.uint8) + y + 1
+        if area == 'L':     matrix_posn = np.sum(self.literacy_counts[:x], dtype=np.uint8) + y + 1
+        elif area == 'N':   matrix_posn = np.sum(self.math_counts[:x], dtype=np.uint8) + y + 1
+        elif area == 'S':   matrix_posn = np.sum(self.stories_counts[:x], dtype=np.uint8) + y + 1
 
         return matrix_posn            
     
     def make_transition(self, prev_matrix_type, init_x, init_y, decision=None, response="?", p_know_prev_activity=None, prints=False):
         
+        if prev_matrix_type == 'literacy':
+            prev_x, prev_y = self.literacy_pos[0], self.literacy_pos[1]
+            prev_act_name = self.literacy_matrix[prev_x][prev_y]
+        elif prev_matrix_type == 'math':
+            prev_x, prev_y = self.math_pos[0], self.math_pos[1]
+            prev_act_name = self.math_matrix[prev_x][prev_y]
+        elif prev_matrix_type == 'stories':
+            prev_x, prev_y = self.stories_pos[0], self.stories_pos[1]
+            prev_act_name = self.stories_matrix[prev_x][prev_y]
+        
+        if prev_act_name[:5] == 'write' or prev_act_name[:4] == 'math':
+            self.set_thresholds(self.perf_lenient_threshold[0], self.perf_lenient_threshold[1], self.perf_lenient_threshold[2])
+        else:
+            self.set_thresholds(self.perf_threshold[0], self.perf_threshold[1], self.perf_threshold[2])
+
         if self.thresholds:
             if p_know_prev_activity >= self.t3:
                 if random.random() > 0.5:
