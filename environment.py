@@ -18,7 +18,7 @@ class Discrete():
         self.shape = (size, )
 
 class StudentEnv():
-    def __init__(self, student_simulator, action_size, student_id='new_student', env_num=1, type=None, prints=True, area_rotation=None, CONSTANTS=None, matrix_area=None, matrix_posn=None, anti_rl=False):
+    def __init__(self, student_simulator, action_size, student_id='new_student', env_num=1, type=None, prints=True, area_rotation=None, CONSTANTS=None, matrix_area=None, matrix_posn=None, anti_rl=False, attempt=0):
         
         self.student_simulator = student_simulator
         self.tutor_simulator = None
@@ -31,8 +31,11 @@ class StudentEnv():
         self.CONSTANTS = CONSTANTS
         self.activity_num = None
         self.response = ""
-        self.attempts = 0
+        self.attempts = attempt
         self.anti_rl = anti_rl
+
+        if self.type == 2:
+            self.set_tutor_simulator(t1=0.2, t2=0.2, t3=0.2)
 
         self.set_initial_state(matrix_area=matrix_area, matrix_posn=matrix_posn)
         self.set_skill_groups()
@@ -66,9 +69,14 @@ class StudentEnv():
             if self.tutor_simulator == None:
                 self.tutor_simulator = TutorSimulator(area_rotation=self.area_rotation, type=self.type, thresholds=False)
 
+    def set_attempt(self, matrix_num):
+        self.tutor_simulator.attempt = matrix_num
+        self.attempts = matrix_num
+
+    def set_state(self, state):
+        self.state = state
 
     def set_initial_state(self, matrix_posn=None, matrix_area=None):
-        
         student_model = self.student_simulator.student_model
         student_model_name = self.student_simulator.student_model_name
 

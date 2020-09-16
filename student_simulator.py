@@ -196,7 +196,7 @@ class StudentSimulator():
     def checkpoint(self):
         self.student_model.checkpoint()
         
-    def update_on_log_data(self, data_dict, train_split=1.0, train_students=None, bayesian_update=True, plot=True):
+    def update_on_log_data(self, data_dict, train_split=1.0, train_students=None, bayesian_update=True, plot=True, prints=False):
         """
             Description: Takes a train_split (float) and train_students (list). If train_size is 1, trains on all rows of activity table, else trains on (1 - train_size)*rows of activity_df.
                         Update here means the BKT updates based on student performance (binary for ItemBKT, non binary for activity BKT since it takes in %correct as observation)
@@ -212,7 +212,7 @@ class StudentSimulator():
             self.activity_bkt_update(data_dict)
         
         elif self.student_model_name == 'hotDINA_skill':
-            if self.CONSTANTS["PRINT_PARAMS_FOR_STUDENT"] == True and self.student_model_name == 'hotDINA_skill':
+            if prints and self.student_model_name == 'hotDINA_skill':
                 print("theta: ", self.params_dict['theta'])
                 print('a: ', self.params_dict['a'])
                 print('b: ', self.params_dict['b'])
@@ -271,7 +271,7 @@ class StudentSimulator():
         items = data_dict['items']
         users = data_dict['users']
         self.student_model.update(observations, items, users, bayesian_update, plot, train_students)
-    
+
     def hotDINA_full_update(self, data_dict, train_students):
         observations = data_dict['y']
         items = data_dict['items']
