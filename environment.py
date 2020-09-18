@@ -34,8 +34,7 @@ class StudentEnv():
         self.attempts = attempt
         self.anti_rl = anti_rl
 
-        if self.type == 2:
-            self.set_tutor_simulator(t1=0.2, t2=0.2, t3=0.2)
+        self.set_tutor_simulator(t1=0.2, t2=0.2, t3=0.2)
 
         self.set_initial_state(matrix_area=matrix_area, matrix_posn=matrix_posn)
         self.set_skill_groups()
@@ -65,8 +64,7 @@ class StudentEnv():
                 self.tutor_simulator = TutorSimulator(t1=t1, t2=t2, t3=t3, area_rotation=self.area_rotation, type=self.type, thresholds=True)
             else:
                 self.tutor_simulator.set_thresholds(t1, t2, t3)
-        elif self.type == 3 or self.type == 5:
-            if self.tutor_simulator == None:
+        elif self.tutor_simulator == None:
                 self.tutor_simulator = TutorSimulator(area_rotation=self.area_rotation, type=self.type, thresholds=False)
 
     def set_attempt(self, matrix_num):
@@ -191,6 +189,7 @@ class StudentEnv():
 
         if self.type == None or self.type == 5:
             activity_num = action
+            # print(activity_num)
             prior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
             student_response = self.student_simulator.student_model.predict_response(activity_num, self.student_num, update=True)
             posterior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
@@ -343,7 +342,6 @@ class StudentEnv():
             done = True
             if reset_after_done:    next_state = np.array(self.reset())
         
-        if self.anti_rl:
-            return next_state, -reward, student_response, done, posterior_know
+        if self.anti_rl:    return next_state, -reward, student_response, done, posterior_know
         
         return next_state, reward, student_response, done, posterior_know

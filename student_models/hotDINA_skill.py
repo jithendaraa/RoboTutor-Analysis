@@ -84,7 +84,6 @@ class hotDINA_skill():
 
     def update(self, observations, items, users, bayesian_update=True, plot=True, train_students=None):
         self.bayesian_update = bayesian_update
-        
         for i in range(len(observations)):
             user = users[i]
             if train_students != None and user > len(train_students) - 1:   continue

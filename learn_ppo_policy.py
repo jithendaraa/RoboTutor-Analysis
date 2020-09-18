@@ -33,7 +33,7 @@ CONSTANTS = {
     'STUDENT_MODEL_NAME'                :   'hotDINA_skill',
     'AREA_ROTATION'                     :   'L-N-L-S',
     'START_POS'                         :   '0,0',
-    'AVG_OVER_RUNS'                     :   20,
+    'AVG_OVER_RUNS'                     :   50,
     'AGENT_TYPE'                        :   None,
     'AREA_ROTATION_CONSTRAINT'          :   True,
     'TRANSITION_CONSTRAINT'             :   True,
@@ -160,23 +160,18 @@ def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=30):
     MID_PERFORMANCE_THRESHOLD = CONSTANTS['MID_PERFORMANCE_THRESHOLD']
     HIGH_PERFORMANCE_THRESHOLD = CONSTANTS['HIGH_PERFORMANCE_THRESHOLD']
 
-    LOW_LENIENT_PERFORMANCE_THRESHOLD = CONSTANTS['LOW_LENIENT_PERFORMANCE_THRESHOLD']
-    MID_LENIENT_PERFORMANCE_THRESHOLD = CONSTANTS['MID_LENIENT_PERFORMANCE_THRESHOLD']
-    HIGH_LENIENT_PERFORMANCE_THRESHOLD = CONSTANTS['HIGH_LENIENT_PERFORMANCE_THRESHOLD']
-    
     avg_performance_ys = []
     label1 = "Current RT Thresholds(" + str(LOW_PERFORMANCE_THRESHOLD) + ", " + str(MID_PERFORMANCE_THRESHOLD) + ", " + str(HIGH_PERFORMANCE_THRESHOLD) + ")"
-    label2 = "Current Lenient RT Thresholds(" + str(LOW_LENIENT_PERFORMANCE_THRESHOLD) + ", " + str(MID_LENIENT_PERFORMANCE_THRESHOLD) + ", " + str(HIGH_LENIENT_PERFORMANCE_THRESHOLD) + ")"
     for _ in range(avg_over_runs):
-        
         student_simulator = StudentSimulator(village=CONSTANTS['VILLAGE'], observations=CONSTANTS['NUM_OBS'], student_model_name=CONSTANTS['STUDENT_MODEL_NAME'], new_student_params=CONSTANTS['NEW_STUDENT_PARAMS'], prints=False)
         tutor_simulator = TutorSimulator(CONSTANTS['LOW_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_PERFORMANCE_THRESHOLD'], CONSTANTS['AREA_ROTATION'], type=1, thresholds=True)
         performance_ys = evaluate_performance_thresholds(student_simulator, tutor_simulator, prints=prints, CONSTANTS=CONSTANTS)
-        
         avg_performance_ys.append(performance_ys)
     
     avg_performance_ys = np.mean(avg_performance_ys, axis=0)
+    print(avg_performance_ys[-1])
     xs = np.arange(len(avg_performance_ys)).tolist()
+
     if plots:
         file_name = 'plots/Current_RT_Thresholds/village_' + CONSTANTS['VILLAGE'] + '/Current_RT_Thresholds_' + str(CONSTANTS['MAX_TIMESTEPS']) + 'obs_' + CONSTANTS['STUDENT_MODEL_NAME'] + '_' + CONSTANTS['STUDENT_ID'] + '.png'
         plt.title("Current RT policy after " + str(CONSTANTS['MAX_TIMESTEPS']) + " attempts using current thresholds for " + CONSTANTS['STUDENT_MODEL_NAME'] + '(' + CONSTANTS['STUDENT_ID'] + ')')
@@ -213,20 +208,25 @@ def set_action_constants(type, tutor_simulator):
 
 if __name__ == '__main__':
     
+    # village 130: ['5A27001753', '5A27001932', '5A28002555', '5A29000477', '6105000515', '6112001212', '6115000404', '6116002085', 'new_student']
+    
     mkdir('.', 'checkpoints')
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if use_cuda else "cpu:0")
     args = arg_parser()
-    clear_files("ppo", args.clear_logs, path='RL_agents/', type=args.type)
     student_id = CONSTANTS['STUDENT_ID']
     area_rotation = CONSTANTS['AREA_ROTATION']
+
+    evaluate_current_RT_thresholds(plots=True, prints=False, avg_over_runs=CONSTANTS['AVG_OVER_RUNS'])
+
+    # clear logs
+    clear_files("ppo", args.clear_logs, path='RL_agents/', type=args.type)
     os.chdir('runs')
     os.system('rm -rf *')
     os.chdir('..')
     writer = SummaryWriter('runs/type' + str(args.type))
 
-    # village 130: ['5A27001753', '5A27001932', '5A28002555', '5A29000477', '6105000515', '6112001212', '6115000404', '6116002085', 'new_student']
-    
+    # Initialise simulators
     student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
     tutor_simulator = TutorSimulator(CONSTANTS['LOW_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_PERFORMANCE_THRESHOLD'], area_rotation=CONSTANTS['AREA_ROTATION'], type=CONSTANTS['AGENT_TYPE'], thresholds=CONSTANTS['USES_THRESHOLDS'])
     set_action_constants(args.type, tutor_simulator)
@@ -234,170 +234,163 @@ if __name__ == '__main__':
     uniq_activities = student_simulator.uniq_activities
     uniq_student_ids = student_simulator.uniq_student_ids
     student_num = uniq_student_ids.index(student_id)
-    
     state_size  = CONSTANTS["STATE_SIZE"]
     action_size = CONSTANTS["ACTION_SIZE"]
 
+    # Initialise environment and model
     env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS, anti_rl=args.anti_rl)
     env.checkpoint()
+    model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[state_size], fc1_dims=CONSTANTS["FC1_DIMS"], fc2_dims=CONSTANTS['FC2_DIMS'], n_actions=action_size, type=args.type)
+    if args.model != None:  model.load_state_dict(torch.load("checkpoints/"+args.model))
     init_p_know = set_target_reward(env)
 
-    evaluate_current_RT_thresholds(plots=True, prints=False, avg_over_runs=10)
+    frame_idx = 0
+    train_epoch = 0
+    best_reward = -1000.0
+    early_stop = False
 
-    # model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[state_size], fc1_dims=CONSTANTS["FC1_DIMS"], fc2_dims=CONSTANTS['FC2_DIMS'], n_actions=action_size, type=args.type)
-    # if args.model != None:  model.load_state_dict(torch.load("checkpoints/"+args.model))
+    # Prepare environments
+    envs = [make_env(i+1, student_simulator, student_id, action_size, type=args.type, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS, anti_rl=args.anti_rl) for i in range(CONSTANTS["NUM_ENVS"])]
+    envs = SubprocVecEnv(envs)
+    envs.checkpoint()
+    state = np.array(envs.reset())
+    loop = 0
+    done = False
 
-    # frame_idx = 0
-    # train_epoch = 0
-    # best_reward = -1000.0
-    # early_stop = False
+    while not early_stop:
+        loop += 1
+        # lists to store training data
+        log_probs = []
+        critic_values = []
+        states = []
+        actions = []
+        rewards = []
+        dones = []
+        timesteps = 0
 
-    # # Prepare environments
-    # envs = [make_env(i+1, student_simulator, student_id, action_size, type=args.type, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS, anti_rl=args.anti_rl) for i in range(CONSTANTS["NUM_ENVS"])]
-    # envs = SubprocVecEnv(envs)
-    # envs.checkpoint()
-    # state = np.array(envs.reset())
-    # loop = 0
-    # done = False
+        for _ in range(CONSTANTS["PPO_STEPS"]):
+            timesteps += 1
 
-    # while not early_stop:
-    #     loop += 1
-    #     # lists to store training data
-    #     log_probs = []
-    #     critic_values = []
-    #     states = []
-    #     actions = []
-    #     rewards = []
-    #     dones = []
-    #     timesteps = 0
+            if isinstance(state, list): state = torch.tensor(state)
+            if torch.is_tensor(state) == False or isinstance(state, np.ndarray):    state = torch.FloatTensor(state)
+            if state.get_device() != device:    state = state.to(device)
 
-    #     for _ in range(CONSTANTS["PPO_STEPS"]):
-    #         timesteps += 1
+            if args.type == 4:
+                policies, values = model(state)
+                activity_actions = []
+                action = []
+                for policy in policies:
+                    action.append(policy.sample().cpu().numpy()[0])
+                action = torch.tensor(action).to(device)
 
-    #         if isinstance(state, list): state = torch.tensor(state)
-    #         if torch.is_tensor(state) == False or isinstance(state, np.ndarray):    state = torch.FloatTensor(state)
-    #         if state.get_device() != device:    state = state.to(device)
-
-    #         if args.type == 4:
-    #             policies, values = model(state)
-    #             activity_actions = []
-    #             action = []
-    #             for policy in policies:
-    #                 action.append(policy.sample().cpu().numpy()[0])
-    #             action = torch.tensor(action).to(device)
-
-    #             # For state in every env
-    #             for i in range(len(state)):
-    #                 row = state[i]
-    #                 matrix_num = int(row[-1].item())
-    #                 if matrix_num == 1: # literacy
-    #                     act = tutor_simulator.literacy_activities[action.cpu().numpy()[i]]
-    #                 elif matrix_num == 2:   # math
-    #                     act = tutor_simulator.math_activities[action.cpu().numpy()[i]]
-    #                 elif matrix_num == 3:   # story
-    #                     act = tutor_simulator.story_activities[action.cpu().numpy()[i]]
+                # For state in every env
+                for i in range(len(state)):
+                    row = state[i]
+                    matrix_num = int(row[-1].item())
+                    if matrix_num == 1: # literacy
+                        act = tutor_simulator.literacy_activities[action.cpu().numpy()[i]]
+                    elif matrix_num == 2:   # math
+                        act = tutor_simulator.math_activities[action.cpu().numpy()[i]]
+                    elif matrix_num == 3:   # story
+                        act = tutor_simulator.story_activities[action.cpu().numpy()[i]]
                     
-    #                 act_idx = uniq_activities.index(act)
-    #                 activity_actions.append(act_idx)
+                    act_idx = uniq_activities.index(act)
+                    activity_actions.append(act_idx)
                 
-    #             activity_actions = np.array(activity_actions)
-    #             next_state, reward, student_response, done, posterior_know = envs.step(activity_actions, [CONSTANTS['MAX_TIMESTEPS']] * CONSTANTS['NUM_ENVS'], timesteps=[timesteps]*CONSTANTS['NUM_ENVS'])
+                activity_actions = np.array(activity_actions)
+                next_state, reward, student_response, done, posterior_know = envs.step(activity_actions, [CONSTANTS['MAX_TIMESTEPS']] * CONSTANTS['NUM_ENVS'], timesteps=[timesteps]*CONSTANTS['NUM_ENVS'])
                 
-    #             log_prob = []
-    #             for i in range(len(policies)):
-    #                 policy = policies[i]
-    #                 lp = policy.log_prob(action[i:i+1])
-    #                 if len(log_prob) == 0:  log_prob = lp
-    #                 else:   log_prob = torch.cat((log_prob, lp), 0)
-    #             critic_values.append(values)
+                log_prob = []
+                for i in range(len(policies)):
+                    policy = policies[i]
+                    lp = policy.log_prob(action[i:i+1])
+                    if len(log_prob) == 0:  log_prob = lp
+                    else:   log_prob = torch.cat((log_prob, lp), 0)
+                critic_values.append(values)
 
-    #         else:
-    #             policy, critic_value = model(state)
-    #             action = policy.sample()    # sample action from the policy distribution
-    #             next_state, reward, student_response, done, posterior_know = envs.step(action.cpu().numpy(), [CONSTANTS['MAX_TIMESTEPS']] * CONSTANTS['NUM_ENVS'], timesteps=[timesteps]*CONSTANTS['NUM_ENVS'])
-    #             log_prob = policy.log_prob(action)
-    #             critic_values.append(critic_value)
+            else:
+                policy, critic_value = model(state)
+                action = policy.sample()    # sample action from the policy distribution
+                next_state, reward, student_response, done, posterior_know = envs.step(action.cpu().numpy(), [CONSTANTS['MAX_TIMESTEPS']] * CONSTANTS['NUM_ENVS'], timesteps=[timesteps]*CONSTANTS['NUM_ENVS'])
+                log_prob = policy.log_prob(action)
+                critic_values.append(critic_value)
                     
-    #         rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
-    #         log_probs.append(log_prob)
-    #         dones.append(torch.Tensor(1 - done).unsqueeze(1).to(device))
-    #         states.append(state)
-    #         actions.append(action)
-    #         state = next_state.copy()
-    #         frame_idx += 1
+            rewards.append(torch.Tensor(reward).unsqueeze(1).to(device))
+            log_probs.append(log_prob)
+            dones.append(torch.Tensor(1 - done).unsqueeze(1).to(device))
+            states.append(state)
+            actions.append(action)
+            state = next_state.copy()
+            frame_idx += 1
 
-    #     _, critic_value_ = model(torch.Tensor(next_state).to(device))
-    #     returns         = compute_gae(critic_value_, rewards, dones, critic_values, CONSTANTS["GAMMA"], CONSTANTS["GAE_LAMBDA"])
-    #     returns         = torch.cat(returns).detach()
-    #     log_probs       = torch.cat(log_probs).detach()
-    #     critic_values   = torch.cat(critic_values).detach()
-    #     states          = torch.cat(states)
-    #     actions         = torch.cat(actions)
-    #     advantage       = normalize(returns - critic_values)
+        _, critic_value_ = model(torch.Tensor(next_state).to(device))
+        returns         = compute_gae(critic_value_, rewards, dones, critic_values, CONSTANTS["GAMMA"], CONSTANTS["GAE_LAMBDA"])
+        returns         = torch.cat(returns).detach()
+        log_probs       = torch.cat(log_probs).detach()
+        critic_values   = torch.cat(critic_values).detach()
+        states          = torch.cat(states)
+        actions         = torch.cat(actions)
+        advantage       = normalize(returns - critic_values)
 
-    #     # According to PPO paper: (states, actions, log_probs, returns, advantage) is together referred to as a "trajectory"
-    #     ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS, type_=args.type, writer=writer)
-    #     train_epoch += 1
-    #     print("UPDATING.... Epoch Num:", train_epoch)
-    #     # if train_epoch > 800:
-    #     #     break
+        # According to PPO paper: (states, actions, log_probs, returns, advantage) is together referred to as a "trajectory"
+        ppo_update(model, frame_idx, states, actions, log_probs, returns, advantage, CONSTANTS, type_=args.type, writer=writer)
+        train_epoch += 1
+        print("UPDATING.... Epoch Num:", train_epoch)
+        # if train_epoch > 800:
+        #     break
         
-    #     if train_epoch % CONSTANTS['TEST_EPOCHS'] == 0:
-    #         student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
-    #         env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS, anti_rl=args.anti_rl)
-    #         env.checkpoint()
-    #         # writer.add_scalar("test_rewards", test_reward, frame_idx)
-    #         if env.type == None:
-    #             test_reward = np.mean([test_env(env, model, device, CONSTANTS, deterministic=False, writer=writer) for _ in range(CONSTANTS["NUM_TESTS"])])
-    #             final_p_know = env.state
+        if train_epoch % CONSTANTS['TEST_EPOCHS'] == 0:
+            student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
+            env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS, anti_rl=args.anti_rl)
+            env.checkpoint()
             
-    #         elif env.type == 1 or env.type == 2 or env.type == 3 or env.type == 4 or env.type == 5:
-    #             test_reward = []
-    #             final_p_know = []
-    #             for _ in range(CONSTANTS['NUM_TESTS']):
-    #                 student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
-    #                 env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS, anti_rl=args.anti_rl)
-    #                 env.checkpoint()
-    #                 tr, fpk = test_env(env, model, device, CONSTANTS, deterministic=False, writer=writer)
-    #                 test_reward.append(tr)
-    #                 final_p_know.append(fpk)
-    #             test_reward = np.mean(test_reward)
-    #             final_p_know = np.mean(final_p_know, axis=0) 
+            if env.type == 1 or env.type == 2 or env.type == 3 or env.type == 4 or env.type == 5:
+                test_reward = []
+                final_p_know = []
+                for _ in range(CONSTANTS['NUM_TESTS']):
+                    student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=args.new_student_params, prints=False)
+                    env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS, anti_rl=args.anti_rl)
+                    env.checkpoint()
+                    tr, fpk = test_env(env, model, device, CONSTANTS, deterministic=False, writer=writer)
+                    test_reward.append(tr)
+                    final_p_know.append(fpk)
+                test_reward = np.mean(test_reward)
+                final_p_know = np.mean(final_p_know, axis=0) 
             
-    #         print('Frame %s. reward: %s' % (frame_idx, test_reward))
-    #         final_avg_p_know = np.mean(final_p_know)
-    #         # Save a checkpoint every time we achieve a best reward
-    #         if best_reward < test_reward:
-    #             print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
-                    
-    #             file_name_no_reward = CONSTANTS['STUDENT_ID'] + '~' + args.student_model_name + "~village_" + args.village_num + "~type_" + str(args.type)
-    #             file_name = file_name_no_reward + "~" + str(test_reward) + '.dat'
-    #             os.chdir('checkpoints')
-    #             # get all files starting like file_name_no_reward
-    #             files = os.listdir('.')
-    #             files_to_del = []
-    #             save = True
-    #             for file in files:
-    #                 if file[:len(file_name_no_reward)] == file_name_no_reward:
-    #                     files_to_del.append(file)
-    #             for file in files_to_del:
-    #                 if float(file[:-4].split('~')[-1]) > test_reward:   
-    #                     save = False
-    #                 else:
-    #                     os.system('rm -rf ' + file)
+            print('Frame %s. reward: %s' % (frame_idx, test_reward))
+            final_avg_p_know = np.mean(final_p_know)
+            # Save a checkpoint every time we achieve a best reward
+            if best_reward < test_reward:
+                print("Best reward updated: %.3f -> %.3f Target reward: %.3f" % (best_reward, test_reward, CONSTANTS["TARGET_REWARD"]))
                 
-    #             os.chdir('..')
-    #             if save:
-    #                 fname = os.path.join('.', 'checkpoints', file_name)
-    #                 torch.save(model.state_dict(), fname)
+                file_name_no_reward = CONSTANTS['STUDENT_ID'] + '~' + args.student_model_name + "~village_" + args.village_num + "~type_" + str(args.type)
+                file_name = file_name_no_reward + "~" + str(test_reward) + '.dat'
+                os.chdir('checkpoints')
+                # get all files starting like file_name_no_reward
+                files = os.listdir('.')
+                files_to_del = []
+                save = True
+                for file in files:
+                    if file[:len(file_name_no_reward)] == file_name_no_reward:
+                        files_to_del.append(file)
+                for file in files_to_del:
+                    if float(file[:-4].split('~')[-1]) > test_reward:   
+                        save = False
+                    else:
+                        os.system('rm -rf ' + file)
                 
-    #             best_reward = test_reward
-    #         if test_reward > CONSTANTS["TARGET_REWARD"]: 
-    #             early_stop = True
+                os.chdir('..')
+                if save:
+                    fname = os.path.join('.', 'checkpoints', file_name)
+                    torch.save(model.state_dict(), fname)
+                
+                best_reward = test_reward
+            if test_reward > CONSTANTS["TARGET_REWARD"]: 
+                early_stop = True
 
-    # print("INIT P(Know): \n", init_p_know)
-    # print("FINAL P(Know): \n", final_p_know)
-    # print("IMPROVEMENT PER SKILL: \n", np.array(final_p_know) - np.array(init_p_know))
-    # print("INIT AVG P(KNOW): ", np.mean(init_p_know))
-    # print("FINAL AVG P(KNOW): ", final_avg_p_know)
-    # print("TOTAL RUNS: ", CONSTANTS["RUN_NUM"])
+    print("INIT P(Know): \n", init_p_know)
+    print("FINAL P(Know): \n", final_p_know)
+    print("IMPROVEMENT PER SKILL: \n", np.array(final_p_know) - np.array(init_p_know))
+    print("INIT AVG P(KNOW): ", np.mean(init_p_know))
+    print("FINAL AVG P(KNOW): ", final_avg_p_know)
+    print("TOTAL RUNS: ", CONSTANTS["RUN_NUM"])

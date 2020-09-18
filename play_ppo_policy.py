@@ -34,7 +34,7 @@ CONSTANTS = {
     'STUDENT_MODEL_NAME'                :   'hotDINA_skill',
     'AREA_ROTATION'                     :   'L-N-L-S',
     'START_POS'                         :   '0,0',
-    'AVG_OVER_RUNS'                     :   30,
+    'AVG_OVER_RUNS'                     :   50,
     'AGENT_TYPE'                        :   None,
     'AREA_ROTATION_CONSTRAINT'          :   True,
     'TRANSITION_CONSTRAINT'             :   True,
@@ -153,14 +153,8 @@ def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=CONSTA
     MID_PERFORMANCE_THRESHOLD = CONSTANTS['MID_PERFORMANCE_THRESHOLD']
     HIGH_PERFORMANCE_THRESHOLD = CONSTANTS['HIGH_PERFORMANCE_THRESHOLD']
 
-    LOW_LENIENT_PERFORMANCE_THRESHOLD = CONSTANTS['LOW_LENIENT_PERFORMANCE_THRESHOLD']
-    MID_LENIENT_PERFORMANCE_THRESHOLD = CONSTANTS['MID_LENIENT_PERFORMANCE_THRESHOLD']
-    HIGH_LENIENT_PERFORMANCE_THRESHOLD = CONSTANTS['HIGH_LENIENT_PERFORMANCE_THRESHOLD']
-    
     avg_performance_ys = []
-    avg_lenient_performance_ys = []
     label1 = "Current RT Thresholds(" + str(LOW_PERFORMANCE_THRESHOLD) + ", " + str(MID_PERFORMANCE_THRESHOLD) + ", " + str(HIGH_PERFORMANCE_THRESHOLD) + ")"
-    label2 = "Current Lenient RT Thresholds(" + str(LOW_LENIENT_PERFORMANCE_THRESHOLD) + ", " + str(MID_LENIENT_PERFORMANCE_THRESHOLD) + ", " + str(HIGH_LENIENT_PERFORMANCE_THRESHOLD) + ")"
 
     student_simulator = StudentSimulator(village=CONSTANTS['VILLAGE'], observations=CONSTANTS['NUM_OBS'], student_model_name=CONSTANTS['STUDENT_MODEL_NAME'], new_student_params=CONSTANTS['NEW_STUDENT_PARAMS'], prints=False)
     
@@ -168,26 +162,18 @@ def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=CONSTA
         student_simulator = StudentSimulator(village=CONSTANTS['VILLAGE'], observations=CONSTANTS['NUM_OBS'], student_model_name=CONSTANTS['STUDENT_MODEL_NAME'], new_student_params=CONSTANTS['NEW_STUDENT_PARAMS'], prints=False)
         tutor_simulator = TutorSimulator(CONSTANTS['LOW_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_PERFORMANCE_THRESHOLD'], CONSTANTS['AREA_ROTATION'], type=1, thresholds=True)
         performance_ys = evaluate_performance_thresholds(student_simulator, tutor_simulator, prints=prints, CONSTANTS=CONSTANTS)
-        
-        student_simulator = StudentSimulator(village=CONSTANTS['VILLAGE'], observations=CONSTANTS['NUM_OBS'], student_model_name=CONSTANTS['STUDENT_MODEL_NAME'], new_student_params=CONSTANTS['NEW_STUDENT_PARAMS'], prints=False)
-        tutor_simulator = TutorSimulator(CONSTANTS['LOW_LENIENT_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_LENIENT_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_LENIENT_PERFORMANCE_THRESHOLD'], CONSTANTS['AREA_ROTATION'], type=1, thresholds=True)
-        lenient_performance_ys = evaluate_performance_thresholds(student_simulator, tutor_simulator, prints=prints, CONSTANTS=CONSTANTS)
-        
         avg_performance_ys.append(performance_ys)
-        avg_lenient_performance_ys.append(lenient_performance_ys)
     
     avg_performance_ys = np.mean(avg_performance_ys, axis=0)
-    avg_lenient_performance_ys = np.mean(avg_lenient_performance_ys, axis=0)
     xs = np.arange(len(avg_performance_ys)).tolist()
     if plots:
         file_name = 'plots/Current_RT_Thresholds/village_' + CONSTANTS['VILLAGE'] + '/Current_RT_Thresholds_' + str(CONSTANTS['MAX_TIMESTEPS']) + 'obs_' + CONSTANTS['STUDENT_MODEL_NAME'] + '_' + CONSTANTS['STUDENT_ID'] + '.png'
         plt.title("Current RT policy after " + str(CONSTANTS['MAX_TIMESTEPS']) + " attempts using normal thresholds for " + CONSTANTS['STUDENT_MODEL_NAME'] + '(' + CONSTANTS['STUDENT_ID'] + ')')
         plt.plot(xs, performance_ys, color='r', label=label1)
-        plt.plot(xs, lenient_performance_ys, color='b', label=label2)
         plt.xlabel('#Opportunities')
         plt.ylabel('Avg P(Know) across skills')
         plt.legend()
-    return xs, performance_ys, lenient_performance_ys
+    return xs, performance_ys
 
 if __name__ == '__main__':
 
@@ -228,53 +214,45 @@ if __name__ == '__main__':
         ax[i].clear()
     
     total_threshold_avgs = 0.0
-    total_lenient_threshold_avgs = 0.0
     total_posterior_avgs = 0.0
     student_spec_total_posterior_avgs = 0.0
 
-    for i in range(0, len(student_simulator.uniq_student_ids)):
+    for i in range(0, 8):
         student_num = i
         student_id = student_simulator.uniq_student_ids[i]
-
         CONSTANTS['NEW_STUDENT_PARAMS'] = student_id
-        if student_id == 'new_student': 
-            CONSTANTS['NEW_STUDENT_PARAMS'] = None
+        if student_id == 'new_student': CONSTANTS['NEW_STUDENT_PARAMS'] = None
 
+        # Initialise student simulator and environment
+        student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=student_id, prints=False)
+        env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
+        env.checkpoint()
+        xs, threshold_ys = evaluate_current_RT_thresholds(plots=False, prints=False)
+
+        # Load student_specific_model if necessary
         if CONSTANTS['STUDENT_SPEC_MODEL']:
             checkpoint_file_name_start = student_id + '~' + args.student_model_name + '~village_' + args.village_num + '~type_' + str(args.type) + '~'
             checkpoint_files = os.listdir('./checkpoints')
             checkpoint_file_name = ""
-            # print(checkpoint_files, "_______________________________________")
             for file in checkpoint_files:
                 if file[:len(checkpoint_file_name_start)] == checkpoint_file_name_start:
                     checkpoint_file_name = file
                     break
-
             student_spec_model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[state_size], fc1_dims=CONSTANTS["FC1_DIMS"], fc2_dims=CONSTANTS['FC2_DIMS'], n_actions=action_size, type=args.type)
             student_spec_model.load_state_dict(torch.load("checkpoints/" + checkpoint_file_name))
-            # print("Loaded model at checkpoints/" + checkpoint_file_name, student_id)
+            print("Loaded model at checkpoints/" + checkpoint_file_name, student_id)
 
-        student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=student_id, prints=False)
-        env = StudentEnv(student_simulator, action_size, student_id, 1, args.type, prints=False, area_rotation=args.area_rotation, CONSTANTS=CONSTANTS)
-        env.checkpoint()
-
-        total_reward = []
-        _total_reward = []
-        _posteriors = []
-        posteriors = []
-        student_spec_avgs = []
-        student_avgs = []
-
-        xs, threshold_ys, lenient_threshold_ys = evaluate_current_RT_thresholds(plots=False, prints=False)
+        total_reward, _total_reward = [], []
+        posteriors, _posteriors = [], []
+        student_avgs, student_spec_avgs = [], []
 
         for _ in tqdm(range(CONSTANTS['AVG_OVER_RUNS'])):
             env.reset()
             prior = env.state[:22]
+
             tr, posterior, learning_progress = play_env(env, new_student_model, device, CONSTANTS, deterministic=args.deterministic)
-            
             total_reward.append(tr)
             posteriors.append(posterior)
-
             student_avg = []
             for know in learning_progress[student_num]:
                 avg_know = np.mean(np.array(know))
@@ -283,10 +261,8 @@ if __name__ == '__main__':
 
             if CONSTANTS['STUDENT_SPEC_MODEL']:
                 _tr, _posterior, _learning_progress = play_env(env, student_spec_model, device, CONSTANTS, deterministic=args.deterministic)
-                
                 _total_reward.append(_tr)
                 _posteriors.append(_posterior)
-
                 student_spec_avg = []
                 for know in _learning_progress[student_num]:
                     _avg_know = np.mean(np.array(know))
@@ -296,23 +272,18 @@ if __name__ == '__main__':
         total_reward = np.mean(total_reward)
         posteriors = np.mean(posteriors, axis=0)
         student_avgs = np.mean(student_avgs, axis=0)
+        threshold_policy_improvement = 100 * (np.mean(posteriors) - threshold_ys[-1])/threshold_ys[-1]
 
         if CONSTANTS['STUDENT_SPEC_MODEL']:
             _total_reward = np.mean(_total_reward)
             _posteriors = np.mean(_posteriors, axis=0)
             student_spec_avgs = np.mean(student_spec_avgs, axis=0)
-
             student_spec_threshold_policy_improvement = 100 * (np.mean(_posteriors) - threshold_ys[-1])/threshold_ys[-1]
-            student_spec_lenient_threshold_policy_improvement = 100 * (np.mean(_posteriors) - lenient_threshold_ys[-1])/lenient_threshold_ys[-1]
         
-        threshold_policy_improvement = 100 * (np.mean(posteriors) - threshold_ys[-1])/threshold_ys[-1]
-        lenient_threshold_policy_improvement = 100 * (np.mean(posteriors) - lenient_threshold_ys[-1])/lenient_threshold_ys[-1]
-
         x = np.arange(len(student_avg))
         if CONSTANTS['STUDENT_SPEC_MODEL'] and i != len(student_simulator.uniq_student_ids) - 1: ax[i].plot(x, student_spec_avgs, label="Student-specific RL Policy", color="green", alpha=0.5)
         ax[i].plot(xs, threshold_ys, color='r', label="Current RT Thresholds", alpha=0.5)
-        ax[i].plot(xs, lenient_threshold_ys, color='b', label="Current lenient RT Thresholds", alpha=0.5)
-        ax[i].plot(x, student_avg, label="Generic RL Policy Type " + str(args.type), color="black")
+        # ax[i].plot(x, student_avg, label="Generic RL Policy Type " + str(args.type), color="black")
         ax[i].set_xlabel("# Opportunities")
         ax[i].set_ylabel("Avg P(Know) across skills")
         ax[i].set_title("Student: " + student_id)
@@ -322,33 +293,22 @@ if __name__ == '__main__':
         print('Student ', i, "\nnew_student Avg. prior Know: ", np.mean(prior), "\nnew_student Avg. posterior Know: ", np.mean(posteriors))
         if CONSTANTS['STUDENT_SPEC_MODEL'] and i != len(student_simulator.uniq_student_ids) - 1: print("\nspec_student Avg. prior Know: ", np.mean(prior), "\nspec_student Avg. posterior Know: ", np.mean(_posteriors))
         print("threshold averages:", threshold_ys[-1] )
-        print("lenient threshold averages:", lenient_threshold_ys[-1] )
         if CONSTANTS['STUDENT_SPEC_MODEL']:
-            print("threshold and lenient threshold policy improvements (general policy): ",  threshold_policy_improvement, lenient_threshold_policy_improvement, '\n')
-            print("threshold and lenient threshold policy improvements (student_spec policy): ",  student_spec_threshold_policy_improvement, student_spec_lenient_threshold_policy_improvement, '\n')
+            print("general policy improvement: ",  threshold_policy_improvement, '\n')
+            print("student_spec policy improvement: ",  student_spec_threshold_policy_improvement, '\n')
         total_threshold_avgs += threshold_ys[-1]
-        total_lenient_threshold_avgs += lenient_threshold_ys[-1]
 
         if CONSTANTS['STUDENT_SPEC_MODEL']: student_spec_total_posterior_avgs += np.mean(_posteriors)
         total_posterior_avgs += np.mean(posteriors)
-
-    
+        
     total_threshold_policy_improvement = 100 * (total_posterior_avgs - total_threshold_avgs)/total_threshold_avgs
-    total_lenient_threshold_policy_improvement = 100 * (total_posterior_avgs - total_lenient_threshold_avgs)/total_lenient_threshold_avgs
-    
     print("TOTAL THRESHOLD IMPROVEMENT (generic policy): ", total_threshold_policy_improvement)
-    print("TOTAL LENIENT THRESHOLD IMPROVEMENT (generic policy): ", total_lenient_threshold_policy_improvement)
-    
     if CONSTANTS['STUDENT_SPEC_MODEL']:
         student_spec_total_threshold_policy_improvement = 100 * (student_spec_total_posterior_avgs - total_threshold_avgs)/total_threshold_avgs
-        student_spec_total_lenient_threshold_policy_improvement = 100 * (student_spec_total_posterior_avgs - total_lenient_threshold_avgs)/total_lenient_threshold_avgs
         print("TOTAL THRESHOLD IMPROVEMENT (student_spec policy): ", student_spec_total_threshold_policy_improvement)
-        print("TOTAL LENIENT THRESHOLD IMPROVEMENT (student_spec policy): ", student_spec_total_lenient_threshold_policy_improvement)
-
     plt.tight_layout()
     plt.savefig('../RoboTutor-Analysis/plots/Played plots/Type ' + str(args.type) + '/village_' + args.village_num + '~obs_' + args.observations + '~' + args.student_model_name + '.png')
     plt.show()
-
 
 # wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1rW9U__Y4WqO6BF_I2SQQK5vlodWqONsI' -O Code\ Drop\ 2\ Matrices.xlsx
 # wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1WzBW6yNIYQ0NX283gMKxUHF2biQxgHh7' -O CTA.xlsx 

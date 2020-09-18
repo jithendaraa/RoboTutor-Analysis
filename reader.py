@@ -23,7 +23,6 @@ def read_transac_table(path_to_transac_table, full_df=False):
     if full_df == False:
         drop_cols = ["Row", "Sample Name", "Session Id","Time","Problem Start Time","Time Zone", "Duration (sec)", "Student Response Type", "Student Response Subtype", "Tutor Response Type", "Tutor Response Subtype", "Selection", "Action", "Feedback Text", "Feedback Classification", "Help Level", "Total Num Hints", "School", "Class", "CF (File)", "CF (Hiatus sec)", "CF (Original DS Export File)","CF (Unix Epoch)","CF (Village)","Event Type","CF (Student Used Scaffold)","CF (Robotutor Mode)","KC Category (Single-KC)","KC Category (Unique-step)","CF (Child Id)","CF (Date)","CF (Placement Test Flag)","CF (Week)","Transaction Id","Problem View","KC (Single-KC)","KC (Unique-step)", "CF (Activity Finished)", "CF (Activity Started)", "CF (Attempt Number)","CF (Duration sec)", "CF (Expected Answer)", "CF (Matrix)", "CF (Matrix Level)", "CF (Matrix Order)", "CF (Original Order)","CF (Outcome Numeric)", "CF (Placement Test User)", "CF (Problem Number)", "CF (Session Sequence)", "CF (Student Chose Repeat)", "CF (Total Activity Problems)", "CF (Tutor Sequence Session)", "CF (Tutor Sequence User)","Input", "Is Last Attempt", "Attempt At Step", "Step Name"]
         transac_df = transac_df.drop(columns=drop_cols)
-
     return transac_df
 
 def read_cta_table(path_to_cta_table):
@@ -33,11 +32,11 @@ def read_cta_table(path_to_cta_table):
     cta_df = pd.read_excel(path_to_cta_table).astype({'Quantifying': str})
     return cta_df
 
-def read_data(path=""):
+def read_data(path="", ext="_22"):
     """
         Reads and returns some useful data from CTA Table and activity_table.
     """
-    cta_df = read_cta_table(path + "Data/CTA.xlsx")
+    cta_df = read_cta_table(path + "Data/CTA"+ext+".xlsx")
     kc_list = get_kc_list_from_cta_table(cta_df)
     num_skills = len(kc_list)
     kc_to_tutorID_dict = init_kc_to_tutorID_dict(kc_list)

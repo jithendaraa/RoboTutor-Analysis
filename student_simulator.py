@@ -266,7 +266,6 @@ class StudentSimulator():
         self.student_model.update(activity_observations, student_nums, activities)
 
     def hotDINA_skill_update(self, data_dict, bayesian_update=True, plot=True, train_students=None):
-
         observations = data_dict['y']
         items = data_dict['items']
         users = data_dict['users']

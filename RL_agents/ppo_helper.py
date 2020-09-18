@@ -210,7 +210,6 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
             loss = CONSTANTS["CRITIC_DISCOUNT"] * critic_loss + actor_loss - CONSTANTS["ENTROPY_BETA"] * entropy
             model.optimizer.zero_grad()
             loss.backward()
-            
             model.optimizer.step()
 
             # track statistics
@@ -244,7 +243,6 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
     prior = None
     posterior = None
     kc_list, kc_to_tutorID_dict, tutorID_to_kc_dict, cta_tutor_ids, uniq_skill_groups, skill_group_to_activity_map  = read_data()
-
     while not done:
         timesteps += 1
         state = torch.Tensor(state).unsqueeze(0).to(device)
@@ -264,7 +262,7 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
             next_state, reward, _, done, posterior = env.step(action, CONSTANTS["MAX_TIMESTEPS"], timesteps=timesteps, bayesian_update=True, reset_after_done=False)
         
         elif env.type == 3 or env.type == 5:
-            if deterministic == False:
+            if deterministic == 'False':
                 action = policy.sample().cpu().numpy()[0]
             else:
                 action = policy.probs.cpu().detach().numpy()[0]
@@ -300,7 +298,6 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
         total_reward += reward
     
     print("In %d steps we got %.3f reward" % (timesteps, total_reward))
-    
     student_model_name = env.student_simulator.student_model_name
     if student_model_name == 'hotDINA_full' or student_model_name == 'hotDINA_skill':
         learning_progress = env.student_simulator.student_model.alpha
@@ -311,4 +308,3 @@ def normalize(x):
     x -= x.mean()
     x /= (x.std() + 1e-8)
     return x
-
