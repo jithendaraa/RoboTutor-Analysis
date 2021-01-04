@@ -29,7 +29,8 @@ def read_cta_table(path_to_cta_table):
     """
         Reads and returns the CTA table as a df
     """
-    cta_df = pd.read_excel(path_to_cta_table).astype({'Quantifying': str})
+    print(path_to_cta_table)
+    cta_df = pd.read_excel(path_to_cta_table, engine='openpyxl').astype({'Quantifying': str})
     return cta_df
 
 def read_data(path="", ext="_22"):
@@ -204,7 +205,6 @@ def extract_activity_table(path_to_activity_table, uniq_student_ids, kc_list, nu
         ith row of each of these lists give info about the ith opportunity or corresponds to ith row of activity_df
     """
     activity_df = pd.read_pickle(path_to_activity_table)
-    print(activity_df)
     if student_id != None:
         activity_df = activity_df[activity_df["Unique_Child_ID_1"] == student_id]
     if num_obs != 'all':
