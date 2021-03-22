@@ -56,24 +56,25 @@ class ActorCriticNetwork(nn.Module):
 
 class ActorCriticAgent(object):
     def __init__(self, alpha, input_dims, 
-                    skill_groups, 
-                    student_simulator,
-                    skill_group_to_activity_map,
+                    n_actions,
                     gamma,
+                    student_simulator,
                     layer1_size, 
                     layer2_size,
                     layer3_size,
                     layer4_size,
-                    n_actions
-                    ):
+                    agent_type,
+                    skill_group_to_activity_map=None,
+                    skill_groups=None):
+        
+        self.agent_type = agent_type
         self.alpha = alpha    
         self.gamma = gamma
         self.epsilon = 0.0
         self.student_simulator = student_simulator
         
-        self.actor_critic = ActorCriticNetwork(alpha, input_dims,
-                                                layer1_size, layer2_size, layer3_size, layer4_size,
-                                                n_actions=n_actions)
+        self.actor_critic = ActorCriticNetwork(alpha, input_dims, layer1_size, layer2_size, 
+                                                layer3_size, layer4_size, n_actions)
         # Value we use to update weights of NN, gradient log policy (since policy is probabilistic it is called gradient log probability dist. that is the policy)
         self.log_probs = None
         self.skill_groups = skill_groups
@@ -81,22 +82,31 @@ class ActorCriticAgent(object):
 
     def choose_action(self, state, explore=False):
         
+        skills, activityName = None, None
         policy, critic_value = self.actor_critic.forward(state)
-        policy = F.softmax(policy)  # softmax ensures actions add up to one which is a requirement for probabilities
+        policy = F.softmax(policy, dim=0)  # softmax ensures actions add up to one which is a requirement for probabilities
         action_probs = torch.distributions.Categorical(policy)
         action = action_probs.sample()  # Sample an action from these proba's and get the log proba's.
         self.log_probs = action_probs.log_prob(action)
 
         student_model_name = self.student_simulator.student_model_name
 
-        if student_model_name == 'ActivityBKT':
-            # Assumption (needs to be changed): All activities within a skill group contribute to same amount 
-            # and there is no difference between them in same skill group
-            # So, we just sample a random activity under this skill group to present it to the student 
-            # Possible Fix: Fit params per activity
-            skills = self.skill_groups[action]
-            skill_group = skills.copy()
-            activityName = np.random.choice(self.skill_group_to_activity_map[str(action.item())])
+        if self.agent_type == None:
+            if student_model_name == 'ActivityBKT':
+                # Assumption (needs to be changed): All activities within a skill group contribute to same amount 
+                # and there is no difference between them in same skill group
+                # So, we just sample a random activity under this skill group to present it to the student 
+                # Possible Fix: Fit params per activity
+                skills = self.skill_groups[action]
+                skill_group = skills.copy()
+                activityName = np.random.choice(self.skill_group_to_activity_map[str(action.item())])
+        
+        elif self.agent_type == 1:
+            pass
+        elif self.agent_type == 2:
+            pass
+        elif self.agent_type == 3 or self.agent_type == 4 or self.agent_type == 5:
+            return action.item(), explore, None, None
         
         return action.item(), explore, skills, activityName
 
@@ -120,17 +130,17 @@ class ActorCriticAgent(object):
         
 # used only for PPO algo, Actor Critic Algo uses the class `ActorCriticNetwork`
 class ActorCritic(nn.Module):
-    def __init__(self, lr, input_dims, fc1_dims, fc2_dims, n_actions, type=None):
+    def __init__(self, lr, input_dims, fc1_dims, fc2_dims, n_actions, agent_type=None):
         super(ActorCritic, self).__init__()
         self.input_dims = input_dims
         self.fc1_dims = fc1_dims
         self.fc2_dims = fc2_dims
         self.n_actions = n_actions
-        self.type = type
+        self.agent_type = agent_type
         self.lr = lr
         self.epochs = 0
 
-        if type == None or type == 1 or type == 2 or type == 3 or type == 5:       
+        if agent_type == None or agent_type == 1 or agent_type == 2 or agent_type == 3 or agent_type == 5:       
             self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
             self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
             self.fc3 = nn.Linear(self.fc2_dims, self.fc2_dims)
@@ -138,7 +148,7 @@ class ActorCritic(nn.Module):
             self.pi = nn.Linear(self.fc2_dims, n_actions)   #   Actor proposes policy; n_actions = 3, 1 for each threshold 
             self.v = nn.Linear(self.fc2_dims, 1)            #   Critic gives a value to criticise the proposed action/policy
 
-        elif type == 4:
+        elif agent_type == 4:
             num_literacy_acts, num_math_acts, num_story_acts = n_actions[0], n_actions[1], n_actions[2]
             self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
             self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
@@ -156,7 +166,6 @@ class ActorCritic(nn.Module):
         decayRate = 0.97
         self.optimizer = optim.Adam(self.parameters(), lr = lr,  betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
         self.lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=self.optimizer, gamma=decayRate)
-        
         self.to(self.device)
 
     def forward(self, state):
@@ -166,7 +175,7 @@ class ActorCritic(nn.Module):
         if torch.is_tensor(state) == False or isinstance(state, np.ndarray):    state = torch.FloatTensor(state)
         if state.get_device() != self.device:    state = state.to(self.device)
 
-        if self.type == None or self.type == 5:
+        if self.agent_type == None or self.agent_type == 5:
             x = F.relu(self.fc1(state))
             x = F.relu(self.fc2(x))
             x = F.relu(self.fc3(x))
@@ -176,7 +185,7 @@ class ActorCritic(nn.Module):
             pi = torch.distributions.Categorical(pi)    # discrete actions
             return pi, v
         
-        elif self.type == 3:
+        elif self.agent_type == 3:
             x = F.relu(self.fc1(state))
             x = F.relu(self.fc2(x))
             x = F.relu(self.fc3(x))
@@ -186,7 +195,7 @@ class ActorCritic(nn.Module):
             pi = torch.distributions.Categorical(pi)    # discrete actions
             return pi, v
 
-        elif self.type == 1 or self.type == 2:
+        elif self.agent_type == 1 or self.agent_type == 2:
             x = self.fc1(state)
             x = F.relu(x)
             x = F.relu(self.fc2(x))
@@ -197,7 +206,7 @@ class ActorCritic(nn.Module):
             dist = torch.distributions.continuous_bernoulli.ContinuousBernoulli(probs=probs)    # continuous actions in [0, 1]
             return dist, value
         
-        elif self.type == 4:
+        elif self.agent_type == 4:
             pis = []
             values=  []
             matrix_nums = []

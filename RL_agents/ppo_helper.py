@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 
 from environment import StudentEnv
-from student_simulator import StudentSimulator
+from simulators.student_simulator import StudentSimulator
 
 from helper import *
 from reader import *
@@ -55,18 +55,18 @@ def log_know_gains(type, CONSTANTS, init_state, posterior_avg_know, total_reward
         writer.add_scalar('P(Know) vs. #opportunities', np.mean(init_state[:22]), CONSTANTS['RUN_NUM'])
     
     writer.add_scalar('P(Know) vs. #opportunities', posterior_avg_know, CONSTANTS['RUN_NUM'])
-    # with open("RL_agents/ppo_logs/rewards_type" + str(type) + ".txt", "a") as f:
-    #     if CONSTANTS["RUN_NUM"] == 0 and type != 1:
-    #         f.write("0,"+ str(np.mean(np.array(init_state[:22]))) + "\n")
-    #     text = str(CONSTANTS["RUN_NUM"]) + "," + str(posterior_avg_know) + "\n"
-    #     f.write(text)
+    with open("logs/ppo_logs/rewards_type" + str(type) + ".txt", "a") as f:
+        if CONSTANTS["RUN_NUM"] == 0 and type != 1:
+            f.write("0,"+ str(np.mean(np.array(init_state[:22]))) + "\n")
+        text = str(CONSTANTS["RUN_NUM"]) + "," + str(posterior_avg_know) + "\n"
+        f.write(text)
     
-    # if CONSTANTS["RUN_NUM"] % CONSTANTS["AVG_OVER_RUNS"] == 0:
-    #     with open("RL_agents/ppo_logs/avg_scores.txt", "a") as f:
-    #         text = str(CONSTANTS["RUN_NUM"]/CONSTANTS["AVG_OVER_RUNS"]) + "," + str(posterior_avg_know) + "\n"
-    #         f.write(text)
-    # with open("RL_agents/ppo_logs/test_run_type" + str(type) + ".txt", "a") as f:
-    #     f.write(str(CONSTANTS["RUN_NUM"]) + "," + str(total_reward) + "\n")
+    if CONSTANTS["RUN_NUM"] % CONSTANTS["AVG_OVER_RUNS"] == 0:
+        with open("logs/ppo_logs/avg_scores.txt", "a") as f:
+            text = str(CONSTANTS["RUN_NUM"]/CONSTANTS["AVG_OVER_RUNS"]) + "," + str(posterior_avg_know) + "\n"
+            f.write(text)
+    with open("logs/ppo_logs/test_run_type" + str(type) + ".txt", "a") as f:
+        f.write(str(CONSTANTS["RUN_NUM"]) + "," + str(total_reward) + "\n")
 
 def log_runs(type, CONSTANTS, prior, posterior, action, timesteps, reward, prior_avg_know, posterior_avg_know, gain, activity_name, skill_group=None):
     
@@ -77,13 +77,13 @@ def log_runs(type, CONSTANTS, prior, posterior, action, timesteps, reward, prior
             prior_know.append(prior[skill_idx].item())
             posterior_know.append(posterior[skill_idx].item())
         run_text = "Run Number: " + str(CONSTANTS["RUN_NUM"]) + "Action: " + str(action) + " Skill group: " + str(skill_group) + "\nPrior Know: " + str(prior_know) + "\nPost. Know: " + str(posterior_know) + "\nTimestep: " + str(timesteps) + " Reward: " + str(reward) + " ActivityName: " + activity_name + "\nPrior: " + str(prior_avg_know) + " Posterior: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
-        with open("RL_agents/ppo_logs/test_run.txt", "a") as f:
+        with open("logs/ppo_logs/test_run.txt", "a") as f:
             f.write(run_text)
     
     elif type == 1:
         run_text = "Run Number: " + str(CONSTANTS["RUN_NUM"]) + " Action (Thresholds): " + str(action) + "\nPrior Know: " + str(prior.cpu().numpy()) + "\nPost. Know: " + str(posterior) + "\Max Timesteps: " + str(CONSTANTS['MAX_TIMESTEPS']) + " Reward: " + str(reward) + "\nAvg Prior Know: " + str(prior_avg_know) + " Avg Posterior Know: " + str(posterior_avg_know) + "\nGain: " + str(gain) + "\n_____________________________________________________________________________\n"
         print(run_text)
-        with open("RL_agents/ppo_logs/test_run_type" + str(type) + ".txt", "a") as f:
+        with open("logs/ppo_logs/test_run_type" + str(type) + ".txt", "a") as f:
             f.write(run_text)
 
 def test_env(env, model, device, CONSTANTS, skill_group_to_activity_map=None, uniq_skill_groups=None, deterministic=True, bayesian_update=True, writer=None):
@@ -171,8 +171,6 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
     for _ in range(CONSTANTS["PPO_EPOCHS"]):
         # grabs random mini-batches several times until we have covered all data
         for state, action, old_log_probs, return_, advantage in ppo_iter(states, actions, log_probs, returns, advantages, CONSTANTS["PPO_STEPS"], CONSTANTS["NUM_ENVS"], CONSTANTS["MINI_BATCH_SIZE"]):
-            # print("OLD LOG PROBS", old_log_probs, old_log_probs.size())
-            
             if CONSTANTS['AGENT_TYPE'] == 1 or CONSTANTS['AGENT_TYPE'] == 2:
                 policy, critic_value = model(state)
                 entropy = policy.entropy().mean()
@@ -190,7 +188,6 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
                 # print(action.size(), len(policies))
                 for i in range(len(policies)):
                     policy = policies[i]
-
                     if len(entropies) == 0: entropies = policy.entropy()
                     else:   entropies = torch.cat((entropies, policy.entropy()), 0)
                     lp = policy.log_prob(action[i])
@@ -223,8 +220,7 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
         
         if _ == 0:
             model.lr_scheduler.step()
-            for param_group in model.optimizer.param_groups:
-                print('current LR: ', param_group['lr'])
+            # for param_group in model.optimizer.param_groups:    print('current LR: ', param_group['lr'])
 
         writer.add_scalar("returns", sum_returns / count_steps, frame_idx)
         writer.add_scalar("advantage", sum_advantage / count_steps, frame_idx)
@@ -236,7 +232,7 @@ def ppo_update(model, frame_idx, states, actions, log_probs, returns, advantages
 def play_env(env, model, device, CONSTANTS, deterministic=True):
     state = env.reset()
     init_state = state.copy()
-    num_skill = 22
+    num_skill = CONSTANTS['NUM_SKILLS']
     done = False
     total_reward = 0
     timesteps = 0
@@ -297,7 +293,7 @@ def play_env(env, model, device, CONSTANTS, deterministic=True):
         state = next_state
         total_reward += reward
     
-    print("In %d steps we got %.3f reward" % (timesteps, total_reward))
+    # print("In %d steps we got %.3f reward" % (timesteps, total_reward))
     student_model_name = env.student_simulator.student_model_name
     if student_model_name == 'hotDINA_full' or student_model_name == 'hotDINA_skill':
         learning_progress = env.student_simulator.student_model.alpha

@@ -1,30 +1,25 @@
 CONSTANTS = {
-    'NUM_ENVS'                          :   8,
+    'NUM_ENVS'                          :   4,
     'NUM_SKILLS'                        :   22,
     'STATE_SIZE'                        :   22,
     'ACTION_SIZE'                       :   43,
-    "TARGET_P_KNOW"                     :   0.97,
-    'NUM_OBS'                           :   '100',
+    "TARGET_P_KNOW"                     :   0.8,
+    'NUM_OBS'                           :   'all',
     'VILLAGE'                           :   '130',
     'STUDENT_ID'                        :   'new_student',
     'STUDENT_MODEL_NAME'                :   'hotDINA_skill',
     'AREA_ROTATION'                     :   'L-N-L-S',
     'START_POS'                         :   '0,0',
-    'AVG_OVER_RUNS'                     :   50,
+    'ALGO'                              :   'DQN',
+    'AVG_OVER_RUNS'                     :   500,
     'AGENT_TYPE'                        :   None,
     'AREA_ROTATION_CONSTRAINT'          :   True,
     'TRANSITION_CONSTRAINT'             :   True,
-    "LEARNING_RATE"                     :   5e-4,
     "FC1_DIMS"                          :   1024,
     "FC2_DIMS"                          :   2048,
     'FC3_DIMS'                          :   1024,
-    'PPO_STEPS'                         :   64, # Must be a multiple of MINI_BATCH_SIZE
-    'PPO_EPOCHS'                        :   10,
-    'TEST_EPOCHS'                       :   5,
     'NUM_TESTS'                         :   10,
     'GAE_LAMBDA'                        :   0.95,
-    "MINI_BATCH_SIZE"                   :   32,
-    "MAX_TIMESTEPS"                     :   200,
     'GAMMA'                             :   0.99,
     'GAE_LAMBDA'                        :   0.95,
     'PPO_EPSILON'                       :   0.2,
@@ -33,6 +28,11 @@ CONSTANTS = {
     "RUN_NUM"                           :   0,
     'PRINT_STUDENT_PARAMS'              :   True,
     'CLEAR_LOGS'                        :   True,
+    'EPSILON'                           :   0.95,   # explore-exploit coefficient for DQN
+    'LOAD'                              :   False,
+    'RUN'                               :   0,
+    'DETERMINISTIC'                     :   False,
+    'ANTI_RL'                           :   False,
     # Current RoboTutor Thresholds
     'LOW_PERFORMANCE_THRESHOLD'         :   0.5,
     'MID_PERFORMANCE_THRESHOLD'         :   0.83,
@@ -40,4 +40,17 @@ CONSTANTS = {
     'LOW_LENIENT_PERFORMANCE_THRESHOLD' :   0.4,
     'MID_LENIENT_PERFORMANCE_THRESHOLD' :   0.55,
     'HIGH_LENIENT_PERFORMANCE_THRESHOLD':   0.7,
+    'LEARNING_RATE'                     :   7e-4,
+    'DQ_LEARNING_RATE'                  :   1e-4,
+    'AC_LEARNING_RATE'                  :   5e-4,
+    'NUM_EPISODES'                      :   1750,     # For dqn and actor_critic
+    "MAX_TIMESTEPS"                     :   200,
+    'BATCH_SIZE'                        :   64,
+    'PPO_EPOCHS'                        :   10,
+    'TEST_EPOCHS'                       :   5,
+    'PPO_STEPS'                         :   64, # Must be a multiple of MINI_BATCH_SIZE
+    "MINI_BATCH_SIZE"                   :   32,
+    'NEW_STUDENT_PARAMS'                :   '5A27001753'
 }
+
+# village 130: ['5A27001753', '5A27001932', '5A28002555', '5A29000477', '6105000515', '6112001212', '6115000404', '6116002085', 'new_student']

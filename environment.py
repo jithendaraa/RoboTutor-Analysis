@@ -1,7 +1,7 @@
 import numpy as np
 
-from student_simulator import StudentSimulator
-from tutor_simulator import TutorSimulator
+from simulators.student_simulator import StudentSimulator
+from simulators.tutor_simulator import TutorSimulator
 
 from reader import *
 from helper import *
@@ -35,7 +35,6 @@ class StudentEnv():
         self.anti_rl = anti_rl
 
         self.set_tutor_simulator(t1=0.2, t2=0.2, t3=0.2)
-
         self.set_initial_state(matrix_area=matrix_area, matrix_posn=matrix_posn)
         self.set_skill_groups()
 
@@ -121,6 +120,7 @@ class StudentEnv():
 
     def reset(self):
         self.student_simulator.reset()
+        self.tutor_simulator.reset()
         self.state  = self.checkpoint_state
         return self.state.copy()
 
@@ -228,14 +228,18 @@ class StudentEnv():
                 prior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
             else:
                 self.tutor_simulator.set_thresholds(t1, t2, t3)
-
                 if self.activity_num != None:   p_know_activity = self.student_simulator.student_model.get_p_know_activity(self.student_num, self.activity_num)
                 x, y, area, activity_name = self.tutor_simulator.get_next_activity(p_know_prev_activity=p_know_activity, prev_activity_num=self.activity_num, response=str(self.response), prints=False)
                 self.activity_num = self.student_simulator.uniq_activities.index(activity_name)
                 prior_know = self.student_simulator.student_model.alpha[self.student_num][-1].copy()
+                prior_avg_know = np.mean(prior_know)
+                # print("Prior:", prior_avg_know)
+
                 student_response = self.student_simulator.student_model.predict_response(self.activity_num, self.student_num, update=True)
                 posterior_know = np.array(self.student_simulator.student_model.alpha[self.student_num][-1])
                 posterior_avg_know = np.mean(posterior_know)
+                # print("Posterior", posterior_avg_know)
+
                 next_matrix_type = self.tutor_simulator.get_matrix_area()
                 p_know_activity = self.student_simulator.student_model.get_p_know_activity(self.student_num, self.activity_num)
                 next_matrix_posn = self.tutor_simulator.get_matrix_posn(p_know_act=p_know_activity)
@@ -345,3 +349,17 @@ class StudentEnv():
         if self.anti_rl:    return next_state, -reward, student_response, done, posterior_know
         
         return next_state, reward, student_response, done, posterior_know
+
+    def choose_random_action(self, agent_type):
+        if agent_type == 1:
+            return None
+        elif agent_type == 2:
+            return None
+        elif agent_type == 3:
+            return np.random.choice(4)
+        elif agent_type == 4:
+            return None
+        elif agent_type == 5:
+            return None
+        
+        return None

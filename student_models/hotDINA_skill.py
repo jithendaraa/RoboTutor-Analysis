@@ -302,5 +302,3 @@ if __name__ == '__main__':
     plt.xlabel('Number of attemps')
     plt.legend()
     plt.show()
-
-        

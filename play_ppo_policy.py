@@ -15,8 +15,8 @@ import torch.nn.functional as F
 
 from RL_agents.actor_critic_agent import ActorCritic
 from environment import StudentEnv
-from student_simulator import StudentSimulator
-from tutor_simulator import TutorSimulator
+from simulators.student_simulator import StudentSimulator
+from simulators.tutor_simulator import TutorSimulator
 
 from helper import *
 from reader import *
@@ -147,47 +147,57 @@ def set_action_constants(type, tutor_simulator):
     else:
         pass
 
-def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=CONSTANTS['AVG_OVER_RUNS']):
+def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=100):
 
     LOW_PERFORMANCE_THRESHOLD = CONSTANTS['LOW_PERFORMANCE_THRESHOLD']
     MID_PERFORMANCE_THRESHOLD = CONSTANTS['MID_PERFORMANCE_THRESHOLD']
     HIGH_PERFORMANCE_THRESHOLD = CONSTANTS['HIGH_PERFORMANCE_THRESHOLD']
 
-    avg_performance_ys = []
+    performances_ys = []
     label1 = "Current RT Thresholds(" + str(LOW_PERFORMANCE_THRESHOLD) + ", " + str(MID_PERFORMANCE_THRESHOLD) + ", " + str(HIGH_PERFORMANCE_THRESHOLD) + ")"
-
-    student_simulator = StudentSimulator(village=CONSTANTS['VILLAGE'], observations=CONSTANTS['NUM_OBS'], student_model_name=CONSTANTS['STUDENT_MODEL_NAME'], new_student_params=CONSTANTS['NEW_STUDENT_PARAMS'], prints=False)
     
-    for _ in tqdm(range(avg_over_runs)):
+    for _ in range(avg_over_runs):
         student_simulator = StudentSimulator(village=CONSTANTS['VILLAGE'], observations=CONSTANTS['NUM_OBS'], student_model_name=CONSTANTS['STUDENT_MODEL_NAME'], new_student_params=CONSTANTS['NEW_STUDENT_PARAMS'], prints=False)
         tutor_simulator = TutorSimulator(CONSTANTS['LOW_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_PERFORMANCE_THRESHOLD'], CONSTANTS['AREA_ROTATION'], type=1, thresholds=True)
         performance_ys = evaluate_performance_thresholds(student_simulator, tutor_simulator, prints=prints, CONSTANTS=CONSTANTS)
-        avg_performance_ys.append(performance_ys)
+        performances_ys.append(performance_ys)
     
-    avg_performance_ys = np.mean(avg_performance_ys, axis=0)
-    xs = np.arange(len(avg_performance_ys)).tolist()
+    mean_performance_ys = np.mean(performances_ys, axis=0)
+    min_performance_ys = np.min(performances_ys, axis=0)
+    max_performance_ys = np.max(performances_ys, axis=0)
+    std_performance_ys = np.std(performances_ys, axis=0)
+    xs = np.arange(len(mean_performance_ys)).tolist()
+    print("Evaluated mean performance after " + str(avg_over_runs) + " runs", mean_performance_ys[-1])
+
     if plots:
         file_name = 'plots/Current_RT_Thresholds/village_' + CONSTANTS['VILLAGE'] + '/Current_RT_Thresholds_' + str(CONSTANTS['MAX_TIMESTEPS']) + 'obs_' + CONSTANTS['STUDENT_MODEL_NAME'] + '_' + CONSTANTS['STUDENT_ID'] + '.png'
-        plt.title("Current RT policy after " + str(CONSTANTS['MAX_TIMESTEPS']) + " attempts using normal thresholds for " + CONSTANTS['STUDENT_MODEL_NAME'] + '(' + CONSTANTS['STUDENT_ID'] + ')')
-        plt.plot(xs, performance_ys, color='r', label=label1)
+        plt.title("Current RT policy after " + str(CONSTANTS['MAX_TIMESTEPS']) + " opportunities using current thresholds for " + CONSTANTS['STUDENT_MODEL_NAME'] + '(' + CONSTANTS['STUDENT_ID'] + ')')
+        plt.plot(xs, mean_performance_ys, color='b', label=label1)
+        plt.fill_between(xs, mean_performance_ys-std_performance_ys, mean_performance_ys+std_performance_ys, alpha=0.3)
         plt.xlabel('#Opportunities')
         plt.ylabel('Avg P(Know) across skills')
         plt.legend()
-    return xs, performance_ys
+        plt.savefig(file_name)
+        plt.show()
+        
+        with open("logs/ppo_logs/current_rt_thresholds.txt", "w") as f:
+            for i in range(len(xs)):
+                f.write(str(xs[i]) + ',' + str(performance_ys[i]) + '\n')
+
+    return xs, mean_performance_ys
 
 if __name__ == '__main__':
 
+    # village 130: ['5A27001753', '5A27001932', '5A28002555', '5A29000477', '6105000515', '6112001212', '6115000404', '6116002085', 'new_student']
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if use_cuda else "cpu:0")
     args = arg_parser()
 
     student_id = CONSTANTS['STUDENT_ID']
     area_rotation = CONSTANTS['AREA_ROTATION']
-    # village 130: ['5A27001753', '5A27001932', '5A28002555', '5A29000477', '6105000515', '6112001212', '6115000404', '6116002085', 'new_student']
     student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=student_id, prints=False)
     tutor_simulator = TutorSimulator(CONSTANTS['LOW_PERFORMANCE_THRESHOLD'], CONSTANTS['MID_PERFORMANCE_THRESHOLD'], CONSTANTS['HIGH_PERFORMANCE_THRESHOLD'], area_rotation=CONSTANTS['AREA_ROTATION'], type=CONSTANTS['AGENT_TYPE'], thresholds=CONSTANTS['USES_THRESHOLDS'])
     set_action_constants(args.type, tutor_simulator)
-    
     state_size  = CONSTANTS["STATE_SIZE"]
     action_size = CONSTANTS["ACTION_SIZE"]
 
@@ -207,6 +217,7 @@ if __name__ == '__main__':
     new_student_model = ActorCritic(lr=CONSTANTS["LEARNING_RATE"], input_dims=[state_size], fc1_dims=CONSTANTS["FC1_DIMS"], fc2_dims=CONSTANTS['FC2_DIMS'], n_actions=action_size, type=args.type)
     new_student_model.load_state_dict(torch.load("checkpoints/" + checkpoint_file_name))
     print("Loaded model at checkpoints/" + checkpoint_file_name)
+    
     fig = plt.figure(figsize=(15, 11))
     ax = []
     for i in range(len(student_simulator.uniq_student_ids)):
@@ -220,8 +231,8 @@ if __name__ == '__main__':
     for i in range(0, 8):
         student_num = i
         student_id = student_simulator.uniq_student_ids[i]
-        CONSTANTS['NEW_STUDENT_PARAMS'] = student_id
         if student_id == 'new_student': CONSTANTS['NEW_STUDENT_PARAMS'] = None
+        else: CONSTANTS['NEW_STUDENT_PARAMS'] = student_id
 
         # Initialise student simulator and environment
         student_simulator = StudentSimulator(village=args.village_num, observations=args.observations, student_model_name=args.student_model_name, new_student_params=student_id, prints=False)
@@ -290,9 +301,10 @@ if __name__ == '__main__':
         ax[i].grid()
         ax[i].legend()
         
-        print('Student ', i, "\nnew_student Avg. prior Know: ", np.mean(prior), "\nnew_student Avg. posterior Know: ", np.mean(posteriors))
+        print('Student ', i, student_id, "\nnew_student Avg. prior Know: ", np.mean(prior), "\nnew_student Avg. posterior Know: ", np.mean(posteriors))
         if CONSTANTS['STUDENT_SPEC_MODEL'] and i != len(student_simulator.uniq_student_ids) - 1: print("\nspec_student Avg. prior Know: ", np.mean(prior), "\nspec_student Avg. posterior Know: ", np.mean(_posteriors))
         print("threshold averages:", threshold_ys[-1] )
+
         if CONSTANTS['STUDENT_SPEC_MODEL']:
             print("general policy improvement: ",  threshold_policy_improvement, '\n')
             print("student_spec policy improvement: ",  student_spec_threshold_policy_improvement, '\n')
@@ -309,49 +321,3 @@ if __name__ == '__main__':
     plt.tight_layout()
     plt.savefig('../RoboTutor-Analysis/plots/Played plots/Type ' + str(args.type) + '/village_' + args.village_num + '~obs_' + args.observations + '~' + args.student_model_name + '.png')
     plt.show()
-
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1rW9U__Y4WqO6BF_I2SQQK5vlodWqONsI' -O Code\ Drop\ 2\ Matrices.xlsx
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1WzBW6yNIYQ0NX283gMKxUHF2biQxgHh7' -O CTA.xlsx 
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1BcTrEijwO8b1ERM-JgI1oW6KSlb0JIkb' -O CTA_22.xlsx
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1z8-5ODxsQt9XeclCovvxlcclxEdqnzSk' -O script.ipynb
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1AXRbrml7xowi0aFXMR--X5BHKi598TyK' -O script.py
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1u_Vt8Dl4fvWzxYHmfOWOH4mWfMJLY2M8' -O Activity_table_v4.1_22Apr2020.pkl
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1fURblahZQCeFJnkgGXCMVyAb5h0meKVT' -O Village_114_MOD.pkl
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1VhbLZ1vYw14WxaXqWQCQPjigrCsKsgn_' -O Village_115_MOD.pkl
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1rBen20SHmkmBboEDLZLvNUkaNA-VVTUp' -O Village_116_MOD.pkl
-# FIXME Village 117 and 118 pickles missing!
-
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1jtSZ9v3tiKH6aTJgOi6z5BiBL8LQpMg_' -O Village_119_MOD.pkl
-
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1R9aEWGIJ0fupSlovsm55xk437gdgTfwc' -O Village_121_MOD.pkl
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1G3JMTMJ7OHVDzdhwUOSoL_kNWVdqd1wF' -O Village_122_MOD.pkl
-
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1uomQFq0-HqqPcM7Yx1xQ3PK0bCf8MdSx' -O Village_124_MOD.pkl
-
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1qjSZNiAXPNUFMAmJjYkKSbP5hw85GOtj' -O Village_126_MOD.pkl
-
-
-
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1bobM_CAp47-pZFlJ6E9gBbt7h4eUeCiM' -O Village_130_MOD.pkl
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1xzH-eBnmeFSYQMWyygHvnKgon92yCoFb' -O Village_131_MOD.pkl
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1qHGDko3Kz1EqVWFZ5-Xf6LRu66tOqd40' -O Village_132_MOD.pkl
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1jZm9rPy3skfftwSbYRvFCoZ0kFEhwZjn' -O Village_133_MOD.pkl
-
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1sfQFTnJYA18LbrZ-DoddNo0ltmreN6I8' -O Village_135_MOD.pkl
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=12ELrWbuQ5059jH5xBjz6OfKcqN1KGoVA' -O Village_136_MOD.pkl
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1o_DgIP_x0pvPq_dzhPpkweaGzQTsIMfH' -O Village_137_MOD.pkl
-
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1DJCkYnaVHIeLkYarGzzXijOtbKuO2MP1' -O Village_139_MOD.pkl
-# <___________________________________________________________________________________________________________________________________>
-
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1uomQFq0' -O Village_124_MOD.pkl
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1uomQFq0' -O Village_124_MOD.pkl
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1uomQFq0' -O Village_124_MOD.pkl
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1uomQFq0' -O Village_124_MOD.pkl
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1uomQFq0' -O Village_124_MOD.pkl
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1uomQFq0' -O Village_124_MOD.pkl
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1uomQFq0' -O Village_124_MOD.pkl
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1uomQFq0' -O Village_124_MOD.pkl
-# wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1uomQFq0' -O Village_124_MOD.pkl
-
-

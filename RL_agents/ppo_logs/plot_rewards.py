@@ -9,7 +9,7 @@ def draw_graph():
     ax2 = fig.add_subplot(1,2,2)
     
     def animate(i):
-        RL_types = [2,3,4,5]
+        RL_types = [5]
         colors = ['red', 'blue', 'black', 'green', 'purple']
         ax1.clear()
 

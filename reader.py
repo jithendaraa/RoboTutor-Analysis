@@ -29,7 +29,6 @@ def read_cta_table(path_to_cta_table):
     """
         Reads and returns the CTA table as a df
     """
-    print(path_to_cta_table)
     cta_df = pd.read_excel(path_to_cta_table, engine='openpyxl').astype({'Quantifying': str})
     return cta_df
 
@@ -55,7 +54,7 @@ def read_activity_matrix():
     MATH_SHEET_NAME = 'Math (with levels as rows)'
     STORIES_SHEET_NAME = 'Stories'
     PATH_TO_ACTIVITY_DIFFICULTY = 'Data/Code Drop 2 Matrices.xlsx'
-    xls = pd.ExcelFile(PATH_TO_ACTIVITY_DIFFICULTY)
+    xls = pd.ExcelFile(PATH_TO_ACTIVITY_DIFFICULTY, engine='openpyxl')
 
     # Difficulty with levels as rows
     literacy_df = pd.read_excel(xls, LITERACY_SHEET_NAME)[1:]
@@ -84,7 +83,7 @@ def read_activity_matrix():
         for val in row:
             if isinstance(val, str):
                 count += 1
-            elif math.isnan(val): 
+            elif val == None or math.isnan(val): 
                 continue
         math_counts.append(count)
         count = 0
@@ -198,41 +197,50 @@ def extract_step_transac(path_to_data, uniq_student_ids, kc_list_spaceless, stud
     
     return data_dict
 
-def extract_activity_table(path_to_activity_table, uniq_student_ids, kc_list, num_obs='1000', student_id=None):
+def extract_activity_table(path_to_activity_table, kc_list, num_obs='1000', student_id=None):
     """
         Reads actiivty table, gets necessary data from it and gets all details that are necessary to do the activityBKT update.
         Returns observations, student_ids, skills involved with each of these attempts, num_corrects and num_attempts
         ith row of each of these lists give info about the ith opportunity or corresponds to ith row of activity_df
     """
     activity_df = pd.read_pickle(path_to_activity_table)
-    if student_id != None:
+    uniq_student_ids = pd.unique(activity_df['Unique_Child_ID_1']).tolist()
+
+    if student_id != None and student_id != 'new_student':
         activity_df = activity_df[activity_df["Unique_Child_ID_1"] == student_id]
     if num_obs != 'all':
         activity_df = activity_df[:int(num_obs)]
 
-    activity_observations = get_col_vals_from_df(activity_df, "%correct", unique=False)
-    student_ids = get_col_vals_from_df(activity_df, "Unique_Child_ID_1", unique=False)
     num_corrects = get_col_vals_from_df(activity_df, "total_correct_attempts", unique=False)
-    num_attempts = get_col_vals_from_df(activity_df, "#net_attempts", unique=False)
+    num_incorrects = get_col_vals_from_df(activity_df, "total_incorrect_attempts", unique=False)
+    num_attempts = (np.array(num_corrects) + np.array(num_incorrects)).tolist()
+    activity_observations = []
+
+    for i in range(len(num_corrects)):
+        if num_attempts[i] == 0:
+            activity_observations.append(0)
+        else:
+            activity_observations.append(num_corrects[i]/num_attempts[i])
+
+    student_ids = get_col_vals_from_df(activity_df, "Unique_Child_ID_1", unique=False)
     activity_names = get_col_vals_from_df(activity_df, "ActivityName", unique=False)
-    kc_subtests = get_col_vals_from_df(activity_df, "KC (Subtest)", unique=False)
 
     student_nums = []
     for student_id in student_ids:
         student_nums.append(uniq_student_ids.index(student_id))
-    
-    activity_skills = []
-    for kc_subtest in kc_subtests:
-        if kc_subtest == 'Listening Comp':
-            kc_subtest = 'Listening Comprehension'
-        elif kc_subtest == 'Number I.D.':
-            kc_subtest = 'Number. I.D'
-        activity_skills.append(kc_list.index(kc_subtest)) 
+    # kc_subtests = get_col_vals_from_df(activity_df, "KC (Subtest)", unique=False)
+    # activity_skills = []
+    # for kc_subtest in kc_subtests:
+    #     if kc_subtest == 'Listening Comp':
+    #         kc_subtest = 'Listening Comprehension'
+    #     elif kc_subtest == 'Number I.D.':
+    #         kc_subtest = 'Number. I.D'
+    #     activity_skills.append(kc_list.index(kc_subtest)) 
 
     data_dict = {
-        # 'activity_observations' : activity_observations,
+        'activity_observations' : activity_observations,
         'student_nums'          : student_nums,
-        'activity_skills'       : activity_skills,
+        # 'activity_skills'       : activity_skills,
         'num_corrects'          : num_corrects,
         'num_attempts'          : num_attempts,
         'activity_names'        : activity_names
@@ -424,16 +432,9 @@ def get_col_vals_from_df(df, col_name, unique=False):
         If unique is set to True, it returns unique values found under column "col_name" as a list
     """
     values = df[col_name].values.ravel()
-    
-    if unique == False:
-        return values.tolist()
-    
-    elif unique == True:
-        return pd.unique(values).tolist()
-    
-    else:
-        print("ERROR in helper.get_col_vals_from_df()")
-    
+    if unique == False:     return values.tolist()
+    elif unique == True:    return pd.unique(values).tolist() 
+    else:                   print("ERROR in helper.get_col_vals_from_df()")
     return None
 
 def get_kc_list_from_cta_table(cta_df):

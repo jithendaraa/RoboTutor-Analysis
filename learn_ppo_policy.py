@@ -68,6 +68,7 @@ CONSTANTS = {
 
 def set_constants(args):
     CONSTANTS['NUM_OBS'] = args.observations
+    CONSTANTS['NUM_ENVS'] = args.envs
     CONSTANTS['VILLAGE'] = args.village_num
     CONSTANTS['AGENT_TYPE'] = args.type
     CONSTANTS['STUDENT_ID'] = args.student_id
@@ -135,7 +136,7 @@ def arg_parser():
     parser.add_argument("-o", "--observations", default=CONSTANTS["NUM_OBS"], help="Number of observations to train on")
     parser.add_argument("-v", "--village_num", default=CONSTANTS["VILLAGE"], help="Village to train on (not applicable for Activity BKT)")
     parser.add_argument('-t', '--type', help="RL Agent type (1-5)", type=int)
-    parser.add_argument("-e", "--num_envs", default=CONSTANTS["NUM_ENVS"], help="Number of observations to train on", type=int)
+    parser.add_argument("-e", "--envs", default=CONSTANTS["NUM_ENVS"], help="Number of observations to train on", type=int)
     parser.add_argument('-mt', '--max_timesteps', help="Total questions that will be given to the student/RL agent", type=int, default=CONSTANTS['MAX_TIMESTEPS'])
     parser.add_argument('-sid', '--student_id', default=CONSTANTS['STUDENT_ID'], help="Student id")
     parser.add_argument('-smn', '--student_model_name', help="Student model name")
@@ -188,7 +189,7 @@ def evaluate_current_RT_thresholds(plots=True, prints=True, avg_over_runs=100):
         plt.savefig(file_name)
         plt.show()
         
-        with open("RL_agents/ppo_logs/current_rt_thresholds.txt", "w") as f:
+        with open("logs/ppo_logs/current_rt_thresholds.txt", "w") as f:
             for i in range(len(xs)):
                 f.write(str(xs[i]) + ',' + str(performance_ys[i]) + '\n')
 
@@ -224,7 +225,7 @@ if __name__ == '__main__':
     student_id = CONSTANTS['STUDENT_ID']
     area_rotation = CONSTANTS['AREA_ROTATION']
 
-    # evaluate_current_RT_thresholds(plots=True, prints=False, avg_over_runs=CONSTANTS['AVG_OVER_RUNS'])
+    evaluate_current_RT_thresholds(plots=True, prints=False, avg_over_runs=CONSTANTS['AVG_OVER_RUNS'])
 
     # clear logs
     clear_files("ppo", args.clear_logs, path='RL_agents/', type=args.type)

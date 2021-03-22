@@ -10,8 +10,8 @@ import torch.nn.functional as F
 
 from RL_agents.actor_critic_agent import ActorCritic
 from environment import StudentEnv
-from student_simulator import StudentSimulator
-from tutor_simulator import TutorSimulator
+from simulators.student_simulator import StudentSimulator
+from simulators.tutor_simulator import TutorSimulator
 
 from helper import *
 from reader import *

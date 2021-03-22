@@ -85,7 +85,7 @@ def skill_probas(activityName, tutorID_to_kc_dict, kc_list, p_know):
     
     return proba
 
-def clear_files(algo, clear, path='', type=None):
+def clear_files(algo, clear, path='logs/', type=None):
     """
         Empties all txt files under algo + "_logs" folder if clear is set to True
         
@@ -93,7 +93,7 @@ def clear_files(algo, clear, path='', type=None):
     """
     if clear == False:
         return
-    log_folder_name = path + algo + "_logs"
+    log_folder_name = path + algo.lower() + "_logs"
 
     files = os.listdir(log_folder_name)
     text_files = []
@@ -201,13 +201,12 @@ def slurm_output_params(path, village="130", slurm_id="10301619"):
 def evaluate_performance_thresholds(student_simulator, tutor_simulator, CONSTANTS=None, prints=True):
 
     student_id = CONSTANTS['NEW_STUDENT_PARAMS']
-    if student_id == None: 
-        student_id = 'new_student'
+    if student_id == None:  student_id = 'new_student'
     student_num = student_simulator.uniq_student_ids.index(student_id)
     uniq_activities = student_simulator.uniq_activities
     student_model_name = CONSTANTS['STUDENT_MODEL_NAME']
     
-    if CONSTANTS["STUDENT_MODEL_NAME"] == 'hotDINA_skill' or CONSTANTS['STUDENT_MODEL_NAME'] == 'hotDINA_full':
+    if student_model_name == 'hotDINA_skill' or student_model_name == 'hotDINA_full':
         prior_know = np.array(student_simulator.student_model.alpha[student_num][-1])
         prior_avg_know = np.mean(prior_know)
     
@@ -216,7 +215,6 @@ def evaluate_performance_thresholds(student_simulator, tutor_simulator, CONSTANT
     ys = []
     ys.append(prior_avg_know)
     
-    if prints: print()
     for _ in range(CONSTANTS['MAX_TIMESTEPS']):
         if activity_num != None:
             p_know_activity = student_simulator.student_model.get_p_know_activity(student_num, activity_num)
@@ -234,6 +232,7 @@ def evaluate_performance_thresholds(student_simulator, tutor_simulator, CONSTANT
             posterior_know = np.array(student_simulator.student_model.alpha[student_num][-1])
             posterior_avg_know = np.mean(posterior_know)
         ys.append(posterior_avg_know)
+    
     return ys
 
 
