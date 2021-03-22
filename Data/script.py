@@ -45,6 +45,7 @@ for i in range(len(village_nums)):
                                                                     be the data to fit BKT params assuming there is only one student but 22 KC skills.
                                                                     Data format is compatible with hmmscalable tool
 """
+
 for village in village_nums:
     path_to_village_data = "village_"+ village +"/village_" + village + "_KCSubtests.txt"
     village_df = pd.read_csv(path_to_village_data, delimiter='\t')
