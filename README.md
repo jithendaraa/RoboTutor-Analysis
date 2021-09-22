@@ -1,5 +1,6 @@
 # RoboTutor-Analysis
 
+Official implementation of the experiments in <a href="https://rl4ed.org/edm2021/files/spotlights/RL4ED_EDM21_h_11.pdf">Deep Reinforcement Learning to Simulate, Train, and Evaluate Instructional Sequencing Policies</a> published at EDM Workshop on RL4ED (RL for Education) 2021.
 ## Installation and Setup
 
 1. This repo works with <a href="https://github.com/jithendaraa/hotDINA">hotDINA</a> to fit model parameters which has scripts to automatically extract RoboTutor-Analysis/Data (which has to be setup). After fitting, this repo obtains these parameters to update on logged data from usage of RoboTutor. The first step would be to create a project folder: ```mkdir project```
